@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.1.1
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -66,6 +66,8 @@
       newButtonsWrapper
         .querySelector(id(COPY_NAME_URL_BUTTON_ID))
         .addEventListener("click", copyHandler);
+    } else {
+      console.error("breadcrumbs-wrapper not found");
     }
   }
 
@@ -76,7 +78,9 @@
   function toggleDoubleClickEdit() {
     isDoubleClickEnabled = !isDoubleClickEnabled;
     const button = document.getElementById(TOGGLE_BUTTON_ID);
-    const descriptionElement = document.querySelector(".ak-renderer-document");
+    const descriptionElement = document.querySelector(
+      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
+    );
 
     if (isDoubleClickEnabled) {
       button.textContent = "✏️";
@@ -92,7 +96,9 @@
   function expandHandler() {
     isExpanded = !isExpanded;
     const button = document.getElementById(EXPAND_BUTTON_ID);
-    const descriptionElement = document.querySelector(".ak-renderer-document");
+    const descriptionElement = document.querySelector(
+      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
+    );
 
     if (isExpanded) {
       button.textContent = "⏬";
@@ -139,7 +145,9 @@
   let attempts = 0;
   let intervalId = setInterval(() => {
     attempts++;
-    const descriptionElement = document.querySelector(".ak-renderer-document");
+    const descriptionElement = document.querySelector(
+      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
+    );
     if (descriptionElement) {
       createExtraButtons();
       descriptionElement.addEventListener("click", handleClick, true);
