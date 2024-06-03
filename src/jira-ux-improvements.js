@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -135,17 +135,29 @@
    * @param {Event} e - The click event object.
    */
   function handleClick(e) {
+    const hoveredElts = descriptionElement.querySelectorAll(":hover");
+    for (const elt of hoveredElts) {
+      if (
+        elt.getAttribute("data-testid") === "media-file-card-loaded-view" ||
+        elt.getAttribute("data-testid") === "media-file-card-view" ||
+        elt.getAttribute("data-node-type") === "mediaInline"
+      ) {
+        return;
+      }
+    }
+
     e.stopPropagation();
     console.log(
       "Blocked click-edit of Jira issue description. You're welcome."
     );
   }
 
+  let descriptionElement;
   // Wait for the Jira issue description UI to load before creating the extra buttons
   let attempts = 0;
   let intervalId = setInterval(() => {
     attempts++;
-    const descriptionElement = document.querySelector(
+    descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
     if (descriptionElement) {
