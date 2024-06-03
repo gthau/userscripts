@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -21,7 +21,7 @@
  * - 🗐 with URL (copy) allows to copy the issue's name prefixed by its id and suffixed by its URL
  */
 (function () {
-  "use strict";
+  ("use strict");
 
   const TOGGLE_BUTTON_ID = "toggle-button";
   const EXPAND_BUTTON_ID = "expand-button";
@@ -46,7 +46,7 @@
       .querySelector('[data-component-selector="breadcrumbs-wrapper"]');
     if (breadcrumbsElt) {
       const newButtonsWrapper = new DOMParser().parseFromString(
-        `<div>
+        `<div id="gt-extra-buttons">
           <button id="${TOGGLE_BUTTON_ID}">✏️</button>
           <button id="${EXPAND_BUTTON_ID}">⏬</button>
           <button id="${COPY_NAME_BUTTON_ID}">📃 name</button>
@@ -56,7 +56,7 @@
         </div>`,
         "text/xml"
       ).firstElementChild;
-      breadcrumbsElt.insertAdjacentElement("afterend", newButtonsWrapper);
+      document.getElementById("jira-frontend").prepend(newButtonsWrapper);
 
       newButtonsWrapper
         .querySelector(id(TOGGLE_BUTTON_ID))
@@ -76,6 +76,37 @@
       newButtonsWrapper
         .querySelector(id(GO_UP_ID))
         .addEventListener("click", goToTopHandler);
+
+      const css = `
+        [data-component-selector="breadcrumbs-wrapper"] {
+          anchor-name: --breadcrumbs;
+        }
+
+        @supports(anchor-name: --breadcrumbs) {
+        div#gt-extra-buttons {
+          position: absolute;
+          position-anchor: --breadcrumbs;
+          inset-area: right;
+          z-index: 9999;
+        }
+        div#gt-extra-buttons button {
+          padding: 5px;
+          border-radius: 4px;
+        }
+        div#gt-extra-buttons button:hover {
+          background: #eee;
+          cursor: pointer;
+        }
+        div#gt-extra-buttons button:active {
+          border: 1px solid #89ceef;
+        }
+        }`,
+        head = document.head || document.getElementsByTagName("head")[0],
+        style = document.createElement("style");
+
+      head.appendChild(style);
+
+      style.appendChild(document.createTextNode(css));
     } else {
       console.error("breadcrumbs-wrapper not found");
     }
