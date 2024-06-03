@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -27,6 +27,8 @@
   const EXPAND_BUTTON_ID = "expand-button";
   const COPY_NAME_BUTTON_ID = "copy-issue-name-button";
   const COPY_NAME_URL_BUTTON_ID = "copy-issue-name-and-url-button";
+  const JUMP_DESCRIPTION_ID = "jump-description-button";
+  const GO_UP_ID = "go-up-button";
 
   let isDoubleClickEnabled = true; // Set initial value to false
   let isExpanded = true;
@@ -47,8 +49,10 @@
         `<div>
           <button id="${TOGGLE_BUTTON_ID}">✏️</button>
           <button id="${EXPAND_BUTTON_ID}">⏬</button>
-          <button id="${COPY_NAME_BUTTON_ID}">🗐</button>
-          <button id="${COPY_NAME_URL_BUTTON_ID}">🗐 with URL</button>
+          <button id="${COPY_NAME_BUTTON_ID}">📃 name</button>
+          <button id="${COPY_NAME_URL_BUTTON_ID}">📃 name/URL</button>
+          <button id="${JUMP_DESCRIPTION_ID}">⤵️ desc.</button>
+          <button id="${GO_UP_ID}">⤴️ top</button>
         </div>`,
         "text/xml"
       ).firstElementChild;
@@ -66,6 +70,12 @@
       newButtonsWrapper
         .querySelector(id(COPY_NAME_URL_BUTTON_ID))
         .addEventListener("click", copyHandler);
+      newButtonsWrapper
+        .querySelector(id(JUMP_DESCRIPTION_ID))
+        .addEventListener("click", jumpDescHandler);
+      newButtonsWrapper
+        .querySelector(id(GO_UP_ID))
+        .addEventListener("click", goToTopHandler);
     } else {
       console.error("breadcrumbs-wrapper not found");
     }
@@ -78,7 +88,7 @@
   function toggleDoubleClickEdit() {
     isDoubleClickEnabled = !isDoubleClickEnabled;
     const button = document.getElementById(TOGGLE_BUTTON_ID);
-    const descriptionElement = document.querySelector(
+    descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
 
@@ -108,6 +118,14 @@
       descriptionElement.style.height = "200px";
       descriptionElement.style.overflowY = "scroll";
     }
+  }
+
+  function jumpDescHandler() {
+    mainScrollableElement.scroll({ top: descriptionElement.scrollHeight });
+  }
+
+  function goToTopHandler() {
+    mainScrollableElement.scroll({ top: 0 });
   }
 
   function copyHandler(event) {
@@ -153,10 +171,14 @@
   }
 
   let descriptionElement;
+  let mainScrollableElement;
   // Wait for the Jira issue description UI to load before creating the extra buttons
   let attempts = 0;
   let intervalId = setInterval(() => {
     attempts++;
+    mainScrollableElement = document.querySelector(
+      '[data-testid="issue.views.issue-details.issue-layout.container-left"]'
+    );
     descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
