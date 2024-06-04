@@ -30,6 +30,15 @@
   const JUMP_DESCRIPTION_ID = "jump-description-button";
   const GO_UP_ID = "go-up-button";
 
+  const allButtonsIds = [
+    TOGGLE_BUTTON_ID,
+    EXPAND_BUTTON_ID,
+    COPY_NAME_BUTTON_ID,
+    COPY_NAME_URL_BUTTON_ID,
+    JUMP_DESCRIPTION_ID,
+    GO_UP_ID,
+  ];
+
   let toggleButtonElement;
   let expandButtonElement;
   let copyNameButtonElement;
@@ -82,6 +91,16 @@
     }
 
     button.addEventListener("click", callback);
+  }
+
+  function enableButtons() {
+    for (const buttonId of allButtonsIds) {
+      const button = document.getElementById(buttonId);
+      if (button.disabled) {
+        button.disabled = false;
+        button.removeAttribute("disabled");
+      }
+    }
   }
 
   /**
@@ -254,6 +273,9 @@
   let descriptionElement;
   let mainScrollableElement;
   // Wait for the Jira issue description UI to load before creating the extra buttons
+  // first create buttons disabled then enable them when description field is found
+  setTimeout(() => createExtraButtons(true), 1000);
+
   let attempts = 0;
   let intervalId = setInterval(() => {
     attempts++;
@@ -264,18 +286,19 @@
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
     if (descriptionElement) {
-      createExtraButtons();
+      enableButtons();
       descriptionElement.addEventListener("click", handleClick, true);
       toggleDoubleClickEdit();
       console.debug(
-        "Userscript::Jira - setInterval - description found, buttons added, clear interval"
+        "Userscript::Jira - setInterval - description found, buttons enabled, clear interval"
       );
       clearInterval(intervalId);
     } else {
-      if (attempts > 5) {
-        console.debug(`Userscript::Jira - couldn't initialize`);
+      if (attempts > 10) {
+        console.debug(
+          `Userscript::Jira - description field not found or empty, won't enable related toolbar buttons`
+        );
         clearInterval(intervalId);
-        createExtraButtons(true);
       } else {
         console.debug("Userscript::Jira - setInterval - description NOT found");
       }
