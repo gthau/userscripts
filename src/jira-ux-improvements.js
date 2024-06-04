@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.5
+// @version      0.1.6
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -182,6 +182,7 @@
         }`,
         head = document.head || document.getElementsByTagName("head")[0],
         style = document.createElement("style");
+      style.id = "gt-extra-buttons-style";
 
       head.appendChild(style);
 
@@ -295,6 +296,28 @@
     );
   }
 
+  function isJiraEpicPage(url) {
+    return url?.match(/https:\/\/.*\.atlassian\.net\/browse\/.*/);
+  }
+
+  function cleanup() {
+    currentUrl = document.URL;
+    isDoubleClickEnabled = false;
+    isExpanded = true;
+    document.getElementById("gt-extra-buttons")?.remove();
+    document.getElementById("gt-extra-buttons-style")?.remove();
+    toggleButtonElement = undefined;
+    expandButtonElement = undefined;
+    copyNameButtonElement = undefined;
+    copyNameAndUrlButtonElement = undefined;
+    jumpDescButtonElement = undefined;
+    goUpButtonElement = undefined;
+    descriptionElement?.removeEventListener(handleClick);
+    descriptionElement = undefined;
+    mainScrollableElement = undefined;
+    extraButtonsEnabled = false;
+  }
+
   let descriptionElement;
   let mainScrollableElement;
   let extraButtonsEnabled = false;
@@ -307,12 +330,46 @@
   let attempts = 0;
   let intervalId = setInterval(() => {
     attempts++;
+
+    if (document.URL !== currentUrl) {
+      console.debug(
+        `Userscript::Jira - browsing to a new page ${document.URL} from ${currentUrl}`
+      );
+    }
+
+    if (document.URL !== currentUrl && !isJiraEpicPage(document.URL)) {
+      // clean up
+      console.debug(
+        `Userscript::Jira - browsing to a non-epic page, clean up the toolbar`
+      );
+      cleanup();
+      return;
+    }
+
+    if (!isJiraEpicPage(document.URL)) {
+      // url hasn't changed and we're still on a non-epic page, do nothing
+      return;
+    }
+
     mainScrollableElement = document.querySelector(
       '[data-testid="issue.views.issue-details.issue-layout.container-left"]'
     );
     descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
+
+    if (
+      document.URL !== currentUrl &&
+      isJiraEpicPage(document.URL) &&
+      !isJiraEpicPage(currentUrl)
+    ) {
+      // we come back to a jira epic page from a non-epic page, reset the toolbar
+      console.debug(
+        `Userscript::Jira - browsing back an epic page from a non-epic page, recreate the toolbar`
+      );
+      createExtraButtons(true);
+    }
+
     if (
       document.URL !== currentUrl ||
       (!extraButtonsEnabled && descriptionElement)
