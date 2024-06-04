@@ -39,6 +39,12 @@
     GO_UP_ID,
   ];
 
+  const disableableButtonsIds = [
+    TOGGLE_BUTTON_ID,
+    EXPAND_BUTTON_ID,
+    JUMP_DESCRIPTION_ID,
+  ];
+
   let toggleButtonElement;
   let expandButtonElement;
   let copyNameButtonElement;
@@ -48,10 +54,6 @@
 
   let isDoubleClickEnabled = true; // Set initial value to false
   let isExpanded = true;
-
-  function id(identifier) {
-    return `#${identifier}`;
-  }
 
   function setupButton(buttonId, isDisabled = false) {
     let callback;
@@ -101,6 +103,18 @@
         button.removeAttribute("disabled");
       }
     }
+    extraButtonsEnabled = true;
+  }
+
+  function disableButtons() {
+    for (const buttonId of disableableButtonsIds) {
+      const button = document.getElementById(buttonId);
+      if (!button.disabled) {
+        button.disabled = true;
+        button.setAttribute("disabled", true);
+      }
+    }
+    extraButtonsEnabled = false;
   }
 
   /**
@@ -108,7 +122,7 @@
    * @param disableButtons In case the description element was not found we disable the associated buttons
    */
   function createExtraButtons(disableButtons = false) {
-    console.log(
+    console.debug(
       `Userscript::Jira - createExtraButtons, disableButtons = ${disableButtons}`
     );
     const breadcrumbsElt = document
@@ -173,8 +187,16 @@
 
       style.appendChild(document.createTextNode(css));
     } else {
-      console.error("Userscript::Jira - breadcrumbs-wrapper not found");
+      console.debug("Userscript::Jira - breadcrumbs-wrapper not found");
     }
+  }
+
+  function resetToggleEdit() {
+    isDoubleClickEnabled = false;
+
+    toggleButtonElement.textContent = "🔒";
+    descriptionElement.addEventListener("click", handleClick, true);
+    descriptionElement.style.border = "1px solid red";
   }
 
   /**
@@ -182,9 +204,12 @@
    * Updates the button icon and adds/removes the event listener on the description element.
    */
   function toggleDoubleClickEdit(event) {
-    if (event?.target.disabled) return;
+    if (event?.target.disabled) {
+      return;
+    }
 
     isDoubleClickEnabled = !isDoubleClickEnabled;
+
     descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
@@ -265,13 +290,16 @@
     }
 
     e.stopPropagation();
-    console.log(
+    console.debug(
       "Userscript::Jira - Blocked click-edit of Jira issue description. You're welcome."
     );
   }
 
   let descriptionElement;
   let mainScrollableElement;
+  let extraButtonsEnabled = false;
+  let currentUrl = document.URL;
+
   // Wait for the Jira issue description UI to load before creating the extra buttons
   // first create buttons disabled then enable them when description field is found
   setTimeout(() => createExtraButtons(true), 1000);
@@ -285,24 +313,24 @@
     descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
-    if (descriptionElement) {
+    if (
+      document.URL !== currentUrl ||
+      (!extraButtonsEnabled && descriptionElement)
+    ) {
+      currentUrl = document.URL;
       enableButtons();
-      descriptionElement.addEventListener("click", handleClick, true);
-      toggleDoubleClickEdit();
+      resetToggleEdit();
       console.debug(
-        "Userscript::Jira - setInterval - description found, buttons enabled, clear interval"
+        "Userscript::Jira - setInterval - description found, buttons enabled"
       );
-      clearInterval(intervalId);
-    } else {
-      if (attempts > 10) {
-        console.debug(
-          `Userscript::Jira - description field not found or empty, won't enable related toolbar buttons`
-        );
-        clearInterval(intervalId);
-      } else {
-        console.debug("Userscript::Jira - setInterval - description NOT found");
-      }
+    } else if (extraButtonsEnabled && !descriptionElement) {
+      disableButtons();
+      isDoubleClickEnabled = false;
+      isExpanded = true;
+      console.debug(
+        `Userscript::Jira - description field not found or empty, won't enable related toolbar buttons`
+      );
     }
     return;
-  }, 1000);
+  }, 3_000);
 })();
