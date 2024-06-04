@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -30,6 +30,13 @@
   const JUMP_DESCRIPTION_ID = "jump-description-button";
   const GO_UP_ID = "go-up-button";
 
+  let toggleButtonElement;
+  let expandButtonElement;
+  let copyNameButtonElement;
+  let copyNameAndUrlButtonElement;
+  let jumpDescButtonElement;
+  let goUpButtonElement;
+
   let isDoubleClickEnabled = true; // Set initial value to false
   let isExpanded = true;
 
@@ -37,45 +44,78 @@
     return `#${identifier}`;
   }
 
+  function setupButton(buttonId, isDisabled = false) {
+    let callback;
+    const button = document.getElementById(buttonId);
+    if (isDisabled) {
+      button.disabled = isDisabled;
+      button.setAttribute("disabled", isDisabled);
+    }
+
+    switch (buttonId) {
+      case TOGGLE_BUTTON_ID:
+        toggleButtonElement = button;
+        callback = toggleDoubleClickEdit;
+        break;
+      case EXPAND_BUTTON_ID:
+        expandButtonElement = button;
+        callback = expandHandler;
+        break;
+      case COPY_NAME_BUTTON_ID:
+        copyNameButtonElement = button;
+        callback = copyHandler;
+        break;
+      case COPY_NAME_URL_BUTTON_ID:
+        copyNameAndUrlButtonElement = button;
+        callback = copyHandler;
+        break;
+      case JUMP_DESCRIPTION_ID:
+        jumpDescButtonElement = button;
+        callback = jumpDescHandler;
+        break;
+      case GO_UP_ID:
+        goUpButtonElement = button;
+        callback = goToTopHandler;
+        break;
+      default:
+        break;
+    }
+
+    button.addEventListener("click", callback);
+  }
+
   /**
    * Creates the toggle button and inserts it into the Jira issue description UI.
+   * @param disableButtons In case the description element was not found we disable the associated buttons
    */
-  function createExtraButtons() {
+  function createExtraButtons(disableButtons = false) {
+    console.log(
+      `Userscript::Jira - createExtraButtons, disableButtons = ${disableButtons}`
+    );
     const breadcrumbsElt = document
       .getElementById("ak-main-content")
       .querySelector('[data-component-selector="breadcrumbs-wrapper"]');
+
     if (breadcrumbsElt) {
       const newButtonsWrapper = new DOMParser().parseFromString(
         `<div id="gt-extra-buttons">
-          <button id="${TOGGLE_BUTTON_ID}">✏️</button>
-          <button id="${EXPAND_BUTTON_ID}">⏬</button>
-          <button id="${COPY_NAME_BUTTON_ID}">📃 name</button>
-          <button id="${COPY_NAME_URL_BUTTON_ID}">📃 name/URL</button>
-          <button id="${JUMP_DESCRIPTION_ID}">⤵️ desc.</button>
-          <button id="${GO_UP_ID}">⤴️ top</button>
+          <button id="${TOGGLE_BUTTON_ID}" type="button">✏️</button>
+          <button id="${EXPAND_BUTTON_ID}" type="button">⏬</button>
+          <button id="${COPY_NAME_BUTTON_ID}" type="button">📃 name</button>
+          <button id="${COPY_NAME_URL_BUTTON_ID}" type="button">📃 name/URL</button>
+          <button id="${JUMP_DESCRIPTION_ID}" type="button">⤵️ desc.</button>
+          <button id="${GO_UP_ID}" type="button">⤴️ top</button>
         </div>`,
         "text/xml"
       ).firstElementChild;
       document.getElementById("jira-frontend").prepend(newButtonsWrapper);
 
-      newButtonsWrapper
-        .querySelector(id(TOGGLE_BUTTON_ID))
-        .addEventListener("click", toggleDoubleClickEdit);
-      newButtonsWrapper
-        .querySelector(id(EXPAND_BUTTON_ID))
-        .addEventListener("click", expandHandler);
-      newButtonsWrapper
-        .querySelector(id(COPY_NAME_BUTTON_ID))
-        .addEventListener("click", copyHandler);
-      newButtonsWrapper
-        .querySelector(id(COPY_NAME_URL_BUTTON_ID))
-        .addEventListener("click", copyHandler);
-      newButtonsWrapper
-        .querySelector(id(JUMP_DESCRIPTION_ID))
-        .addEventListener("click", jumpDescHandler);
-      newButtonsWrapper
-        .querySelector(id(GO_UP_ID))
-        .addEventListener("click", goToTopHandler);
+      setupButton(TOGGLE_BUTTON_ID, disableButtons);
+      setupButton(EXPAND_BUTTON_ID, disableButtons);
+      setupButton(COPY_NAME_BUTTON_ID);
+      setupButton(COPY_NAME_URL_BUTTON_ID);
+      setupButton(JUMP_DESCRIPTION_ID, disableButtons);
+      setupButton(GO_UP_ID);
 
       const css = `
         [data-component-selector="breadcrumbs-wrapper"] {
@@ -97,6 +137,12 @@
           background: #eee;
           cursor: pointer;
         }
+        div#gt-extra-buttons button[disabled] {
+          opacity: 0.3;
+        }
+        div#gt-extra-buttons button[disabled]:hover {
+          cursor: not-allowed;
+        }
         div#gt-extra-buttons button:active {
           border: 1px solid #89ceef;
         }
@@ -108,7 +154,7 @@
 
       style.appendChild(document.createTextNode(css));
     } else {
-      console.error("breadcrumbs-wrapper not found");
+      console.error("Userscript::Jira - breadcrumbs-wrapper not found");
     }
   }
 
@@ -116,42 +162,46 @@
    * Toggles the double-click-to-edit functionality when the toggle button is clicked.
    * Updates the button icon and adds/removes the event listener on the description element.
    */
-  function toggleDoubleClickEdit() {
+  function toggleDoubleClickEdit(event) {
+    if (event?.target.disabled) return;
+
     isDoubleClickEnabled = !isDoubleClickEnabled;
-    const button = document.getElementById(TOGGLE_BUTTON_ID);
     descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
 
     if (isDoubleClickEnabled) {
-      button.textContent = "✏️";
+      toggleButtonElement.textContent = "✏️";
       descriptionElement.removeEventListener("click", handleClick, true);
       descriptionElement.style.border = "unset";
     } else {
-      button.textContent = "🔒";
+      toggleButtonElement.textContent = "🔒";
       descriptionElement.addEventListener("click", handleClick, true);
       descriptionElement.style.border = "1px solid red";
     }
   }
 
-  function expandHandler() {
+  function expandHandler(event) {
+    if (event.target.disabled) return;
+
     isExpanded = !isExpanded;
-    const button = document.getElementById(EXPAND_BUTTON_ID);
     const descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
 
     if (isExpanded) {
-      button.textContent = "⏬";
+      expandButtonElement.textContent = "⏬";
       descriptionElement.style.height = "unset";
     } else {
-      button.textContent = "⏩";
+      expandButtonElement.textContent = "⏩";
       descriptionElement.style.height = "200px";
       descriptionElement.style.overflowY = "scroll";
     }
   }
 
-  function jumpDescHandler() {
+  function jumpDescHandler(event) {
+    if (event.target.disabled) return;
+
     mainScrollableElement.scroll({ top: descriptionElement.scrollHeight });
   }
 
@@ -197,7 +247,7 @@
 
     e.stopPropagation();
     console.log(
-      "Blocked click-edit of Jira issue description. You're welcome."
+      "Userscript::Jira - Blocked click-edit of Jira issue description. You're welcome."
     );
   }
 
@@ -218,15 +268,16 @@
       descriptionElement.addEventListener("click", handleClick, true);
       toggleDoubleClickEdit();
       console.debug(
-        "setInterval - description found, buttons added, clear interval"
+        "Userscript::Jira - setInterval - description found, buttons added, clear interval"
       );
       clearInterval(intervalId);
     } else {
-      if (attempts > 10) {
-        console.debug(`UserScript "Jira UX improvements" couldn't initialize`);
+      if (attempts > 5) {
+        console.debug(`Userscript::Jira - couldn't initialize`);
         clearInterval(intervalId);
+        createExtraButtons(true);
       } else {
-        console.debug("setInterval - description NOT found");
+        console.debug("Userscript::Jira - setInterval - description NOT found");
       }
     }
     return;
