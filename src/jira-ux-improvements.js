@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.9
+// @version      0.1.10
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
@@ -279,7 +279,9 @@
    * @param {Event} e - The click event object.
    */
   function handleClick(e) {
-    const hoveredElts = descriptionElement.querySelectorAll(":hover");
+    const hoveredElts = [
+      ...descriptionElement.querySelectorAll(":hover"),
+    ].toReversed();
     for (const elt of hoveredElts) {
       if (
         elt.getAttribute("data-testid") === "media-file-card-loaded-view" ||
