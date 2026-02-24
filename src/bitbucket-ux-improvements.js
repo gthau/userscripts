@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bitbucket UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.2.0
 // @description  Makes some UX improvements to Bitbucket: easily remove reviewers
 // @author       gthau
 // @match        https://bitbucket.org/ooyalaflex/*/pull-requests/new*
@@ -17,6 +17,12 @@
 (function () {
   ("use strict");
 
+  const REPOS = {
+    rundownLib: "rundown-lib",
+    rundownApi: "rundown-api",
+    scriptEditor: "script-editor-app",
+  };
+
   const RUNDOWN_DEFAULT_REVIEWERS = [
     "ghislain thau",
     "shahar dadon",
@@ -24,17 +30,21 @@
     "revital kimhi",
   ];
 
-  const RUNDOWN_REPOSITORIES = ["rundown-lib", "rundown-api"];
+  const SCRIPT_EDITOR_DEFAULT_REVIEWERS = [
+    "eugene krasner",
+    "aviad belulu",
+    "amir israel cohen",
+    "avivit eitan",
+    "stanislav karavaev",
+    "cohavit taboch",
+    ...RUNDOWN_DEFAULT_REVIEWERS,
+  ];
 
-  function isRealDefaultReviewer(childNode) {
-    return RUNDOWN_DEFAULT_REVIEWERS.includes(
-      childNode.textContent.trim().toLocaleLowerCase()
-    );
-  }
-
-  const isRundownRepository = RUNDOWN_REPOSITORIES.some((repo) =>
-    document.location.href.includes(`/${repo}/`)
-  );
+  const DEFAULT_REVIEWERS = {
+    [REPOS.rundownLib]: RUNDOWN_DEFAULT_REVIEWERS,
+    [REPOS.rundownApi]: RUNDOWN_DEFAULT_REVIEWERS,
+    [REPOS.scriptEditor]: SCRIPT_EDITOR_DEFAULT_REVIEWERS,
+  };
 
   const LOGGER_PREFIX = "[Bitbucket UX improvements] ";
   const logger = {
@@ -43,6 +53,9 @@
     error: (message) => console.error(LOGGER_PREFIX + message),
   };
 
+  const repository = document.location.pathname.split("/")[2];
+  logger.debug(`repository is ${repository}`);
+
   const BITBUCKET_CLS_IDS = {
     control: "fabric-user-picker__control",
     controlInput: "fabric-user-picker__input",
@@ -50,14 +63,63 @@
     userPill: "fabric-user-picker__multi-value",
     removeBtn: "fabric-user-picker__multi-value__remove",
     reviewersLabel: "reviewer-field-label",
+    sourceBranchContainer: "create-pull-request-source-branch-selector",
   };
 
   let areListenersRegistered = false;
   let reviewersPickersElt = null;
   let firstTime = true;
 
+  setInterval(() => {
+    const reviewersPickers = getUserMultiPickerElt();
+
+    // look for the container and whether event listeners are registered
+    if (!areListenersRegistered && !!reviewersPickers) {
+      logger.debug(
+        "Listeners not set and reviewers control exists: setting event listener"
+      );
+      // register listeners
+      reviewersPickersElt = reviewersPickers;
+      reviewersPickersElt.addEventListener(
+        "click",
+        removeReviewerBySimpleClick
+      );
+      areListenersRegistered = true;
+
+      // first time: keep only real default reviewers for known repositories
+      if (firstTime && isKnownRepository(repository)) {
+        logger.debug(
+          "first time and known repository detected, removing the irrelevant default reviewers"
+        );
+
+        getAllUserPillElts(reviewersPickersElt)
+          .filter(
+            (childNode) => !isRelevantDefaultReviewer(childNode, repository)
+          )
+          .forEach((childNode) => {
+            setTimeout(() => childNode.click(), 10);
+          });
+        setTimeout(() => getReviewersLabelElt().click(), 200);
+        firstTime = false;
+      }
+    } else if (
+      areListenersRegistered &&
+      !reviewersPickers &&
+      !!reviewersPickersElt
+    ) {
+      logger.debug(
+        "Listeners are set and reviewers control does not exist anymore: removing event listener"
+      );
+      reviewersPickersElt.removeEventListener(
+        "click",
+        removeReviewerBySimpleClick
+      );
+      areListenersRegistered = false;
+    }
+  }, 3000);
+
   function removeReviewerBySimpleClick(event) {
-    console.debug(event);
+    // console.debug(event);
     // find a close button in the target of the event
     const targetClasses = event.target.classList;
     if (
@@ -97,59 +159,27 @@
     }
   }
 
-  setInterval(() => {
-    // look for the container and whether event listeners are registered
-    const reviewersPickers = document.querySelector(
-      "." + BITBUCKET_CLS_IDS.control
+  function getUserMultiPickerElt() {
+    return document.querySelector("." + BITBUCKET_CLS_IDS.control);
+  }
+
+  function getAllUserPillElts(userMultiPickerElt) {
+    return Array.from(
+      userMultiPickerElt.querySelectorAll("." + BITBUCKET_CLS_IDS.userPill)
     );
+  }
 
-    if (!areListenersRegistered && !!reviewersPickers) {
-      logger.debug(
-        "Listeners not set and reviewers control exists: setting event listener"
-      );
-      // register listeners
-      reviewersPickersElt = reviewersPickers;
-      reviewersPickersElt.addEventListener(
-        "click",
-        removeReviewerBySimpleClick
-      );
-      areListenersRegistered = true;
+  function getReviewersLabelElt() {
+    return document.getElementById(BITBUCKET_CLS_IDS.reviewersLabel);
+  }
 
-      // first time: keep only real default reviewers
-      if (firstTime && isRundownRepository) {
-        logger.debug(
-          "first time and rundown repository detected, removing non-Rundown team reviewers"
-        );
+  function isKnownRepository(repository) {
+    return Object.values(REPOS).includes(repository);
+  }
 
-        [
-          ...reviewersPickersElt.querySelectorAll(
-            "." + BITBUCKET_CLS_IDS.userPill
-          ),
-        ]
-          .filter((childNode) => !isRealDefaultReviewer(childNode))
-          .forEach((childNode) => {
-            setTimeout(() => childNode.click(), 10);
-          });
-        setTimeout(
-          () =>
-            document.getElementById(BITBUCKET_CLS_IDS.reviewersLabel).click(),
-          200
-        );
-        firstTime = false;
-      }
-    } else if (
-      areListenersRegistered &&
-      !reviewersPickers &&
-      !!reviewersPickersElt
-    ) {
-      logger.debug(
-        "Listeners are set and reviewers control does not exist anymore: removing event listener"
-      );
-      reviewersPickersElt.removeEventListener(
-        "click",
-        removeReviewerBySimpleClick
-      );
-      areListenersRegistered = false;
-    }
-  }, 3000);
+  function isRelevantDefaultReviewer(childNode, repository) {
+    return DEFAULT_REVIEWERS[repository].includes(
+      childNode.textContent.trim().toLocaleLowerCase()
+    );
+  }
 })();
