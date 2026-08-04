@@ -28,7 +28,7 @@
       console.trace(LOGGER_PREFIX + message, ...objects),
   };
 
-  let releasesById= null;
+  let releasesById = null;
 
   const formatter = new Intl.DateTimeFormat(navigator.language, {
     day: "2-digit",
@@ -36,11 +36,18 @@
     year: "numeric",
   });
 
+  const QUARTER_RELEASE_RE = /202[678]\.Q[1234]/;
+  const REAL_RELEASE_RE = /Pyr 202[678]\.\d+\.0.*/;
+
   function isReleaseRelevant(release) {
     return (
-      /Pyr 202[678]\.\d+\.0.*/.test(release.name) ||
-      /202[678]\.Q[1234]/.test(release.name)
+      REAL_RELEASE_RE.test(release.name) ||
+      QUARTER_RELEASE_RE.test(release.name)
     );
+  }
+
+  function isQuarterRelease(release) {
+    return QUARTER_RELEASE_RE.test(release.name);
   }
 
   async function fetchReleases() {
@@ -104,6 +111,25 @@
     return dateAppliedOnSomeElts;
   }
 
+  function getCodeFreezeDate(releaseDateStr) {
+    const cfDate = Temporal.PlainDate.from(releaseDateStr).subtract({
+      weeks: 2,
+    });
+    return new Date(cfDate.toString());
+  }
+
+  function getTimeFromNow(releaseDate) {
+    const today = Temporal.Now.plainDateISO();
+    const release = Temporal.PlainDate.from(releaseDate);
+
+    const weeks = Math.round(
+      today.until(release, { largestUnit: "week" }).weeks,
+    );
+
+    const rtf = new Intl.RelativeTimeFormat("en");
+    return rtf.format(weeks, "week");
+  }
+
   function applyReleaseDetailsInDOM_v2(releasesById) {
     let dateAppliedOnSomeElts = false;
 
@@ -153,11 +179,25 @@
         continue;
       }
 
-      const dateText = `(${[
-        release.startDate ? "start: " + formatDate(release.startDate) : "",
-        `release: ${formatDate(release.releaseDate)}`,
-      ].join(" - ")})`;
-      node.children[1].textContent = dateText;
+      const isQRelease = isQuarterRelease(release);
+      const cfDate = getCodeFreezeDate(release.releaseDate);
+      const relativeTime =
+        !isQRelease && new Date(release.releaseDate) > Date.now()
+          ? getTimeFromNow(release.releaseDate)
+          : "";
+
+      const dateText = [
+        ["Start", release.startDate],
+        ["CF", !isQRelease && cfDate > Date.now() ? cfDate : undefined],
+        [isQRelease ? "End" : "Release", release.releaseDate],
+      ]
+        .filter(
+          ([_prefix, date]) => new Date(date).toString() !== "Invalid Date",
+        )
+        .map(([prefix, date]) => `${prefix}: ${formatDate(date)}`)
+        .join(" - ");
+
+      node.children[1].textContent = `(${dateText} ${relativeTime})`;
       dateAppliedOnSomeElts = true;
     }
 
@@ -168,45 +208,48 @@
   let maxTries = 3;
   let intervalId = null;
 
-  intervalId = setInterval(await (async function insertDate() {
-    if (document.querySelector('img[alt*="Loading"]')) {
-      // still loading, do not try yet
-      logger.debug("still loading the timeline");
-      // eagerly fetch releases
-      fetchReleases();
-      return insertDate;
-    }
+  intervalId = setInterval(
+    await (async function insertDate() {
+      if (document.querySelector('img[alt*="Loading"]')) {
+        // still loading, do not try yet
+        logger.debug("still loading the timeline");
+        // eagerly fetch releases
+        fetchReleases();
+        return insertDate;
+      }
 
-    if (--maxTries < 0) {
+      if (--maxTries < 0) {
         logger.debug("max number of tries exceeded, exiting script");
         clearInterval(intervalId);
         return;
       }
 
-    if (isDateInserted) {
-      logger.debug("fixVersion dates already inserted, exiting script");
-      clearInterval(intervalId);
-      return;
-    }
-
-    if (!releasesById) {
-      logger.debug("fetching releases");
-      releasesById = await fetchReleases();
-    }
-
-    if (releasesById) {
-      isDateInserted = applyReleaseDetailsInDOM_v3(releasesById);
-
       if (isDateInserted) {
-        logger.debug("Date was inserted, clearing interval");
+        logger.debug("fixVersion dates already inserted, exiting script");
         clearInterval(intervalId);
-      } else {
-        logger.debug("Date was not inserted, will try as next interval");
+        return;
       }
-    } else {
-      logger.debug("releases not found");
-    }
 
-    return insertDate;
-  }()), 3_000);
+      if (!releasesById) {
+        logger.debug("fetching releases");
+        releasesById = await fetchReleases();
+      }
+
+      if (releasesById) {
+        isDateInserted = applyReleaseDetailsInDOM_v3(releasesById);
+
+        if (isDateInserted) {
+          logger.debug("Date was inserted, clearing interval");
+          clearInterval(intervalId);
+        } else {
+          logger.debug("Date was not inserted, will try as next interval");
+        }
+      } else {
+        logger.debug("releases not found");
+      }
+
+      return insertDate;
+    })(),
+    3_000,
+  );
 })();
