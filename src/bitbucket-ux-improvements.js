@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bitbucket UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.2.1
 // @description  Makes some UX improvements to Bitbucket: easily remove reviewers
 // @author       gthau
 // @match        https://bitbucket.org/ooyalaflex/*/pull-requests/new*
@@ -15,7 +15,7 @@
  * since the user pills are of variable length.
  */
 (function () {
-  ("use strict");
+  "use strict";
 
   const REPOS = {
     rundownLib: "rundown-lib",
@@ -48,9 +48,14 @@
 
   const LOGGER_PREFIX = "[Bitbucket UX improvements] ";
   const logger = {
-    log: (message) => console.log(LOGGER_PREFIX + message),
-    debug: (message) => console.debug(LOGGER_PREFIX + message),
-    error: (message) => console.error(LOGGER_PREFIX + message),
+    log: (message, ...objects) =>
+      console.log(LOGGER_PREFIX + message, ...objects),
+    debug: (message, ...objects) =>
+      console.debug(LOGGER_PREFIX + message, ...objects),
+    warn: (message, ...objects) =>
+      console.warn(LOGGER_PREFIX + message, ...objects),
+    error: (message, ...objects) =>
+      console.error(LOGGER_PREFIX + message, ...objects),
   };
 
   const repository = document.location.pathname.split("/")[2];
@@ -66,97 +71,126 @@
     sourceBranchContainer: "create-pull-request-source-branch-selector",
   };
 
-  let areListenersRegistered = false;
+  const POLL_INTERVAL_MS = 3000;
+  const MAX_PRUNE_PASSES = 12;
+  const PRUNE_PASS_DELAY_MS = 50;
+
   let reviewersPickersElt = null;
   let firstTime = true;
 
   setInterval(() => {
     const reviewersPickers = getUserMultiPickerElt();
 
-    // look for the container and whether event listeners are registered
-    if (!areListenersRegistered && !!reviewersPickers) {
+    // React can swap the control for a brand new node between two ticks, which
+    // leaves our listener bound to a detached element while the live one has
+    // none: compare identity, not just presence, or the script silently dies.
+    if (!!reviewersPickersElt && reviewersPickersElt !== reviewersPickers) {
+      logger.debug(
+        "reviewers control was replaced or removed: dropping the event listener"
+      );
+      reviewersPickersElt.removeEventListener(
+        "click",
+        removeReviewerBySimpleClick
+      );
+      reviewersPickersElt = null;
+    }
+
+    if (!reviewersPickersElt && !!reviewersPickers) {
       logger.debug(
         "Listeners not set and reviewers control exists: setting event listener"
       );
-      // register listeners
       reviewersPickersElt = reviewersPickers;
       reviewersPickersElt.addEventListener(
         "click",
         removeReviewerBySimpleClick
       );
-      areListenersRegistered = true;
 
       // first time: keep only real default reviewers for known repositories
       if (firstTime && isKnownRepository(repository)) {
         logger.debug(
           "first time and known repository detected, removing the irrelevant default reviewers"
         );
-
-        getAllUserPillElts(reviewersPickersElt)
-          .filter(
-            (childNode) => !isRelevantDefaultReviewer(childNode, repository)
-          )
-          .forEach((childNode) => {
-            setTimeout(() => childNode.click(), 10);
-          });
-        setTimeout(() => getReviewersLabelElt().click(), 200);
         firstTime = false;
+        pruneIrrelevantDefaultReviewers(repository).catch((e) =>
+          logger.error("pruning the default reviewers failed", e)
+        );
       }
-    } else if (
-      areListenersRegistered &&
-      !reviewersPickers &&
-      !!reviewersPickersElt
-    ) {
-      logger.debug(
-        "Listeners are set and reviewers control does not exist anymore: removing event listener"
-      );
-      reviewersPickersElt.removeEventListener(
-        "click",
-        removeReviewerBySimpleClick
-      );
-      areListenersRegistered = false;
     }
-  }, 3000);
+  }, POLL_INTERVAL_MS);
+
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /**
+   * React rebuilds the whole pill list on every removal, so the DOM has to be
+   * re-read on each pass: a node captured before a removal is detached, and a
+   * click on a detached node never reaches a listener that could act on it.
+   */
+  async function pruneIrrelevantDefaultReviewers(repository) {
+    for (let pass = 0; pass < MAX_PRUNE_PASSES; pass++) {
+      const pickerElt = getUserMultiPickerElt();
+      if (!pickerElt) {
+        logger.debug("reviewers control is gone, stopping the prune");
+        return;
+      }
+
+      const pillElt = getAllUserPillElts(pickerElt).find(
+        (pill) => !isRelevantDefaultReviewer(pill, repository)
+      );
+      if (!pillElt) {
+        // done: close the picker the user never opened
+        getReviewersLabelElt()?.click();
+        return;
+      }
+
+      const closeElt = pillElt.querySelector("." + BITBUCKET_CLS_IDS.removeBtn);
+      if (!closeElt) {
+        logger.warn(
+          "no remove button inside an irrelevant reviewer pill, stopping the prune",
+          pillElt
+        );
+        return;
+      }
+
+      closeElt.click();
+      await delay(PRUNE_PASS_DELAY_MS);
+    }
+
+    logger.warn(
+      `gave up pruning the default reviewers after ${MAX_PRUNE_PASSES} passes`
+    );
+  }
 
   function removeReviewerBySimpleClick(event) {
-    // console.debug(event);
-    // find a close button in the target of the event
-    const targetClasses = event.target.classList;
+    // The X already does the right thing: re-dispatching a click on it would
+    // hand React the same removal twice.
+    if (event.target.closest("." + BITBUCKET_CLS_IDS.removeBtn)) {
+      return;
+    }
+
     if (
-      targetClasses.contains(BITBUCKET_CLS_IDS.controlInputContainer) ||
-      targetClasses.contains(BITBUCKET_CLS_IDS.controlInput)
+      event.target.closest(
+        `.${BITBUCKET_CLS_IDS.controlInputContainer}, .${BITBUCKET_CLS_IDS.controlInput}`
+      )
     ) {
       logger.debug("user clicked on input, nothing to remove");
       return;
     }
 
-    // find parent user-picker
-    let parentPickerElt = event.target;
-    while (
-      !!parentPickerElt &&
-      !parentPickerElt.classList.contains(BITBUCKET_CLS_IDS.userPill)
-    ) {
-      parentPickerElt = parentPickerElt.parentNode;
-    }
-
-    if (
-      !parentPickerElt ||
-      !parentPickerElt.classList.contains(BITBUCKET_CLS_IDS.userPill)
-    ) {
-      logger.debug("did not find a parent user picker element");
-      logger.debug(parentPickerElt);
+    // `closest` cannot walk out of the picker, and cannot trip over `document`
+    // the way a `parentNode` loop does -- `document` has no `classList`.
+    const pillElt = event.target.closest("." + BITBUCKET_CLS_IDS.userPill);
+    if (!pillElt) {
+      logger.debug("click was not inside a reviewer pill", event.target);
       return;
     }
 
-    const closeElt = parentPickerElt.querySelector(
-      "." + BITBUCKET_CLS_IDS.removeBtn
-    );
-    logger.debug(closeElt);
+    const closeElt = pillElt.querySelector("." + BITBUCKET_CLS_IDS.removeBtn);
     if (!closeElt) {
-      logger.debug("did not find button to remove reviewer");
-    } else {
-      closeElt.click();
+      logger.debug("did not find button to remove reviewer", pillElt);
+      return;
     }
+
+    closeElt.click();
   }
 
   function getUserMultiPickerElt() {
