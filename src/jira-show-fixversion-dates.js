@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Jira Show fixVersion dates
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
-// @description  In plan timeline, shows the release date next to its name
+// @version      0.0.2
+// @description  In plan timeline, shows the start, code freeze and release dates next to a fixVersion name
 // @author       gthau
 // @match        https://dalet.atlassian.net/jira/plans/*/scenarios/*/timeline?vid=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
@@ -10,9 +10,10 @@
 // ==/UserScript==
 
 (async function () {
-  ("use strict");
+  "use strict";
 
   const RELEASE_DOM_NODE_ID = "group-name-release-";
+  const STYLE_DOM_NODE_ID = "gt-fixversion-dates-style";
 
   const LOGGER_PREFIX = "[Jira plan Versions] ";
   const logger = {
@@ -76,39 +77,9 @@
       logger.debug("releases", releasesById);
       return releasesById;
     } catch (e) {
-      logger.debug("failed to get Jira releases for project RDC", e.message);
+      logger.error("failed to get Jira releases for project RDC", e.message);
       return;
     }
-  }
-
-  function getReleaseDOMNode(releaseId) {
-    const id = `${RELEASE_DOM_NODE_ID}${releaseId}`;
-    logger.debug(id);
-    return document.getElementById(id);
-  }
-
-  function applyReleaseDetailsInDOM(releasesById) {
-    let dateAppliedOnSomeElts = false;
-
-    for (const [id, release] of releasesById) {
-      const node = getReleaseDOMNode(id);
-      if (!node) {
-        logger.debug(
-          "could not find the release node for ",
-          release.name,
-          release,
-        );
-        continue;
-      }
-      const dateNode = new DOMParser().parseFromString(
-        `<span>${release.released ? release.startDate + " - " : ""}${release.releaseDate}</span>`,
-        "text/xml",
-      ).firstElementChild;
-      node.appendChild(dateNode);
-      dateAppliedOnSomeElts = true;
-    }
-
-    return dateAppliedOnSomeElts;
   }
 
   function getCodeFreezeDate(releaseDateStr) {
@@ -130,126 +101,91 @@
     return rtf.format(weeks, "week");
   }
 
-  function applyReleaseDetailsInDOM_v2(releasesById) {
-    let dateAppliedOnSomeElts = false;
-
-    for (const node of document.querySelectorAll(
-      '[id^="group-name-release-"]',
-    )) {
-      const releaseId = node.id.split("-").at(-1);
-      const release = releasesById.get(releaseId);
-
-      if (!release) {
-        logger.debug(
-          "could not find release for group ",
-          node.children[0].textContent,
-        );
-        continue;
-      }
-
-      const dateNode = new DOMParser().parseFromString(
-        `<small>${release.released ? "start: " + release.startDate + " - " : ""}release: ${release.releaseDate}</small>`,
-        "text/xml",
-      ).firstElementChild;
-      node.appendChild(dateNode);
-      dateAppliedOnSomeElts = true;
-    }
-
-    return dateAppliedOnSomeElts;
-  }
-
   function formatDate(date) {
     return formatter.format(new Date(date));
   }
 
-  function applyReleaseDetailsInDOM_v3(releasesById) {
-    let dateAppliedOnSomeElts = false;
+  function buildReleaseDetails(release) {
+    const isQRelease = isQuarterRelease(release);
+    const cfDate = getCodeFreezeDate(release.releaseDate);
+    const relativeTime =
+      !isQRelease && new Date(release.releaseDate) > Date.now()
+        ? getTimeFromNow(release.releaseDate)
+        : "";
 
-    for (const node of document.querySelectorAll(
-      '[id^="group-name-release-"]',
-    )) {
-      const releaseId = node.id.split("-").at(-1);
-      const release = releasesById.get(releaseId);
+    const dateText = [
+      ["Start", release.startDate],
+      ["CF", !isQRelease && cfDate > Date.now() ? cfDate : undefined],
+      [isQRelease ? "End" : "Release", release.releaseDate],
+    ]
+      .filter(([_prefix, date]) => new Date(date).toString() !== "Invalid Date")
+      .map(([prefix, date]) => `${prefix}: ${formatDate(date)}`)
+      .join(" - ");
 
-      if (!release) {
-        logger.debug(
-          "could not find release for group ",
-          node.children[0].textContent,
-        );
+    return `(${[dateText, relativeTime].filter(Boolean).join(" ")})`;
+  }
+
+  // A CSS string can contain anything but an unescaped `"`, `\` or newline.
+  function escapeCssString(text) {
+    return text.replace(/[\\"]/g, "\\$&").replace(/[\n\r\f]/g, " ");
+  }
+
+  // One `::after` rule per release, rather than writing into the group nodes:
+  // the timeline virtualizes its rows, so any node we touch is thrown away and
+  // re-rendered on scroll. A stylesheet is applied by the browser to every
+  // matching node, including the ones React has not created yet, so it survives
+  // re-renders for free.
+  function buildReleaseDetailsCss(releasesById) {
+    const rules = [];
+
+    for (const [id, release] of releasesById) {
+      if (!release.releaseDate) {
+        logger.debug(`no release date for ${release.name}, skipping`, release);
         continue;
       }
 
-      const isQRelease = isQuarterRelease(release);
-      const cfDate = getCodeFreezeDate(release.releaseDate);
-      const relativeTime =
-        !isQRelease && new Date(release.releaseDate) > Date.now()
-          ? getTimeFromNow(release.releaseDate)
-          : "";
+      const selector = `#${CSS.escape(RELEASE_DOM_NODE_ID + id)}::after`;
+      const details = escapeCssString(buildReleaseDetails(release));
 
-      const dateText = [
-        ["Start", release.startDate],
-        ["CF", !isQRelease && cfDate > Date.now() ? cfDate : undefined],
-        [isQRelease ? "End" : "Release", release.releaseDate],
-      ]
-        .filter(
-          ([_prefix, date]) => new Date(date).toString() !== "Invalid Date",
-        )
-        .map(([prefix, date]) => `${prefix}: ${formatDate(date)}`)
-        .join(" - ");
-
-      node.children[1].textContent = `(${dateText} ${relativeTime})`;
-      dateAppliedOnSomeElts = true;
+      rules.push(
+        `${selector} {
+  content: "${details}";
+  margin-inline-start: 0.5em;
+  font-size: 0.9em;
+  font-weight: normal;
+  white-space: nowrap;
+  opacity: 0.75;
+  flex: none;
+}`,
+      );
     }
 
-    return dateAppliedOnSomeElts;
+    return rules.join("\n");
   }
 
-  let isDateInserted = false;
-  let maxTries = 3;
-  let intervalId = null;
+  function applyReleaseDetailsCss(css) {
+    const head = document.head || document.getElementsByTagName("head")[0];
+    let style = document.getElementById(STYLE_DOM_NODE_ID);
 
-  intervalId = setInterval(
-    await (async function insertDate() {
-      if (document.querySelector('img[alt*="Loading"]')) {
-        // still loading, do not try yet
-        logger.debug("still loading the timeline");
-        // eagerly fetch releases
-        fetchReleases();
-        return insertDate;
-      }
+    if (!style) {
+      style = document.createElement("style");
+      style.id = STYLE_DOM_NODE_ID;
+      head.appendChild(style);
+    }
 
-      if (--maxTries < 0) {
-        logger.debug("max number of tries exceeded, exiting script");
-        clearInterval(intervalId);
-        return;
-      }
+    style.textContent = css;
+  }
 
-      if (isDateInserted) {
-        logger.debug("fixVersion dates already inserted, exiting script");
-        clearInterval(intervalId);
-        return;
-      }
+  // No need to wait for the timeline to render: the rules match whenever the
+  // group nodes appear.
+  releasesById = await fetchReleases();
 
-      if (!releasesById) {
-        logger.debug("fetching releases");
-        releasesById = await fetchReleases();
-      }
+  if (!releasesById?.size) {
+    logger.warn("no relevant release found, no date to display");
+    return;
+  }
 
-      if (releasesById) {
-        isDateInserted = applyReleaseDetailsInDOM_v3(releasesById);
-
-        if (isDateInserted) {
-          logger.debug("Date was inserted, clearing interval");
-          clearInterval(intervalId);
-        } else {
-          logger.debug("Date was not inserted, will try as next interval");
-        }
-      } else {
-        logger.debug("releases not found");
-      }
-
-      return insertDate;
-    })(),
-    3_000,
-  );
+  const css = buildReleaseDetailsCss(releasesById);
+  applyReleaseDetailsCss(css);
+  logger.debug("applied fixVersion dates stylesheet", css);
 })();
