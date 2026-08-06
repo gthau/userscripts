@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.14
+// @version      0.2.0
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
-// @match        https://*.atlassian.net/browse/*
+// @match        https://*.atlassian.net/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
+// @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/jira-ux-improvements.user.js
 // @downloadURL  https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/jira-ux-improvements.user.js
 // @grant        none
@@ -59,246 +60,166 @@
     (document.head ?? document.documentElement).append(style);
   }
 
-  // ------------------------------------------------------------------- state
+  // --------------------------------------------------------------- constants
 
-  const TOGGLE_BUTTON_ID = "toggle-button";
-  const EXPAND_BUTTON_ID = "expand-button";
-  const COPY_NAME_BUTTON_ID = "copy-issue-name-button";
-  const COPY_NAME_URL_BUTTON_ID = "copy-issue-name-and-url-button";
-  const JUMP_DESCRIPTION_ID = "jump-description-button";
-  const GO_UP_ID = "go-up-button";
+  const STYLE_ID = "gt-jira-ux-style";
+  const TOOLBAR_ID = "gt-extra-buttons";
+  const MOUNT_ANIMATION = "gt-jira-ux-mount";
+  const COLLAPSED_HEIGHT = "200px";
 
-  const allButtonsIds = [
-    TOGGLE_BUTTON_ID,
-    EXPAND_BUTTON_ID,
-    COPY_NAME_BUTTON_ID,
-    COPY_NAME_URL_BUTTON_ID,
-    JUMP_DESCRIPTION_ID,
-    GO_UP_ID,
-  ];
+  // Both backstops exist for the case where the event-driven path missed
+  // something, not as the primary mechanism. They cost a querySelector each.
+  const MOUNT_BACKSTOP_MS = 5_000;
+  const ROUTE_BACKSTOP_MS = 2_000;
 
-  const disableableButtonsIds = [
-    TOGGLE_BUTTON_ID,
-    EXPAND_BUTTON_ID,
-    JUMP_DESCRIPTION_ID,
-  ];
+  const DESCRIPTION_FIELD =
+    '[data-testid="issue.views.field.rich-text.description"]';
 
-  // Emoji alone are a guess on a toolbar this small, so every button carries a
-  // tooltip that says what it does.
-  const BUTTON_LABELS = {
-    [TOGGLE_BUTTON_ID]: ["✏️", "Block click-to-edit on the description"],
-    [EXPAND_BUTTON_ID]: ["⏬", "Collapse the description"],
-    [COPY_NAME_BUTTON_ID]: ["📃 name", "Copy the issue key and summary"],
-    [COPY_NAME_URL_BUTTON_ID]: [
-      "📃 name/URL",
-      "Copy the issue key, summary and URL",
-    ],
-    [JUMP_DESCRIPTION_ID]: ["⤵️ desc.", "Scroll past the description"],
-    [GO_UP_ID]: ["⤴️ top", "Scroll back to the top"],
+  const SEL = {
+    breadcrumbs: '[data-component-selector="breadcrumbs-wrapper"]',
+    description: `${DESCRIPTION_FIELD} .ak-renderer-document`,
+    scroller:
+      '[data-testid="issue.views.issue-details.issue-layout.container-left"]',
+    // Jira renders attachments and inline media as interactive cards inside the
+    // description. Opening a file or playing a video is a real click, not an
+    // accidental edit, so the lock has to let these through.
+    media: [
+      '[data-testid="media-file-card-loaded-view"]',
+      '[data-testid="media-file-card-view"]',
+      '[data-testid="media-card-inline-player"]',
+      '[data-node-type="mediaInline"]',
+    ].join(","),
   };
 
-  let toggleButtonElement;
-  let expandButtonElement;
-  let copyNameButtonElement;
-  let copyNameAndUrlButtonElement;
-  let jumpDescButtonElement;
-  let goUpButtonElement;
+  // ------------------------------------------------------------ preferences
 
-  let isDoubleClickEnabled = true; // Set initial value to false
-  let isExpanded = true;
+  // Lock and collapse are the only real state here -- everything else is read
+  // back off the DOM. They used to reset on every navigation, which made
+  // locking the description a per-issue chore.
+  const PREFS_KEY = "gt-jira-ux.prefs";
+  const DEFAULT_PREFS = { locked: true, collapsed: false };
 
-  function setupButton(buttonId, isDisabled = false) {
-    let callback;
-    const button = document.getElementById(buttonId);
-    // `disabled` reflects to the content attribute on a real button, so the
-    // CSS `button[disabled]` rules follow from the property alone.
-    button.disabled = isDisabled;
-
-    switch (buttonId) {
-      case TOGGLE_BUTTON_ID:
-        toggleButtonElement = button;
-        callback = toggleDoubleClickEdit;
-        break;
-      case EXPAND_BUTTON_ID:
-        expandButtonElement = button;
-        callback = expandHandler;
-        break;
-      case COPY_NAME_BUTTON_ID:
-        copyNameButtonElement = button;
-        callback = copyHandler;
-        break;
-      case COPY_NAME_URL_BUTTON_ID:
-        copyNameAndUrlButtonElement = button;
-        callback = copyHandler;
-        break;
-      case JUMP_DESCRIPTION_ID:
-        jumpDescButtonElement = button;
-        callback = jumpDescHandler;
-        break;
-      case GO_UP_ID:
-        goUpButtonElement = button;
-        callback = goToTopHandler;
-        break;
-      default:
-        break;
+  const prefs = (() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}");
+      return { ...DEFAULT_PREFS, ...stored };
+    } catch (e) {
+      logger.warn("could not read stored preferences, using defaults", e);
+      return { ...DEFAULT_PREFS };
     }
+  })();
 
-    button.addEventListener("click", callback);
+  function setPref(name, value) {
+    prefs[name] = value;
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch (e) {
+      logger.warn("could not persist preferences", e);
+    }
+    render();
   }
 
-  function enableButtons() {
-    for (const buttonId of allButtonsIds) {
-      const button = document.getElementById(buttonId);
-      if (!button) continue;
-      button.disabled = false;
+  // ------------------------------------------------------------------- route
+
+  // Anchored on the path, and it yields the key rather than a yes/no. Comparing
+  // "ABC-123" with "ABC-123" means a `?focusedCommentId=`, a tab change or an
+  // anchor is no longer mistaken for navigating to a different issue -- the old
+  // check compared whole URLs and rebuilt everything each time one appeared.
+  const ISSUE_PATH_RE = /^\/browse\/([A-Za-z][A-Za-z0-9]*-\d+)\/?$/;
+
+  function getIssueKey(url) {
+    try {
+      return (
+        new URL(url, location.href).pathname.match(ISSUE_PATH_RE)?.[1] ?? null
+      );
+    } catch {
+      return null;
     }
-    extraButtonsEnabled = true;
   }
 
-  function disableButtons() {
-    for (const buttonId of disableableButtonsIds) {
-      const button = document.getElementById(buttonId);
-      if (!button) continue;
-      button.disabled = true;
-    }
-    extraButtonsEnabled = false;
-  }
+  let currentKey = getIssueKey(location.href);
 
-  /**
-   * Creates the toggle button and inserts it into the Jira issue description UI.
-   * @param disableButtons In case the description element was not found we disable the associated buttons
-   */
-  function createExtraButtons(disableButtons = false) {
-    logger.debug(`createExtraButtons, disableButtons = ${disableButtons}`);
-    const breadcrumbsElt = document
-      .getElementById("jira-issue-header")
-      ?.querySelector('[data-component-selector="breadcrumbs-wrapper"]');
-    const mountElt = document.getElementById("jira-frontend");
+  // Jira is a single-page app: it rewrites history instead of loading pages, and
+  // `history.pushState` emits no event of its own. Three layers feed one
+  // callback, deduplicated on the issue key so overlap is free.
+  function watchRoute(onChange) {
+    const notify = (url) => {
+      const key = getIssueKey(url ?? location.href);
+      if (key === currentKey) return;
+      logger.debug(`route: ${currentKey} -> ${key}`);
+      currentKey = key;
+      onChange();
+    };
 
-    if (breadcrumbsElt && mountElt) {
-      // This markup used to be parsed as XML, which put the elements in the
-      // null namespace: they looked like buttons and took clicks, but they were
-      // not HTMLButtonElement. No tab focus, no Enter or Space, no button role
-      // for screen readers, and `disabled` was an expando that reflected
-      // nothing -- the disabled styling only worked because the code also set
-      // the attribute by hand.
-      const newButtonsWrapper = document.createElement("div");
-      newButtonsWrapper.id = "gt-extra-buttons";
-
-      for (const buttonId of allButtonsIds) {
-        const [label, title] = BUTTON_LABELS[buttonId];
-        const button = document.createElement("button");
-        button.id = buttonId;
-        button.type = "button";
-        button.textContent = label;
-        button.title = title;
-        newButtonsWrapper.append(button);
+    if (typeof window.navigation?.addEventListener === "function") {
+      // The Navigation API reports pushState, replaceState, back/forward and
+      // link clicks through one event. It fires before the navigation commits,
+      // hence reading the URL off the event rather than off `location`.
+      window.navigation.addEventListener("navigate", (event) =>
+        guard(() => notify(event.destination.url)),
+      );
+    } else {
+      // Everywhere else, patch the two methods. `@grant none` runs us in the
+      // page context, so this is the same `history` object Jira's router calls.
+      // Call through first and report after: `location` is updated by then, and
+      // the router still gets its own return value untouched.
+      for (const name of ["pushState", "replaceState"]) {
+        const original = history[name];
+        history[name] = function (...args) {
+          const result = original.apply(this, args);
+          guard(() => notify());
+          return result;
+        };
       }
-
-      mountElt.prepend(newButtonsWrapper);
-
-      setupButton(TOGGLE_BUTTON_ID, disableButtons);
-      setupButton(EXPAND_BUTTON_ID, disableButtons);
-      setupButton(COPY_NAME_BUTTON_ID);
-      setupButton(COPY_NAME_URL_BUTTON_ID);
-      setupButton(JUMP_DESCRIPTION_ID, disableButtons);
-      setupButton(GO_UP_ID);
-
-      const css = `
-        [data-component-selector="breadcrumbs-wrapper"] {
-          anchor-name: --breadcrumbs;
-        }
-
-        @supports(anchor-name: --breadcrumbs) {
-        div#gt-extra-buttons {
-          position: absolute;
-          position-anchor: --breadcrumbs;
-          position-area: center right;
-          z-index: 1;
-        }
-        div#gt-extra-buttons button {
-          padding: 5px;
-          border-radius: 4px;
-        }
-        div#gt-extra-buttons button:hover {
-          background: #eee;
-          cursor: pointer;
-        }
-        div#gt-extra-buttons button[disabled] {
-          opacity: 0.3;
-        }
-        div#gt-extra-buttons button[disabled]:hover {
-          cursor: not-allowed;
-        }
-        div#gt-extra-buttons button:active {
-          border: 1px solid #89ceef;
-        }
-        }`;
-
-      injectStyle("gt-extra-buttons-style", css);
-    } else {
-      logger.debug("breadcrumbs-wrapper not found");
     }
+
+    window.addEventListener("popstate", () => guard(() => notify()));
+    window.addEventListener("hashchange", () => guard(() => notify()));
+
+    // Backstop, and the correction for a `navigate` event fired for a
+    // navigation the router then cancelled.
+    setInterval(() => guard(() => notify()), ROUTE_BACKSTOP_MS);
   }
 
-  function resetToggleEdit() {
-    if (!toggleButtonElement || !descriptionElement) return;
+  // ------------------------------------------------------------------- mount
 
-    isDoubleClickEnabled = false;
-
-    toggleButtonElement.textContent = "🔒";
-    descriptionElement.addEventListener("click", handleClick, true);
-    descriptionElement.style.border = "1px solid red";
-  }
-
-  /**
-   * Toggles the double-click-to-edit functionality when the toggle button is clicked.
-   * Updates the button icon and adds/removes the event listener on the description element.
-   */
-  function toggleDoubleClickEdit() {
-    isDoubleClickEnabled = !isDoubleClickEnabled;
-
-    descriptionElement = document.querySelector(
-      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
+  // The browser knows the instant React inserts the breadcrumbs or the
+  // description, and will say so through `animationstart`, which bubbles. That
+  // beats polling on three counts: no dead time before a first tick, no
+  // permanent subtree observer over a heavy React page, and it fires again on
+  // every remount -- switching issue tabs, saving an edit, a virtualised
+  // re-render -- so none of those need noticing separately. Same lever as the
+  // Bitbucket script's picker detection.
+  function watchMounts(onMount) {
+    document.addEventListener(
+      "animationstart",
+      (event) => {
+        if (event.animationName !== MOUNT_ANIMATION) return;
+        guard(onMount);
+      },
+      true,
     );
 
-    if (isDoubleClickEnabled) {
-      toggleButtonElement.textContent = "✏️";
-      descriptionElement.removeEventListener("click", handleClick, true);
-      descriptionElement.style.border = "unset";
-    } else {
-      toggleButtonElement.textContent = "🔒";
-      descriptionElement.addEventListener("click", handleClick, true);
-      descriptionElement.style.border = "1px solid red";
-    }
+    // Backstop for the one thing the animation trick cannot survive: page CSS
+    // winning over `animation` on the target.
+    setInterval(() => guard(onMount), MOUNT_BACKSTOP_MS);
   }
 
-  function expandHandler() {
-    isExpanded = !isExpanded;
-    const descriptionElement = document.querySelector(
-      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
-    );
-
-    if (isExpanded) {
-      expandButtonElement.textContent = "⏬";
-      descriptionElement.style.height = "unset";
-    } else {
-      expandButtonElement.textContent = "⏩";
-      descriptionElement.style.height = "200px";
-      descriptionElement.style.overflowY = "scroll";
-    }
-  }
+  // ---------------------------------------------------------------- handlers
 
   function jumpDescHandler() {
-    mainScrollableElement.scroll({ top: descriptionElement.scrollHeight });
+    const scroller = document.querySelector(SEL.scroller);
+    const description = document.querySelector(SEL.description);
+    if (!scroller || !description) return;
+
+    scroller.scroll({ top: description.scrollHeight });
   }
 
   function goToTopHandler() {
-    mainScrollableElement.scroll({ top: 0 });
+    document.querySelector(SEL.scroller)?.scroll({ top: 0 });
   }
 
-  function copyHandler(event) {
-    const withURL = event.target.id === COPY_NAME_URL_BUTTON_ID;
+  function copyIssue(withURL) {
     const newClip = `${document.title.split(" - Jira")[0]}${
       withURL ? ` - ${document.URL}` : ""
     }`;
@@ -316,120 +237,199 @@
     });
   }
 
-  /**
-   * Handles the click event on the Jira issue description element.
-   * Stops the event propagation to prevent the default double-click-to-edit behavior.
-   * @param {Event} e - The click event object.
-   */
-  function handleClick(e) {
-    const hoveredElts = [
-      ...descriptionElement.querySelectorAll(":hover"),
-    ].toReversed();
-    for (const elt of hoveredElts) {
-      if (
-        elt.getAttribute("data-testid") === "media-file-card-loaded-view" ||
-        elt.getAttribute("data-testid") === "media-file-card-view" ||
-        elt.getAttribute("data-testid") === "media-card-inline-player" ||
-        elt.getAttribute("data-node-type") === "mediaInline"
-      ) {
-        return;
-      }
-    }
+  // One capture-phase listener on the document, rather than one attached to the
+  // description and re-attached on every remount. It cannot go stale, there is
+  // no teardown to get wrong, and the mismatched `removeEventListener` that used
+  // to throw halfway through cleanup has nothing left to be mismatched about.
+  function blockClickToEdit(event) {
+    if (!prefs.locked || !currentKey) return;
+    if (!event.target?.closest?.(SEL.description)) return;
+    if (event.target.closest(SEL.media)) return;
 
-    e.stopPropagation();
+    event.stopPropagation();
     logger.debug(
-      "Blocked click-edit of Jira issue description. You're welcome.",
+      "blocked click-edit of the issue description. You're welcome.",
     );
   }
 
-  function isJiraEpicPage(url) {
-    return url?.match(/https:\/\/.*\.atlassian\.net\/browse\/.*/);
+  // ----------------------------------------------------------------- toolbar
+
+  // Labels and tooltips are functions of the current state rather than values
+  // written at build time, so `render` cannot leave a button showing one thing
+  // while the state says another.
+  const BUTTONS = [
+    {
+      id: "gt-toggle-lock",
+      needsDescription: true,
+      label: () => (prefs.locked ? "🔒" : "✏️"),
+      title: () =>
+        prefs.locked
+          ? "Description is locked: click-to-edit is blocked"
+          : "Description is editable: click to lock it",
+      onClick: () => setPref("locked", !prefs.locked),
+    },
+    {
+      id: "gt-toggle-collapse",
+      needsDescription: true,
+      label: () => (prefs.collapsed ? "⏩" : "⏬"),
+      title: () =>
+        prefs.collapsed
+          ? "Description is collapsed: click to expand it"
+          : "Description is expanded: click to collapse it",
+      onClick: () => setPref("collapsed", !prefs.collapsed),
+    },
+    {
+      id: "gt-copy-name",
+      label: () => "📃 name",
+      title: () => "Copy the issue key and summary",
+      onClick: () => copyIssue(false),
+    },
+    {
+      id: "gt-copy-name-url",
+      label: () => "📃 name/URL",
+      title: () => "Copy the issue key, summary and URL",
+      onClick: () => copyIssue(true),
+    },
+    {
+      id: "gt-jump-description",
+      needsDescription: true,
+      label: () => "⤵️ desc.",
+      title: () => "Scroll past the description",
+      onClick: jumpDescHandler,
+    },
+    {
+      id: "gt-go-top",
+      label: () => "⤴️ top",
+      title: () => "Scroll back to the top",
+      onClick: goToTopHandler,
+    },
+  ];
+
+  function ensureToolbar() {
+    const existing = document.getElementById(TOOLBAR_ID);
+
+    if (!currentKey) {
+      existing?.remove();
+      return null;
+    }
+
+    if (existing?.isConnected) return existing;
+
+    const breadcrumbs = document
+      .getElementById("jira-issue-header")
+      ?.querySelector(SEL.breadcrumbs);
+    const mount = document.getElementById("jira-frontend") ?? document.body;
+    // Not up yet. A later mount event brings us straight back here, which is
+    // exactly what the old one-shot `setTimeout(..., 1000)` could not do: it
+    // lost the race on a slow load and never tried again, so a missing toolbar
+    // stayed missing for the life of the tab.
+    if (!breadcrumbs || !mount) return null;
+
+    const toolbar = document.createElement("div");
+    toolbar.id = TOOLBAR_ID;
+
+    for (const spec of BUTTONS) {
+      const button = document.createElement("button");
+      button.id = spec.id;
+      button.type = "button";
+      button.addEventListener("click", () => guard(spec.onClick));
+      toolbar.append(button);
+    }
+
+    mount.prepend(toolbar);
+    logger.debug(`toolbar built for ${currentKey}`);
+    return toolbar;
   }
 
-  function cleanup() {
-    currentUrl = document.URL;
-    isDoubleClickEnabled = false;
-    isExpanded = true;
-    document.getElementById("gt-extra-buttons")?.remove();
-    document.getElementById("gt-extra-buttons-style")?.remove();
-    toggleButtonElement = undefined;
-    expandButtonElement = undefined;
-    copyNameButtonElement = undefined;
-    copyNameAndUrlButtonElement = undefined;
-    jumpDescButtonElement = undefined;
-    goUpButtonElement = undefined;
-    descriptionElement?.removeEventListener("click", handleClick, true);
-    descriptionElement = undefined;
-    mainScrollableElement = undefined;
-    extraButtonsEnabled = false;
-  }
+  // Idempotent, and the only way state reaches the page. Every signal -- route
+  // change, mount, preference toggle, backstop tick -- calls this and nothing
+  // else, so there is one description of what the page should look like rather
+  // than a set of branches that have to agree with each other.
+  function render() {
+    const root = document.documentElement;
+    root.dataset.gtJiraLocked = String(prefs.locked);
+    root.dataset.gtJiraCollapsed = String(prefs.collapsed);
 
-  let descriptionElement;
-  let mainScrollableElement;
-  let extraButtonsEnabled = false;
-  let currentUrl = document.URL;
+    const toolbar = ensureToolbar();
+    if (!toolbar) return;
 
-  // Wait for the Jira issue description UI to load before creating the extra buttons
-  // first create buttons disabled then enable them when description field is found
-  setTimeout(() => createExtraButtons(true), 1000);
+    // Nothing to lock, collapse or scroll past until the description mounts.
+    const hasDescription = !!document.querySelector(SEL.description);
 
-  // One throw used to kill the toolbar for the life of the tab: the interval
-  // kept firing, kept throwing on the same null, and nothing ever recovered.
-  // Log and let the next tick try again instead.
-  function tick() {
-    if (document.URL !== currentUrl) {
-      logger.debug(`browsing to a new page ${document.URL} from ${currentUrl}`);
-    }
-
-    if (document.URL !== currentUrl && !isJiraEpicPage(document.URL)) {
-      // clean up
-      logger.debug(`browsing to a non-epic page, clean up the toolbar`);
-      cleanup();
-      return;
-    }
-
-    if (!isJiraEpicPage(document.URL)) {
-      // url hasn't changed and we're still on a non-epic page, do nothing
-      return;
-    }
-
-    mainScrollableElement = document.querySelector(
-      '[data-testid="issue.views.issue-details.issue-layout.container-left"]',
-    );
-    descriptionElement = document.querySelector(
-      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
-    );
-
-    // The one-shot `setTimeout` above loses the race on a slow load and never
-    // retried, so a missing toolbar was permanent. Rebuild it whenever it is
-    // absent instead.
-    if (!document.getElementById("gt-extra-buttons")) {
-      logger.debug(`toolbar missing, recreating it`);
-      createExtraButtons(true);
-    }
-
-    if (
-      document.URL !== currentUrl ||
-      (!extraButtonsEnabled && descriptionElement)
-    ) {
-      currentUrl = document.URL;
-      // Enabling on a URL change alone used to run `resetToggleEdit` before the
-      // description had mounted: it threw halfway, leaving the button reading
-      // "locked" while click-to-edit was still live.
-      if (descriptionElement) {
-        enableButtons();
-        resetToggleEdit();
-        logger.debug("setInterval - description found, buttons enabled");
-      }
-    } else if (extraButtonsEnabled && !descriptionElement) {
-      disableButtons();
-      isDoubleClickEnabled = false;
-      isExpanded = true;
-      logger.debug(
-        `description field not found or empty, won't enable related toolbar buttons`,
-      );
+    for (const spec of BUTTONS) {
+      const button = toolbar.querySelector(`#${spec.id}`);
+      if (!button) continue;
+      button.textContent = spec.label();
+      button.title = spec.title();
+      button.disabled = Boolean(spec.needsDescription) && !hasDescription;
     }
   }
 
-  setInterval(() => guard(tick), 3_000);
+  // ----------------------------------------------------------------- startup
+
+  injectStyle(
+    STYLE_ID,
+    `@keyframes ${MOUNT_ANIMATION} {
+  from { outline-color: currentColor; }
+  to { outline-color: currentColor; }
+}
+
+/* Detection only: an animation that changes nothing visible, so the browser
+   fires animationstart the moment either node is inserted or re-inserted. */
+${SEL.breadcrumbs},
+${SEL.description} {
+  animation: ${MOUNT_ANIMATION} 1ms linear;
+}
+
+/* Lock and collapse are rules keyed off the root element rather than inline
+   styles written onto the description. A stylesheet is applied by the browser
+   to every matching node, including the ones React has not created yet, so both
+   survive remounts for free -- the same lever the fixVersion script uses for
+   its ::after rules. Outline rather than border, so locking does not reflow
+   the description. */
+html[data-gt-jira-locked="true"] ${SEL.description} {
+  outline: 1px solid red;
+  outline-offset: 2px;
+}
+
+html[data-gt-jira-collapsed="true"] ${SEL.description} {
+  max-height: ${COLLAPSED_HEIGHT};
+  overflow-y: auto;
+}
+
+${SEL.breadcrumbs} {
+  anchor-name: --breadcrumbs;
+}
+
+@supports(anchor-name: --breadcrumbs) {
+div#${TOOLBAR_ID} {
+  position: absolute;
+  position-anchor: --breadcrumbs;
+  position-area: center right;
+  z-index: 1;
+}
+div#${TOOLBAR_ID} button {
+  padding: 5px;
+  border-radius: 4px;
+}
+div#${TOOLBAR_ID} button:hover {
+  background: #eee;
+  cursor: pointer;
+}
+div#${TOOLBAR_ID} button[disabled] {
+  opacity: 0.3;
+}
+div#${TOOLBAR_ID} button[disabled]:hover {
+  cursor: not-allowed;
+}
+div#${TOOLBAR_ID} button:active {
+  border: 1px solid #89ceef;
+}
+}`,
+  );
+
+  document.addEventListener("click", blockClickToEdit, true);
+  watchRoute(render);
+  watchMounts(render);
+  guard(render);
 })();
