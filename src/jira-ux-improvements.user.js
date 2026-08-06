@@ -66,6 +66,7 @@
   const TOOLBAR_ID = "gt-extra-buttons";
   const MOUNT_ANIMATION = "gt-jira-ux-mount";
   const COLLAPSED_HEIGHT = "200px";
+  const COPY_FEEDBACK_MS = 900;
 
   // Both backstops exist for the case where the event-driven path missed
   // something, not as the primary mechanism. They cost a querySelector each.
@@ -77,9 +78,14 @@
 
   const SEL = {
     breadcrumbs: '[data-component-selector="breadcrumbs-wrapper"]',
+    descriptionField: DESCRIPTION_FIELD,
     description: `${DESCRIPTION_FIELD} .ak-renderer-document`,
     scroller:
       '[data-testid="issue.views.issue-details.issue-layout.container-left"]',
+    // Only used to build a nicer copy string; `document.title` is the fallback
+    // if Jira renames this one.
+    summary:
+      '[data-testid="issue.views.issue-base.foundation.summary.heading"]',
     // Jira renders attachments and inline media as interactive cards inside the
     // description. Opening a file or playing a video is a real click, not an
     // accidental edit, so the lock has to let these through.
@@ -208,33 +214,55 @@
   // ---------------------------------------------------------------- handlers
 
   function jumpDescHandler() {
-    const scroller = document.querySelector(SEL.scroller);
-    const description = document.querySelector(SEL.description);
-    if (!scroller || !description) return;
+    const field = document.querySelector(SEL.descriptionField);
+    if (!field) return;
 
-    scroller.scroll({ top: description.scrollHeight });
+    // Land on whatever follows the description -- child issues, attachments.
+    // Scrolling the container to the description's own `scrollHeight` used a
+    // length as though it were a position: with content above it a short
+    // description never cleared itself, and a collapsed one reported the height
+    // it would have had expanded and overshot.
+    const target = field.nextElementSibling ?? field;
+    target.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function goToTopHandler() {
-    document.querySelector(SEL.scroller)?.scroll({ top: 0 });
+    const scroller = document.querySelector(SEL.scroller) ?? window;
+    scroller.scroll({ top: 0, behavior: "smooth" });
   }
 
-  function copyIssue(withURL) {
-    const newClip = `${document.title.split(" - Jira")[0]}${
-      withURL ? ` - ${document.URL}` : ""
-    }`;
-    navigator.permissions.query({ name: "clipboard-write" }).then((result) => {
-      if (result.state === "granted" || result.state === "prompt") {
-        navigator.clipboard.writeText(newClip).then(
-          () => {
-            /* clipboard successfully set */
-          },
-          () => {
-            /* clipboard write failed */
-          },
-        );
-      }
-    });
+  function getIssueTitle() {
+    const summary = document.querySelector(SEL.summary)?.textContent?.trim();
+    if (currentKey && summary) return `[${currentKey}] ${summary}`;
+
+    // Jira titles read "[ABC-123] Summary - Jira". Anchored, so a summary that
+    // happens to contain " - Jira" survives; splitting on the first occurrence
+    // truncated it.
+    return document.title.replace(/\s+-\s+Jira\s*$/, "");
+  }
+
+  // No `navigator.permissions.query({name: "clipboard-write"})` gate: Firefox
+  // and Safari do not recognise that permission name, so the promise rejected,
+  // nothing caught it, and the copy silently never happened. Inside a click
+  // handler `writeText` needs no gate anyway.
+  async function copyIssue(button, withURL) {
+    const text = `${getIssueTitle()}${withURL ? ` - ${location.href}` : ""}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      flash(button, "✅");
+    } catch (e) {
+      logger.error("clipboard write failed", e);
+      flash(button, "⚠️");
+    }
+  }
+
+  // Both clipboard callbacks used to be empty, so a failed copy and a
+  // successful one looked identical from the outside: nothing happened either
+  // way. `render` puts the real label back.
+  function flash(button, label) {
+    button.textContent = label;
+    setTimeout(() => guard(render), COPY_FEEDBACK_MS);
   }
 
   // One capture-phase listener on the document, rather than one attached to the
@@ -282,13 +310,13 @@
       id: "gt-copy-name",
       label: () => "📃 name",
       title: () => "Copy the issue key and summary",
-      onClick: () => copyIssue(false),
+      onClick: (button) => copyIssue(button, false),
     },
     {
       id: "gt-copy-name-url",
       label: () => "📃 name/URL",
       title: () => "Copy the issue key, summary and URL",
-      onClick: () => copyIssue(true),
+      onClick: (button) => copyIssue(button, true),
     },
     {
       id: "gt-jump-description",
@@ -332,7 +360,7 @@
       const button = document.createElement("button");
       button.id = spec.id;
       button.type = "button";
-      button.addEventListener("click", () => guard(spec.onClick));
+      button.addEventListener("click", () => guard(() => spec.onClick(button)));
       toolbar.append(button);
     }
 
