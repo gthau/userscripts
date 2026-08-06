@@ -231,25 +231,81 @@
     scroller.scroll({ top: 0, behavior: "smooth" });
   }
 
-  function getIssueTitle() {
+  function getIssueParts() {
     const summary = document.querySelector(SEL.summary)?.textContent?.trim();
-    if (currentKey && summary) return `[${currentKey}] ${summary}`;
+    if (currentKey && summary) return { key: currentKey, summary };
 
     // Jira titles read "[ABC-123] Summary - Jira". Anchored, so a summary that
     // happens to contain " - Jira" survives; splitting on the first occurrence
     // truncated it.
-    return document.title.replace(/\s+-\s+Jira\s*$/, "");
+    const title = document.title.replace(/\s+-\s+Jira\s*$/, "");
+    const bracketed = title.match(/^\[([^\]]+)\]\s*(.*)$/);
+
+    return bracketed
+      ? { key: bracketed[1], summary: bracketed[2] }
+      : { key: currentKey, summary: title };
+  }
+
+  const HTML_ESCAPES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+  };
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>"]/g, (char) => HTML_ESCAPES[char]);
+  }
+
+  function buildClipboard(kind) {
+    const { key, summary } = getIssueParts();
+    const name = key ? `[${key}] ${summary}` : summary;
+    const url = location.href;
+
+    switch (kind) {
+      case "key":
+        return { text: key ?? name };
+      case "name":
+        return { text: name };
+      case "url":
+        return { text: `${name} - ${url}` };
+      case "link":
+        // Markdown for plain-text targets and an anchor for anything that takes
+        // HTML, so pasting into Confluence, Slack or a PR body yields a live
+        // link rather than the markup for one. Square brackets are dropped from
+        // the label because they would not survive markdown link syntax.
+        return {
+          text: `[${[key, summary].filter(Boolean).join(" ")}](${url})`,
+          html: `<a href="${escapeHtml(url)}">${escapeHtml(
+            [key, summary].filter(Boolean).join(" "),
+          )}</a>`,
+        };
+      default:
+        return { text: name };
+    }
+  }
+
+  async function writeClipboard({ text, html }) {
+    if (html && typeof ClipboardItem === "function") {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": new Blob([text], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        }),
+      ]);
+      return;
+    }
+
+    await navigator.clipboard.writeText(text);
   }
 
   // No `navigator.permissions.query({name: "clipboard-write"})` gate: Firefox
   // and Safari do not recognise that permission name, so the promise rejected,
   // nothing caught it, and the copy silently never happened. Inside a click
-  // handler `writeText` needs no gate anyway.
-  async function copyIssue(button, withURL) {
-    const text = `${getIssueTitle()}${withURL ? ` - ${location.href}` : ""}`;
-
+  // handler the write needs no gate anyway.
+  async function copyIssue(button, kind) {
     try {
-      await navigator.clipboard.writeText(text);
+      await writeClipboard(buildClipboard(kind));
       flash(button, "✅");
     } catch (e) {
       logger.error("clipboard write failed", e);
@@ -310,13 +366,26 @@
       id: "gt-copy-name",
       label: () => "📃 name",
       title: () => "Copy the issue key and summary",
-      onClick: (button) => copyIssue(button, false),
+      onClick: (button) => copyIssue(button, "name"),
     },
     {
       id: "gt-copy-name-url",
       label: () => "📃 name/URL",
       title: () => "Copy the issue key, summary and URL",
-      onClick: (button) => copyIssue(button, true),
+      onClick: (button) => copyIssue(button, "url"),
+    },
+    {
+      id: "gt-copy-link",
+      label: () => "🔗 link",
+      title: () =>
+        "Copy as a link: markdown when pasted as text, a live link when pasted into an editor",
+      onClick: (button) => copyIssue(button, "link"),
+    },
+    {
+      id: "gt-copy-key",
+      label: () => "🔑 key",
+      title: () => "Copy the issue key on its own, for branches and commits",
+      onClick: (button) => copyIssue(button, "key"),
     },
     {
       id: "gt-jump-description",
@@ -332,6 +401,53 @@
       onClick: goToTopHandler,
     },
   ];
+
+  // --------------------------------------------------------------- shortcuts
+
+  // Alt+Shift rather than bare letters: Jira binds plenty of single keys of its
+  // own. Each one names a button rather than a handler, so the disabled state,
+  // the flash feedback and the toolbar's own wiring are shared rather than
+  // reimplemented -- and a shortcut does nothing on a page with no toolbar.
+  const SHORTCUTS = {
+    KeyL: "gt-toggle-lock",
+    KeyE: "gt-toggle-collapse",
+    KeyN: "gt-copy-name",
+    KeyU: "gt-copy-name-url",
+    KeyM: "gt-copy-link",
+    KeyI: "gt-copy-key",
+    KeyD: "gt-jump-description",
+    KeyT: "gt-go-top",
+  };
+
+  const SHORTCUT_HINT = Object.fromEntries(
+    Object.entries(SHORTCUTS).map(([code, id]) => [
+      id,
+      `Alt+Shift+${code.replace("Key", "")}`,
+    ]),
+  );
+
+  function onKeyDown(event) {
+    if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+
+    // Never steal a key from a field the user is typing in. Jira has plenty.
+    const target = event.target;
+    if (
+      target?.isContentEditable ||
+      /^(?:INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")
+    ) {
+      return;
+    }
+
+    // `event.code`, not `event.key`: Option+Shift on macOS produces a different
+    // character altogether.
+    const button = document.getElementById(SHORTCUTS[event.code] ?? "");
+    if (!button || button.disabled) return;
+
+    event.preventDefault();
+    button.click();
+  }
 
   function ensureToolbar() {
     const existing = document.getElementById(TOOLBAR_ID);
@@ -387,8 +503,9 @@
     for (const spec of BUTTONS) {
       const button = toolbar.querySelector(`#${spec.id}`);
       if (!button) continue;
+      const hint = SHORTCUT_HINT[spec.id];
       button.textContent = spec.label();
-      button.title = spec.title();
+      button.title = hint ? `${spec.title()} (${hint})` : spec.title();
       button.disabled = Boolean(spec.needsDescription) && !hasDescription;
     }
   }
@@ -475,6 +592,7 @@ div#${TOOLBAR_ID} button:active {
   );
 
   document.addEventListener("click", blockClickToEdit, true);
+  document.addEventListener("keydown", onKeyDown, true);
   watchRoute(render);
   watchMounts(render);
   guard(render);
