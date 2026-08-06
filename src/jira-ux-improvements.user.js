@@ -238,17 +238,33 @@
 
   // ---------------------------------------------------------------- handlers
 
+  // Put the bottom edge of the description at the top of the scroll container,
+  // so whatever follows it -- child issues, attachments -- comes into view.
+  //
+  // Measured as a position rather than taken from a height. Scrolling the
+  // container to the description's own `scrollHeight` was close enough while
+  // the description sat near the top and was expanded, but it drifts by however
+  // much content is above it and overshoots badly once collapsed, since the
+  // node still reports the height it would have had. Aligning the field's *top*
+  // instead is worse again: the description already starts near the top, so
+  // there is barely anything to scroll.
   function jumpDescHandler() {
     const field = document.querySelector(SEL.descriptionField);
     if (!field) return;
 
-    // Land on whatever follows the description -- child issues, attachments.
-    // Scrolling the container to the description's own `scrollHeight` used a
-    // length as though it were a position: with content above it a short
-    // description never cleared itself, and a collapsed one reported the height
-    // it would have had expanded and overshot.
-    const target = field.nextElementSibling ?? field;
-    target.scrollIntoView({ block: "start", behavior: "smooth" });
+    const fieldBottom = field.getBoundingClientRect().bottom;
+    const scroller = document.querySelector(SEL.scroller);
+
+    if (!scroller) {
+      window.scroll({ top: fieldBottom + window.scrollY, behavior: "smooth" });
+      return;
+    }
+
+    scroller.scroll({
+      top:
+        fieldBottom - scroller.getBoundingClientRect().top + scroller.scrollTop,
+      behavior: "smooth",
+    });
   }
 
   function goToTopHandler() {
