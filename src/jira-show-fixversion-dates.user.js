@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         Jira Show fixVersion dates
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      1.0.0
 // @description  In plan timeline, shows the start, code freeze and release dates next to a fixVersion name
 // @author       gthau
 // @match        https://dalet.atlassian.net/jira/plans/*/scenarios/*/timeline?vid=*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
+// @updateURL    https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/jira-show-fixversion-dates.user.js
+// @downloadURL  https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/jira-show-fixversion-dates.user.js
 // @grant        none
 // ==/UserScript==
 

@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.1.13
+// @version      0.1.14
 // @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/browse/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
+// @updateURL    https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/jira-ux-improvements.user.js
+// @downloadURL  https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/jira-ux-improvements.user.js
 // @grant        none
 // ==/UserScript==
 

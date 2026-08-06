@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Bitbucket UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.3.1
 // @description  Makes some UX improvements to Bitbucket: remove a reviewer by clicking anywhere on their pill, and drop the default reviewers that are irrelevant to the repository
 // @author       gthau
 // @match        https://bitbucket.org/ooyalaflex/*/pull-requests/new*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
 // @run-at       document-start
+// @updateURL    https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/bitbucket-ux-improvements.user.js
+// @downloadURL  https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/bitbucket-ux-improvements.user.js
 // @grant        none
 // ==/UserScript==
 
