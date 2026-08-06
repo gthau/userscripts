@@ -558,8 +558,9 @@ ${SEL.description} {
    its ::after rules. Outline rather than border, so locking does not reflow
    the description. */
 html[data-gt-jira-locked="true"] ${SEL.description} {
-  outline: 1px solid red;
+  outline: 1px solid var(--ds-border-danger, #e2483d);
   outline-offset: 2px;
+  border-radius: 3px;
 }
 
 html[data-gt-jira-collapsed="true"] ${SEL.description} {
@@ -567,36 +568,93 @@ html[data-gt-jira-collapsed="true"] ${SEL.description} {
   overflow-y: auto;
 }
 
-/* Everything except the positioning applies everywhere. All of it used to sit
-   inside the @supports block, so a browser without CSS anchor positioning --
-   which is everything but Chromium today -- got unstyled buttons in an
-   unpositioned block at the top of the app. The corner is a worse place than
-   beside the breadcrumbs, but it is a usable one. The gap replaces the
-   whitespace the old parsed markup happened to put between the buttons. */
+/* Colours come from Atlassian's design tokens, so the toolbar tracks whatever
+   theme the user has set without having to detect it. The fallbacks are the
+   token values themselves, for the case where Jira stops publishing them; the
+   dark block below only swaps those fallbacks, since a live token already
+   carries the right value for the active theme. */
 div#${TOOLBAR_ID} {
+  --gt-bg: var(--ds-background-neutral, #091e420f);
+  --gt-bg-hover: var(--ds-background-neutral-hovered, #091e4224);
+  --gt-bg-active: var(--ds-background-neutral-pressed, #091e424f);
+  --gt-bg-selected: var(--ds-background-selected, #e9f2ff);
+  --gt-bg-disabled: var(--ds-background-disabled, #091e4208);
+  --gt-text: var(--ds-text-subtle, #44546f);
+  --gt-text-hover: var(--ds-text, #172b4d);
+  --gt-text-selected: var(--ds-text-selected, #0c66e4);
+  --gt-text-disabled: var(--ds-text-disabled, #091e424f);
+  --gt-focus: var(--ds-border-focused, #388bff);
+
   position: fixed;
   inset-block-start: 0.5rem;
   inset-inline-end: 0.5rem;
   z-index: 1;
   display: inline-flex;
+  align-items: center;
   gap: 2px;
 }
+
+@media (prefers-color-scheme: dark) {
+  div#${TOOLBAR_ID} {
+    --gt-bg: var(--ds-background-neutral, #a1bdd914);
+    --gt-bg-hover: var(--ds-background-neutral-hovered, #a6c5e229);
+    --gt-bg-active: var(--ds-background-neutral-pressed, #bfdbf847);
+    --gt-bg-selected: var(--ds-background-selected, #1c2b41);
+    --gt-bg-disabled: var(--ds-background-disabled, #bcd6f00a);
+    --gt-text: var(--ds-text-subtle, #9fadbc);
+    --gt-text-hover: var(--ds-text, #b6c2cf);
+    --gt-text-selected: var(--ds-text-selected, #579dff);
+    --gt-text-disabled: var(--ds-text-disabled, #bfdbf847);
+  }
+}
+
+/* Sized to sit inside the breadcrumb line rather than tower over it: no
+   border, 24px tall, and the label at the breadcrumbs' own weight. */
 div#${TOOLBAR_ID} button {
-  padding: 5px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 3px;
+  background: var(--gt-bg);
+  color: var(--gt-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 100ms ease-out, color 100ms ease-out;
 }
 div#${TOOLBAR_ID} button:hover {
-  background: #eee;
-  cursor: pointer;
-}
-div#${TOOLBAR_ID} button[disabled] {
-  opacity: 0.3;
-}
-div#${TOOLBAR_ID} button[disabled]:hover {
-  cursor: not-allowed;
+  background: var(--gt-bg-hover);
+  color: var(--gt-text-hover);
 }
 div#${TOOLBAR_ID} button:active {
-  border: 1px solid #89ceef;
+  background: var(--gt-bg-active);
+}
+/* The buttons are keyboard-reachable now, so the focus ring has to be visible.
+   :focus-visible keeps it off the mouse path. */
+div#${TOOLBAR_ID} button:focus-visible {
+  outline: 2px solid var(--gt-focus);
+  outline-offset: 1px;
+}
+
+/* The two toggles read as pressed straight off the state attributes render
+   already sets, so "is it locked" is answerable without reading the emoji. */
+html[data-gt-jira-locked="true"] div#${TOOLBAR_ID} #gt-toggle-lock:not(:disabled),
+html[data-gt-jira-collapsed="true"] div#${TOOLBAR_ID} #gt-toggle-collapse:not(:disabled) {
+  background: var(--gt-bg-selected);
+  color: var(--gt-text-selected);
+}
+
+/* Last, because a disabled button still matches :hover. */
+div#${TOOLBAR_ID} button:disabled {
+  background: var(--gt-bg-disabled);
+  color: var(--gt-text-disabled);
+  cursor: not-allowed;
 }
 
 /* The anchor name is namespaced because this rule matches every breadcrumbs
