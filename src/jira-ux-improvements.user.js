@@ -154,7 +154,9 @@
   // "ABC-123" with "ABC-123" means a `?focusedCommentId=`, a tab change or an
   // anchor is no longer mistaken for navigating to a different issue -- the old
   // check compared whole URLs and rebuilt everything each time one appeared.
-  const ISSUE_PATH_RE = /^\/browse\/([A-Za-z][A-Za-z0-9]*-\d+)\/?$/;
+  // A trailing segment is allowed and ignored, so a sub-tab under the same
+  // issue resolves to the same key and does not count as a navigation.
+  const ISSUE_PATH_RE = /^\/browse\/([A-Za-z][A-Za-z0-9]*-\d+)(?:\/|$)/;
 
   function getIssueKey(url) {
     try {
