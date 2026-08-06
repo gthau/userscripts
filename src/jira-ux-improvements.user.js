@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
-// @description  Makes some UX improvements to Jira: disable Click Edit, collapse Description, copy epic name and url. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
+// @version      0.3.0
+// @description  A toolbar on Jira issues: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
@@ -13,15 +13,38 @@
 // ==/UserScript==
 
 /**
- * Toggles the double-click-to-edit functionality in Jira issue descriptions.
- * The script creates a toggle button that allows the user to enable or disable editing.
- * The button uses emoji icons to represent the current state:
- * - 🔒 (locked) indicates that editing is disabled, the Description field is bordered in red
- * - ✏️ (pencil) indicates that editing is enabled, the red border is removed
- * - ⏬ (expanded) indicates that the Description field is expanded
- * - ⏩ (collapsed) indicates that the Description field is collapsed (for quicker access to the children issues)
- * - 🗐 (copy) allows to copy the issue's name prefixed by its id
- * - 🗐 with URL (copy) allows to copy the issue's name prefixed by its id and suffixed by its URL
+ * A toolbar beside the issue breadcrumbs. Each button has an Alt+Shift
+ * shortcut, listed in its tooltip.
+ *
+ * - 🔒 / ✏️      block or allow Jira's click-to-edit on the Description.
+ *                Locked outlines the field in red; media inside it stays
+ *                clickable, so attachments still open and videos still play.
+ * - ⏬ / ⏩      expand or collapse the Description, for quicker access to the
+ *                child issues below it.
+ * - 📃 name      copy "[ABC-123] Summary".
+ * - 📃 name/URL  the same, plus the issue URL.
+ * - 🔗 link      markdown when pasted as text, a live link when pasted into
+ *                anything that takes HTML.
+ * - 🔑 key       "ABC-123" on its own, for branch names and commit messages.
+ * - ⤵️ desc.     scroll past the Description.
+ * - ⤴️ top       scroll back to the top.
+ *
+ * The lock and collapse choices persist across issues and sessions.
+ *
+ * Jira is a single-page app: it rewrites history rather than loading pages, and
+ * it remounts the issue view on its own for tab switches, saved edits and
+ * virtualised re-renders. So there are two signals and everything else is
+ * derived from them -- the route (which issue, if any) and the mount (has the
+ * description appeared). Both feed `render`, which is idempotent and is the
+ * only thing that writes to the page.
+ *
+ * `@match` covers the whole site rather than /browse/ because it only governs
+ * injection, and Tampermonkey evaluates it on document load, not on history
+ * rewrites: landing on a board and clicking into an issue would otherwise never
+ * inject the script at all. The route gate decides whether the toolbar exists.
+ *
+ * Fork of "Disable Jira Click Edit" by fanuch
+ * (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
  */
 (function () {
   "use strict";
