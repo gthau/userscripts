@@ -25,6 +25,42 @@
 (function () {
   "use strict";
 
+  // ----------------------------------------------------------------- helpers
+
+  const LOGGER_PREFIX = "[Jira UX] ";
+  const logger = {
+    log: (message, ...objects) =>
+      console.log(LOGGER_PREFIX + message, ...objects),
+    debug: (message, ...objects) =>
+      console.debug(LOGGER_PREFIX + message, ...objects),
+    warn: (message, ...objects) =>
+      console.warn(LOGGER_PREFIX + message, ...objects),
+    error: (message, ...objects) =>
+      console.error(LOGGER_PREFIX + message, ...objects),
+  };
+
+  // Jira re-renders under us constantly, so any node we read may be gone by the
+  // time we touch it. One failure should cost the caller, not the session.
+  function guard(fn) {
+    try {
+      return fn();
+    } catch (e) {
+      logger.error("failed", e);
+    }
+  }
+
+  function injectStyle(id, css) {
+    const style =
+      document.getElementById(id) ?? document.createElement("style");
+    style.id = id;
+    style.textContent = css;
+    // At document-start there may be no <head> yet, and a <style> applies from
+    // anywhere in the document.
+    (document.head ?? document.documentElement).append(style);
+  }
+
+  // ------------------------------------------------------------------- state
+
   const TOGGLE_BUTTON_ID = "toggle-button";
   const EXPAND_BUTTON_ID = "expand-button";
   const COPY_NAME_BUTTON_ID = "copy-issue-name-button";
@@ -126,9 +162,7 @@
    * @param disableButtons In case the description element was not found we disable the associated buttons
    */
   function createExtraButtons(disableButtons = false) {
-    console.debug(
-      `Userscript::Jira - createExtraButtons, disableButtons = ${disableButtons}`
-    );
+    logger.debug(`createExtraButtons, disableButtons = ${disableButtons}`);
     const breadcrumbsElt = document
       .getElementById("jira-issue-header")
       ?.querySelector('[data-component-selector="breadcrumbs-wrapper"]');
@@ -144,7 +178,7 @@
           <button id="${JUMP_DESCRIPTION_ID}" type="button">⤵️ desc.</button>
           <button id="${GO_UP_ID}" type="button">⤴️ top</button>
         </div>`,
-        "text/xml"
+        "text/xml",
       ).firstElementChild;
       mountElt.prepend(newButtonsWrapper);
 
@@ -184,17 +218,11 @@
         div#gt-extra-buttons button:active {
           border: 1px solid #89ceef;
         }
-        }`,
-        head = document.head || document.getElementsByTagName("head")[0],
-        style =
-          document.getElementById("gt-extra-buttons-style") ??
-          document.createElement("style");
-      style.id = "gt-extra-buttons-style";
-      style.textContent = css;
+        }`;
 
-      head.appendChild(style);
+      injectStyle("gt-extra-buttons-style", css);
     } else {
-      console.debug("Userscript::Jira - breadcrumbs-wrapper not found");
+      logger.debug("breadcrumbs-wrapper not found");
     }
   }
 
@@ -220,7 +248,7 @@
     isDoubleClickEnabled = !isDoubleClickEnabled;
 
     descriptionElement = document.querySelector(
-      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
+      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
     );
 
     if (isDoubleClickEnabled) {
@@ -239,7 +267,7 @@
 
     isExpanded = !isExpanded;
     const descriptionElement = document.querySelector(
-      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
+      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
     );
 
     if (isExpanded) {
@@ -275,7 +303,7 @@
           },
           () => {
             /* clipboard write failed */
-          }
+          },
         );
       }
     });
@@ -302,8 +330,8 @@
     }
 
     e.stopPropagation();
-    console.debug(
-      "Userscript::Jira - Blocked click-edit of Jira issue description. You're welcome."
+    logger.debug(
+      "Blocked click-edit of Jira issue description. You're welcome.",
     );
   }
 
@@ -343,16 +371,12 @@
   // Log and let the next tick try again instead.
   function tick() {
     if (document.URL !== currentUrl) {
-      console.debug(
-        `Userscript::Jira - browsing to a new page ${document.URL} from ${currentUrl}`
-      );
+      logger.debug(`browsing to a new page ${document.URL} from ${currentUrl}`);
     }
 
     if (document.URL !== currentUrl && !isJiraEpicPage(document.URL)) {
       // clean up
-      console.debug(
-        `Userscript::Jira - browsing to a non-epic page, clean up the toolbar`
-      );
+      logger.debug(`browsing to a non-epic page, clean up the toolbar`);
       cleanup();
       return;
     }
@@ -363,17 +387,17 @@
     }
 
     mainScrollableElement = document.querySelector(
-      '[data-testid="issue.views.issue-details.issue-layout.container-left"]'
+      '[data-testid="issue.views.issue-details.issue-layout.container-left"]',
     );
     descriptionElement = document.querySelector(
-      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
+      '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
     );
 
     // The one-shot `setTimeout` above loses the race on a slow load and never
     // retried, so a missing toolbar was permanent. Rebuild it whenever it is
     // absent instead.
     if (!document.getElementById("gt-extra-buttons")) {
-      console.debug(`Userscript::Jira - toolbar missing, recreating it`);
+      logger.debug(`toolbar missing, recreating it`);
       createExtraButtons(true);
     }
 
@@ -388,25 +412,17 @@
       if (descriptionElement) {
         enableButtons();
         resetToggleEdit();
-        console.debug(
-          "Userscript::Jira - setInterval - description found, buttons enabled"
-        );
+        logger.debug("setInterval - description found, buttons enabled");
       }
     } else if (extraButtonsEnabled && !descriptionElement) {
       disableButtons();
       isDoubleClickEnabled = false;
       isExpanded = true;
-      console.debug(
-        `Userscript::Jira - description field not found or empty, won't enable related toolbar buttons`
+      logger.debug(
+        `description field not found or empty, won't enable related toolbar buttons`,
       );
     }
   }
 
-  setInterval(() => {
-    try {
-      tick();
-    } catch (e) {
-      console.error("Userscript::Jira - tick failed", e);
-    }
-  }, 3_000);
+  setInterval(() => guard(tick), 3_000);
 })();
