@@ -29,7 +29,9 @@
  * - ⤵️ desc.     scroll past the Description.
  * - ⤴️ top       scroll back to the top.
  *
- * The lock and collapse choices persist across issues and sessions.
+ * The collapse choice persists across issues and sessions. The lock does not:
+ * every issue starts locked, and an unlock lasts only while you are on that
+ * issue, so browsing on never leaves a description editable behind you.
  *
  * Jira is a single-page app: it rewrites history rather than loading pages, and
  * it remounts the issue view on its own for tab switches, saved edits and
@@ -122,20 +124,26 @@
 
   // ------------------------------------------------------------ preferences
 
-  // Lock and collapse are the only real state here -- everything else is read
-  // back off the DOM. They used to reset on every navigation, which made
-  // locking the description a per-issue chore.
+  // Collapse is a standing preference: it says how you like to read a
+  // description, so it persists across issues and sessions.
   const PREFS_KEY = "gt-jira-ux.prefs";
-  const DEFAULT_PREFS = { locked: true, collapsed: false };
+  const DEFAULT_PREFS = { collapsed: false };
 
   const prefs = (() => {
+    let stored = {};
     try {
-      const stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}");
-      return { ...DEFAULT_PREFS, ...stored };
+      stored = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}");
     } catch (e) {
       logger.warn("could not read stored preferences, using defaults", e);
-      return { ...DEFAULT_PREFS };
     }
+    // Only known keys, so a preference that has since been retired -- `locked`
+    // was one -- stops being written back out.
+    return Object.fromEntries(
+      Object.keys(DEFAULT_PREFS).map((name) => [
+        name,
+        stored[name] ?? DEFAULT_PREFS[name],
+      ]),
+    );
   })();
 
   function setPref(name, value) {
@@ -145,6 +153,16 @@
     } catch (e) {
       logger.warn("could not persist preferences", e);
     }
+    render();
+  }
+
+  // Lock is deliberately not a preference. It answers "am I done poking at
+  // *this* description", so it starts locked on every issue and every reload,
+  // and an unlock lasts only as long as you are looking at that issue.
+  let locked = true;
+
+  function setLocked(value) {
+    locked = value;
     render();
   }
 
@@ -367,7 +385,7 @@
   // no teardown to get wrong, and the mismatched `removeEventListener` that used
   // to throw halfway through cleanup has nothing left to be mismatched about.
   function blockClickToEdit(event) {
-    if (!prefs.locked || !currentKey) return;
+    if (!locked || !currentKey) return;
     if (!event.target?.closest?.(SEL.description)) return;
     if (event.target.closest(SEL.media)) return;
 
@@ -386,12 +404,12 @@
     {
       id: "gt-toggle-lock",
       needsDescription: true,
-      label: () => (prefs.locked ? "🔒" : "✏️"),
+      label: () => (locked ? "🔒" : "✏️"),
       title: () =>
-        prefs.locked
+        locked
           ? "Description is locked: click-to-edit is blocked"
-          : "Description is editable: click to lock it",
-      onClick: () => setPref("locked", !prefs.locked),
+          : "Description is editable: click to lock it, or just browse to another issue",
+      onClick: () => setLocked(!locked),
     },
     {
       id: "gt-toggle-collapse",
@@ -532,7 +550,7 @@
   // than a set of branches that have to agree with each other.
   function render() {
     const root = document.documentElement;
-    root.dataset.gtJiraLocked = String(prefs.locked);
+    root.dataset.gtJiraLocked = String(locked);
     root.dataset.gtJiraCollapsed = String(prefs.collapsed);
 
     const toolbar = ensureToolbar();
@@ -692,7 +710,14 @@ div#${TOOLBAR_ID} button:disabled {
 
   document.addEventListener("click", blockClickToEdit, true);
   document.addEventListener("keydown", onKeyDown, true);
-  watchRoute(render);
+
+  // A remount within one issue leaves the lock alone -- saving an edit should
+  // not slam the description shut under you -- but arriving at a different
+  // issue starts locked again.
+  watchRoute(() => {
+    locked = true;
+    render();
+  });
   watchMounts(render);
   guard(render);
 })();
