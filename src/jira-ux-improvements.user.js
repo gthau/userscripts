@@ -425,16 +425,19 @@ html[data-gt-jira-collapsed="true"] ${SEL.description} {
   overflow-y: auto;
 }
 
-${SEL.breadcrumbs} {
-  anchor-name: --breadcrumbs;
-}
-
-@supports(anchor-name: --breadcrumbs) {
+/* Everything except the positioning applies everywhere. All of it used to sit
+   inside the @supports block, so a browser without CSS anchor positioning --
+   which is everything but Chromium today -- got unstyled buttons in an
+   unpositioned block at the top of the app. The corner is a worse place than
+   beside the breadcrumbs, but it is a usable one. The gap replaces the
+   whitespace the old parsed markup happened to put between the buttons. */
 div#${TOOLBAR_ID} {
-  position: absolute;
-  position-anchor: --breadcrumbs;
-  position-area: center right;
+  position: fixed;
+  inset-block-start: 0.5rem;
+  inset-inline-end: 0.5rem;
   z-index: 1;
+  display: inline-flex;
+  gap: 2px;
 }
 div#${TOOLBAR_ID} button {
   padding: 5px;
@@ -453,6 +456,21 @@ div#${TOOLBAR_ID} button[disabled]:hover {
 div#${TOOLBAR_ID} button:active {
   border: 1px solid #89ceef;
 }
+
+/* The anchor name is namespaced because this rule matches every breadcrumbs
+   wrapper on the page, not just the issue header's. */
+@supports (anchor-name: --gt-breadcrumbs) {
+  ${SEL.breadcrumbs} {
+    anchor-name: --gt-breadcrumbs;
+  }
+
+  div#${TOOLBAR_ID} {
+    position: absolute;
+    position-anchor: --gt-breadcrumbs;
+    position-area: center right;
+    inset-block-start: auto;
+    inset-inline-end: auto;
+  }
 }`,
   );
 
