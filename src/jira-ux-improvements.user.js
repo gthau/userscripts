@@ -83,6 +83,20 @@
     JUMP_DESCRIPTION_ID,
   ];
 
+  // Emoji alone are a guess on a toolbar this small, so every button carries a
+  // tooltip that says what it does.
+  const BUTTON_LABELS = {
+    [TOGGLE_BUTTON_ID]: ["✏️", "Block click-to-edit on the description"],
+    [EXPAND_BUTTON_ID]: ["⏬", "Collapse the description"],
+    [COPY_NAME_BUTTON_ID]: ["📃 name", "Copy the issue key and summary"],
+    [COPY_NAME_URL_BUTTON_ID]: [
+      "📃 name/URL",
+      "Copy the issue key, summary and URL",
+    ],
+    [JUMP_DESCRIPTION_ID]: ["⤵️ desc.", "Scroll past the description"],
+    [GO_UP_ID]: ["⤴️ top", "Scroll back to the top"],
+  };
+
   let toggleButtonElement;
   let expandButtonElement;
   let copyNameButtonElement;
@@ -96,10 +110,9 @@
   function setupButton(buttonId, isDisabled = false) {
     let callback;
     const button = document.getElementById(buttonId);
-    if (isDisabled) {
-      button.disabled = isDisabled;
-      button.setAttribute("disabled", isDisabled);
-    }
+    // `disabled` reflects to the content attribute on a real button, so the
+    // CSS `button[disabled]` rules follow from the property alone.
+    button.disabled = isDisabled;
 
     switch (buttonId) {
       case TOGGLE_BUTTON_ID:
@@ -137,10 +150,7 @@
     for (const buttonId of allButtonsIds) {
       const button = document.getElementById(buttonId);
       if (!button) continue;
-      if (button.disabled) {
-        button.disabled = false;
-        button.removeAttribute("disabled");
-      }
+      button.disabled = false;
     }
     extraButtonsEnabled = true;
   }
@@ -149,10 +159,7 @@
     for (const buttonId of disableableButtonsIds) {
       const button = document.getElementById(buttonId);
       if (!button) continue;
-      if (!button.disabled) {
-        button.disabled = true;
-        button.setAttribute("disabled", true);
-      }
+      button.disabled = true;
     }
     extraButtonsEnabled = false;
   }
@@ -169,17 +176,25 @@
     const mountElt = document.getElementById("jira-frontend");
 
     if (breadcrumbsElt && mountElt) {
-      const newButtonsWrapper = new DOMParser().parseFromString(
-        `<div id="gt-extra-buttons">
-          <button id="${TOGGLE_BUTTON_ID}" type="button">✏️</button>
-          <button id="${EXPAND_BUTTON_ID}" type="button">⏬</button>
-          <button id="${COPY_NAME_BUTTON_ID}" type="button">📃 name</button>
-          <button id="${COPY_NAME_URL_BUTTON_ID}" type="button">📃 name/URL</button>
-          <button id="${JUMP_DESCRIPTION_ID}" type="button">⤵️ desc.</button>
-          <button id="${GO_UP_ID}" type="button">⤴️ top</button>
-        </div>`,
-        "text/xml",
-      ).firstElementChild;
+      // This markup used to be parsed as XML, which put the elements in the
+      // null namespace: they looked like buttons and took clicks, but they were
+      // not HTMLButtonElement. No tab focus, no Enter or Space, no button role
+      // for screen readers, and `disabled` was an expando that reflected
+      // nothing -- the disabled styling only worked because the code also set
+      // the attribute by hand.
+      const newButtonsWrapper = document.createElement("div");
+      newButtonsWrapper.id = "gt-extra-buttons";
+
+      for (const buttonId of allButtonsIds) {
+        const [label, title] = BUTTON_LABELS[buttonId];
+        const button = document.createElement("button");
+        button.id = buttonId;
+        button.type = "button";
+        button.textContent = label;
+        button.title = title;
+        newButtonsWrapper.append(button);
+      }
+
       mountElt.prepend(newButtonsWrapper);
 
       setupButton(TOGGLE_BUTTON_ID, disableButtons);
@@ -240,11 +255,7 @@
    * Toggles the double-click-to-edit functionality when the toggle button is clicked.
    * Updates the button icon and adds/removes the event listener on the description element.
    */
-  function toggleDoubleClickEdit(event) {
-    if (event?.target.disabled) {
-      return;
-    }
-
+  function toggleDoubleClickEdit() {
     isDoubleClickEnabled = !isDoubleClickEnabled;
 
     descriptionElement = document.querySelector(
@@ -262,9 +273,7 @@
     }
   }
 
-  function expandHandler(event) {
-    if (event.target.disabled) return;
-
+  function expandHandler() {
     isExpanded = !isExpanded;
     const descriptionElement = document.querySelector(
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document',
@@ -280,9 +289,7 @@
     }
   }
 
-  function jumpDescHandler(event) {
-    if (event.target.disabled) return;
-
+  function jumpDescHandler() {
     mainScrollableElement.scroll({ top: descriptionElement.scrollHeight });
   }
 
