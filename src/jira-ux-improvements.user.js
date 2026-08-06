@@ -23,7 +23,7 @@
  * - 🗐 with URL (copy) allows to copy the issue's name prefixed by its id and suffixed by its URL
  */
 (function () {
-  ("use strict");
+  "use strict";
 
   const TOGGLE_BUTTON_ID = "toggle-button";
   const EXPAND_BUTTON_ID = "expand-button";
@@ -100,6 +100,7 @@
   function enableButtons() {
     for (const buttonId of allButtonsIds) {
       const button = document.getElementById(buttonId);
+      if (!button) continue;
       if (button.disabled) {
         button.disabled = false;
         button.removeAttribute("disabled");
@@ -111,6 +112,7 @@
   function disableButtons() {
     for (const buttonId of disableableButtonsIds) {
       const button = document.getElementById(buttonId);
+      if (!button) continue;
       if (!button.disabled) {
         button.disabled = true;
         button.setAttribute("disabled", true);
@@ -129,9 +131,10 @@
     );
     const breadcrumbsElt = document
       .getElementById("jira-issue-header")
-      .querySelector('[data-component-selector="breadcrumbs-wrapper"]');
+      ?.querySelector('[data-component-selector="breadcrumbs-wrapper"]');
+    const mountElt = document.getElementById("jira-frontend");
 
-    if (breadcrumbsElt) {
+    if (breadcrumbsElt && mountElt) {
       const newButtonsWrapper = new DOMParser().parseFromString(
         `<div id="gt-extra-buttons">
           <button id="${TOGGLE_BUTTON_ID}" type="button">✏️</button>
@@ -143,7 +146,7 @@
         </div>`,
         "text/xml"
       ).firstElementChild;
-      document.getElementById("jira-frontend").prepend(newButtonsWrapper);
+      mountElt.prepend(newButtonsWrapper);
 
       setupButton(TOGGLE_BUTTON_ID, disableButtons);
       setupButton(EXPAND_BUTTON_ID, disableButtons);
@@ -183,18 +186,21 @@
         }
         }`,
         head = document.head || document.getElementsByTagName("head")[0],
-        style = document.createElement("style");
+        style =
+          document.getElementById("gt-extra-buttons-style") ??
+          document.createElement("style");
       style.id = "gt-extra-buttons-style";
+      style.textContent = css;
 
       head.appendChild(style);
-
-      style.appendChild(document.createTextNode(css));
     } else {
       console.debug("Userscript::Jira - breadcrumbs-wrapper not found");
     }
   }
 
   function resetToggleEdit() {
+    if (!toggleButtonElement || !descriptionElement) return;
+
     isDoubleClickEnabled = false;
 
     toggleButtonElement.textContent = "🔒";
@@ -317,7 +323,7 @@
     copyNameAndUrlButtonElement = undefined;
     jumpDescButtonElement = undefined;
     goUpButtonElement = undefined;
-    descriptionElement?.removeEventListener(handleClick);
+    descriptionElement?.removeEventListener("click", handleClick, true);
     descriptionElement = undefined;
     mainScrollableElement = undefined;
     extraButtonsEnabled = false;
@@ -332,10 +338,10 @@
   // first create buttons disabled then enable them when description field is found
   setTimeout(() => createExtraButtons(true), 1000);
 
-  let attempts = 0;
-  let intervalId = setInterval(() => {
-    attempts++;
-
+  // One throw used to kill the toolbar for the life of the tab: the interval
+  // kept firing, kept throwing on the same null, and nothing ever recovered.
+  // Log and let the next tick try again instead.
+  function tick() {
     if (document.URL !== currentUrl) {
       console.debug(
         `Userscript::Jira - browsing to a new page ${document.URL} from ${currentUrl}`
@@ -363,15 +369,11 @@
       '[data-testid="issue.views.field.rich-text.description"] .ak-renderer-document'
     );
 
-    if (
-      document.URL !== currentUrl &&
-      isJiraEpicPage(document.URL) &&
-      !isJiraEpicPage(currentUrl)
-    ) {
-      // we come back to a jira epic page from a non-epic page, reset the toolbar
-      console.debug(
-        `Userscript::Jira - browsing back an epic page from a non-epic page, recreate the toolbar`
-      );
+    // The one-shot `setTimeout` above loses the race on a slow load and never
+    // retried, so a missing toolbar was permanent. Rebuild it whenever it is
+    // absent instead.
+    if (!document.getElementById("gt-extra-buttons")) {
+      console.debug(`Userscript::Jira - toolbar missing, recreating it`);
       createExtraButtons(true);
     }
 
@@ -380,11 +382,16 @@
       (!extraButtonsEnabled && descriptionElement)
     ) {
       currentUrl = document.URL;
-      enableButtons();
-      resetToggleEdit();
-      console.debug(
-        "Userscript::Jira - setInterval - description found, buttons enabled"
-      );
+      // Enabling on a URL change alone used to run `resetToggleEdit` before the
+      // description had mounted: it threw halfway, leaving the button reading
+      // "locked" while click-to-edit was still live.
+      if (descriptionElement) {
+        enableButtons();
+        resetToggleEdit();
+        console.debug(
+          "Userscript::Jira - setInterval - description found, buttons enabled"
+        );
+      }
     } else if (extraButtonsEnabled && !descriptionElement) {
       disableButtons();
       isDoubleClickEnabled = false;
@@ -393,6 +400,13 @@
         `Userscript::Jira - description field not found or empty, won't enable related toolbar buttons`
       );
     }
-    return;
+  }
+
+  setInterval(() => {
+    try {
+      tick();
+    } catch (e) {
+      console.error("Userscript::Jira - tick failed", e);
+    }
   }, 3_000);
 })();
