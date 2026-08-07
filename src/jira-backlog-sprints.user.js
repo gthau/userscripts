@@ -20,8 +20,10 @@
  *
  * - `N sprints hidden ▾` beside the board actions. The label is the state, so
  *   there is no way to leave the filter on and forget about it.
- * - The panel has one switch for the whole filter, and one checkbox for each
- *   other board, with the number of sprints it contributes.
+ * - The panel has one checkbox for each other board, with the number of sprints
+ *   it contributes, and a select-all box above them. A ticked box hides. The
+ *   list of boards is the whole of the state: no board ticked is the same thing
+ *   as the filter being off, so the two can never disagree.
  *
  * A sprint belongs to another board when its row carries Atlassian's
  * "Origin Board" marker -- the accessible name of the small board icon in front
@@ -209,13 +211,20 @@
   // about one backlog. A single global list would leak Rundown's choices onto
   // every other board's backlog.
   //
-  // Both preferences persist. The issue script deliberately forgets its lock at
+  // The preference persists. The issue script deliberately forgets its lock at
   // every navigation, because leaving a description editable behind you is a
   // hazard; leaving sprints visible is not, and the button label says so at all
   // times. Re-ticking a board on every page load would make the filter more
   // annoying than the problem it removes.
+  //
+  // `reveal` is the whole of the state. There is no separate on/off flag: an
+  // earlier version had one, and it could disagree with the list -- reveal every
+  // board, switch the filter off, switch it back on, and nothing happened,
+  // because the flag said "filter" while the list said "show all of them". A
+  // list with nothing hidden *is* the off condition, and it can only be read one
+  // way.
   const PREFS_KEY = "gt-jira-backlog.prefs";
-  const DEFAULT_BOARD_PREFS = { enabled: true, reveal: [] };
+  const DEFAULT_BOARD_PREFS = { reveal: [] };
 
   const prefs = (() => {
     try {
@@ -232,7 +241,6 @@
   function boardPrefs() {
     const stored = prefs[currentBoard] ?? {};
     return {
-      enabled: stored.enabled ?? DEFAULT_BOARD_PREFS.enabled,
       reveal: Array.isArray(stored.reveal)
         ? stored.reveal.filter((name) => typeof name === "string")
         : [...DEFAULT_BOARD_PREFS.reveal],
@@ -473,6 +481,7 @@ html[data-gt-backlog-filter="on"] ${SEL.scrollable} li:has(> div${SEL.cardList} 
 
     const master = document.createElement("label");
     master.className = "gt-backlog-master";
+    master.title = "Select or clear every board below";
     const masterInput = document.createElement("input");
     masterInput.id = MASTER_ID;
     masterInput.type = "checkbox";
@@ -501,22 +510,32 @@ html[data-gt-backlog-filter="on"] ${SEL.scrollable} li:has(> div${SEL.cardList} 
   }
 
   function onPanelChange(input) {
+    // The master box selects and clears the boxes below it. It holds no state of
+    // its own -- `render` calculates its three conditions from the same list.
     if (input?.id === MASTER_ID) {
-      setBoardPref("enabled", input.checked);
+      const listed = [...document.querySelectorAll(`#${BOARDS_ID} input`)].map(
+        (box) => box.dataset.gtBoard,
+      );
+      setBoardPref("reveal", input.checked ? [] : listed);
       return;
     }
 
     const board = input?.dataset?.gtBoard;
     if (!board) return;
 
+    // A ticked box means "hide this board", to agree with the select-all box and
+    // with the count beside it. Storage holds the opposite -- the boards to
+    // show -- so that a board nobody has seen yet is hidden without being
+    // named anywhere. The checkbox is the inverse of what is stored, and
+    // `render` inverts it back.
     const { reveal } = boardPrefs();
     setBoardPref(
       "reveal",
       input.checked
-        ? reveal.includes(board)
+        ? reveal.filter((name) => name !== board)
+        : reveal.includes(board)
           ? reveal
-          : [...reveal, board]
-        : reveal.filter((name) => name !== board),
+          : [...reveal, board],
     );
   }
 
@@ -578,11 +597,14 @@ html[data-gt-backlog-filter="on"] ${SEL.scrollable} li:has(> div${SEL.cardList} 
   // else, so there is one description of what the page should look like rather
   // than a set of branches that have to agree with each other.
   function render() {
-    const { enabled, reveal } = boardPrefs();
+    const { reveal } = boardPrefs();
 
-    // Written before anything else, and correct without a scan.
-    document.documentElement.dataset.gtBacklogFilter =
-      currentBoard && enabled ? "on" : "off";
+    // Written before anything else, and correct without a scan. It gates the
+    // hide rule on the route alone: which sprints are hidden is decided by the
+    // exceptions in the rule, not by this attribute.
+    document.documentElement.dataset.gtBacklogFilter = currentBoard
+      ? "on"
+      : "off";
 
     if (!currentBoard) {
       ensureControl();
@@ -602,22 +624,37 @@ html[data-gt-backlog-filter="on"] ${SEL.scrollable} li:has(> div${SEL.cardList} 
     const control = ensureControl();
     if (!control) return;
 
-    const hidden = enabled ? scan.foreign.length - revealedIds.length : 0;
-    control.querySelector(".gt-backlog-label").textContent = enabled
-      ? `${hidden} sprint${hidden === 1 ? "" : "s"} hidden`
-      : "all sprints shown";
+    const hidden = scan.foreign.length - revealedIds.length;
+    control.dataset.gtHiding = String(hidden > 0);
+    control.querySelector(".gt-backlog-label").textContent =
+      hidden > 0
+        ? `${hidden} sprint${hidden === 1 ? "" : "s"} hidden`
+        : "all sprints shown";
 
     const toggle = document.getElementById(TOGGLE_ID);
-    toggle.title = enabled
-      ? "Sprints from other boards are hidden. Click to choose which boards to show."
-      : "Every sprint on this board is shown. Click to filter them again.";
+    toggle.title =
+      hidden > 0
+        ? "Sprints from other boards are hidden. Click to choose which boards to show."
+        : "Every sprint on this board is shown. Click to hide the other boards again.";
     toggle.setAttribute("aria-expanded", String(panelOpen));
 
     ensureBoardRows(counts);
-    document.getElementById(MASTER_ID).checked = enabled;
+
+    // Ticked means hidden, which is the inverse of what is stored.
+    const boards = [...counts.keys()];
+    const ticked = boards.filter((board) => !reveal.includes(board)).length;
     for (const input of control.querySelectorAll("input[data-gt-board]")) {
-      input.checked = reveal.includes(input.dataset.gtBoard);
+      input.checked = !reveal.includes(input.dataset.gtBoard);
     }
+
+    // The three conditions of a select-all box. `indeterminate` is a property
+    // and not an attribute, so it has to be written on each render; the browser
+    // clears it on a click and gives the box `checked`, which is the convention
+    // -- a click on a part selection selects everything.
+    const master = document.getElementById(MASTER_ID);
+    master.checked = boards.length > 0 && ticked === boards.length;
+    master.indeterminate = ticked > 0 && ticked < boards.length;
+    master.disabled = boards.length === 0;
 
     document.getElementById(PANEL_ID).hidden = !panelOpen;
   }
@@ -696,7 +733,7 @@ div#${CONTROL_ID} button#${TOGGLE_ID} {
   background: var(--gt-bg);
   color: var(--gt-text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
@@ -719,9 +756,11 @@ div#${CONTROL_ID} button#${TOGGLE_ID}:focus-visible {
   outline-offset: 1px;
 }
 
-/* The filter reads as pressed straight off the state attribute render already
-   sets, so "is the filter on" is answerable without reading the label. */
-html[data-gt-backlog-filter="on"] div#${CONTROL_ID} button#${TOGGLE_ID} {
+/* The button reads as pressed when something is actually hidden, so "is the
+   filter doing anything" is answerable without reading the label. Keyed off the
+   control's own attribute rather than the root one: the root attribute is a
+   route gate and is "on" for the whole backlog, hidden sprints or not. */
+div#${CONTROL_ID}[data-gt-hiding="true"] button#${TOGGLE_ID} {
   background: var(--gt-bg-selected);
   color: var(--gt-text-selected);
 }
@@ -741,7 +780,7 @@ div#${CONTROL_ID} div#${PANEL_ID} {
   box-shadow: var(--gt-shadow);
   color: var(--gt-text-hover);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.4;
 }
 div#${CONTROL_ID} div#${PANEL_ID}[hidden] {
@@ -758,6 +797,15 @@ div#${CONTROL_ID} div#${PANEL_ID} label {
 }
 div#${CONTROL_ID} div#${PANEL_ID} label:hover {
   background: var(--gt-bg-hover);
+}
+/* Last of the label rules, and carrying the same prefix, because a disabled row
+   still matches :hover and the rule above would otherwise win on specificity. */
+div#${CONTROL_ID} div#${PANEL_ID} label:has(input:disabled),
+div#${CONTROL_ID} div#${PANEL_ID} label:has(input:disabled):hover {
+  background: none;
+  color: var(--gt-text);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 div#${CONTROL_ID} div#${PANEL_ID} input {
   flex: none;
@@ -839,8 +887,9 @@ div#${CONTROL_ID} p.gt-backlog-empty {
   // what would bring `render` back.
   guard(() => {
     applyFilterCss([]);
-    document.documentElement.dataset.gtBacklogFilter =
-      currentBoard && boardPrefs().enabled ? "on" : "off";
+    document.documentElement.dataset.gtBacklogFilter = currentBoard
+      ? "on"
+      : "off";
   });
 
   document.addEventListener("click", onDocumentClick, true);

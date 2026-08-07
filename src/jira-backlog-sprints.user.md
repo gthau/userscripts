@@ -171,21 +171,53 @@ Only `render` changes the page. Each signal calls `render` and nothing else.
 The key is `gt-jira-backlog.prefs`. The value has this form:
 
 ```json
-{ "2122": { "enabled": true, "reveal": ["MAM UI Team"] } }
+{ "2122": { "reveal": ["MAM UI Team"] } }
 ```
 
 The top level is the board id. "The other boards that I also want to see" is a
 fact about one backlog. A global list gives the choices of the Rundown board to
 each other board.
 
-The script keeps `reveal` and `enabled` between sessions. The
-`jira-ux-improvements` script forgets its lock at each navigation, because an
-editable description is a hazard. Visible sprints are not a hazard, and the
-label of the button shows the condition at all times. A user who must select the
-boards again at each load has a filter that is worse than the problem.
+`reveal` is the full state. There is no flag for on and off.
+
+The first version had such a flag, `enabled`. Two values then gave the same
+condition, and they could disagree. This sequence made the disagreement visible:
+
+1. The user clears each board checkbox. The list holds each board.
+2. The user clears the switch. The flag is now false.
+3. The user selects the switch again. The flag is true, but the list continues to
+   hold each board.
+
+The result was a filter that hid nothing, and a user who had to select each
+checkbox again. A list with no board in it **is** the off condition. One value
+has one meaning, and no second value can contradict it.
+
+The script keeps `reveal` between sessions. The `jira-ux-improvements` script
+forgets its lock at each navigation, because an editable description is a hazard.
+Visible sprints are not a hazard, and the label of the button shows the condition
+at all times. A user who must select the boards again at each load has a filter
+that is worse than the problem.
 
 The script stores the boards to **show**. It does not store the boards to hide.
 Therefore a new board next month is hidden, and the user does nothing.
+
+The panel shows the opposite. A selected checkbox means "hide this board". The
+two directions are independent, and each one is correct for its purpose:
+
+- Storage names the exceptions only. A board that no person has seen is in no
+  list, and the default applies to it.
+- The panel agrees with the select-all box above it and with the count beside it.
+  Refer to section 3.
+
+`render` calculates the condition of each checkbox from the stored list with a
+logical NOT. `onPanelChange` does the same calculation in the other direction.
+
+**Cost of the removal of the flag.** At `document-start` the script knows the
+list of boards, but the page has no rows yet, and a board name gives no sprint
+id. Therefore the first rule hides each sprint of each other board. A board that
+the user shows becomes visible after the first scan, not at the first paint. The
+flag made this condition visible at `document-start`, and it is now the price of
+one value with one meaning. The user accepts a delay of some seconds.
 
 The script never stores data about the sprints. A session of Jira is valid for
 one month. A list in storage can be four weeks old. The rule in section 2.1
@@ -272,14 +304,44 @@ The control is one button in the board header line.
 | Filter is off  | `all sprints shown ▾` |
 
 The label is the condition. Therefore the user cannot leave the filter on and
-forget it. The button also has the color of a selected control when the filter
-is on.
+forget it. The button also has the color of a selected control while it hides one
+sprint or more.
 
 The button opens a panel. The panel has:
 
-- One switch, `Hide sprints from other boards`, for the full filter.
 - One checkbox for each other board, with the number of sprints from that board.
   Example: `MAM UI Team 12`.
+- One select-all box above them, `Hide sprints from other boards`.
+
+A selected checkbox means "hide the sprints of this board". Each board starts in
+this condition. To see a board again, clear its checkbox.
+
+The three parts of the control give one message, because they all count the same
+thing:
+
+| Part             | Example             | Meaning       |
+| ---------------- | ------------------- | ------------- |
+| The select-all   | Selected            | Hide each one |
+| A board checkbox | Selected            | Hide          |
+| The button       | `17 sprints hidden` | 17 are hidden |
+
+The first design used the opposite direction for the checkboxes: a selected
+checkbox showed a board. The result was not clear. A selected row with the
+number 12 was beside a button with the text `5 sprints hidden`, and the user had
+to do a subtraction to make the two agree.
+
+The box at the top is a select-all box. It is not a switch for the feature. It
+has three conditions, and `render` calculates each one from the list of boards:
+
+| Condition       | When                       | A click then does |
+| --------------- | -------------------------- | ----------------- |
+| Selected        | Each board is selected     | Clears each board |
+| Clear           | No board is selected       | Selects each board|
+| Part selection  | Some boards are selected   | Selects each board|
+
+A click on a part selection selects each board. This agrees with the other
+software that uses this control. The browser gives this result without help: it
+removes the part selection and makes the box selected.
 
 The granularity is one board, not one sprint. A list of 17 checkboxes with the
 names of the sprints needs maintenance at each sprint. A list of 5 boards does
@@ -347,27 +409,32 @@ There is no test system in this repository. Use these steps in a browser.
    appear and then go away. Use the "Slow 3G" setting of the developer tools for
    a second test.
 3. Open the panel. It must show 5 boards with these counts: `Planning 2`,
-   `wnRelease 1`, `MAM UI Team 12`, `Ingest 1`, `Dalia 1`.
-4. Select `MAM UI Team`. Its 12 sprints must come back, in their original
-   positions. The label must show `5 sprints hidden`.
-5. Reload the page. `MAM UI Team` must stay visible and its checkbox must stay
-   selected.
-6. Clear the switch `Hide sprints from other boards`. All 32 sprints must
-   appear. The label must show `all sprints shown`. Reload the page. The
-   condition must stay.
-7. Select the switch again. Then select the Reports tab. The button must go
-   away. Return to the Backlog tab. The button must come back with the same
-   numbers.
-8. Open the Backlog of a different board, for example Rundown SI. Its own
+   `wnRelease 1`, `MAM UI Team 12`, `Ingest 1`, `Dalia 1`. All 5 checkboxes and
+   the select-all box must be selected.
+4. Clear the checkbox of `MAM UI Team`. Its 12 sprints must come back, in their
+   original positions. The label must show `5 sprints hidden`, and the select-all
+   box must show a part selection.
+5. Reload the page. `MAM UI Team` must stay visible, its checkbox must stay
+   clear, and the select-all box must stay in the part selection.
+6. Click the select-all box. Each board must become selected, and all 17 sprints
+   must go away again. Click it a second time. Each board must become clear, all
+   32 sprints must appear, and the label must show `all sprints shown`.
+7. Now clear each board checkbox one at a time. Then click the select-all box.
+   Each board must become selected, and all 17 sprints must go away. (The first
+   version of the script did nothing here. Refer to section 2.7.)
+8. Reload the page. The condition of step 7 must stay. Then select the Reports
+   tab. The button must go away. Return to the Backlog tab. The button must come
+   back with the same numbers.
+9. Open the Backlog of a different board, for example Rundown SI. Its own
    preferences must start at the default. Then return to Rundown. The choices
    for Rundown must stay.
-9. Open a sprint of this board with the arrow at its left. The work items must
-   appear, and the counts must not change. Then move a work item to a different
-   sprint with the mouse. The move must operate.
-10. Apply a filter, for example `Version`. The counts in the panel must agree
+10. Open a sprint of this board with the arrow at its left. The work items must
+    appear, and the counts must not change. Then move a work item to a different
+    sprint with the mouse. The move must operate.
+11. Apply a filter, for example `Version`. The counts in the panel must agree
     with the rows on the page.
-11. Make the window narrow. The button must not go on top of the board title.
-12. The console must show no errors, and the page must show no warning badge.
+12. Make the window narrow. The button must not go on top of the board title.
+13. The console must show no errors, and the page must show no warning badge.
 
 ---
 
