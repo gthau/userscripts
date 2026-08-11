@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.3.1
 // @description  A toolbar on Jira issues: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -331,13 +331,14 @@
       case "link":
         // Markdown for plain-text targets and an anchor for anything that takes
         // HTML, so pasting into Confluence, Slack or a PR body yields a live
-        // link rather than the markup for one. Square brackets are dropped from
-        // the label because they would not survive markdown link syntax.
+        // link rather than the markup for one. Only the key is linked and the
+        // summary trails outside it: a `[KEY] Summary` label would not survive
+        // markdown link syntax, which cannot nest square brackets.
         return {
-          text: `[${[key, summary].filter(Boolean).join(" ")}](${url})`,
+          text: `[${key}](${url}) ${summary}`,
           html: `<a href="${escapeHtml(url)}">${escapeHtml(
-            [key, summary].filter(Boolean).join(" "),
-          )}</a>`,
+            key,
+          )}</a>&nbsp;${escapeHtml(summary)}`,
         };
       default:
         return { text: name };
