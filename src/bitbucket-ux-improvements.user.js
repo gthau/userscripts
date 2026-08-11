@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Bitbucket UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.4.0
 // @description  Makes some UX improvements to Bitbucket: remove a reviewer by clicking anywhere on their pill, and drop the default reviewers that are irrelevant to the repository
 // @author       gthau
-// @match        https://bitbucket.org/ooyalaflex/*/pull-requests/new*
+// @match        https://bitbucket.org/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
 // @run-at       document-start
 // @updateURL    https://raw.githubusercontent.com/gthau/userscripts/refs/heads/master/src/bitbucket-ux-improvements.user.js
@@ -27,6 +27,15 @@
  * replaces the whole picker. So the rule throughout is: hold no node reference
  * across an await, and assume no action took until the DOM says it did. State
  * an intended end state, then re-read until it holds.
+ *
+ * Bitbucket is also a single-page app, which is why `@match` covers the whole
+ * site rather than the form. `@match` only governs injection, and Tampermonkey
+ * evaluates it when the document loads, never again on a history rewrite:
+ * opening the form from the branch list or the pull request list would
+ * otherwise never inject the script at all, and no code in the page can correct
+ * that afterwards. `onCreatePullRequestForm` is the gate instead. It is read at
+ * the moment of acting rather than once at startup, because the route can
+ * change under a script that is already running -- including mid-prune.
  */
 (function () {
   "use strict";
@@ -76,8 +85,9 @@
    * which is why they are usable at all. They are still internal: `probeMount`
    * checks them on every mount and says so on the page when one rots.
    *
-   * Assumes the reviewers picker is the only user picker on the form, as the
-   * `@match` above restricts us to the PR creation page.
+   * Assumes the reviewers picker is the only user picker on the form. `@match`
+   * no longer says so -- it covers the site, see the note at the top -- so the
+   * route gate on the queries below is what keeps this true.
    */
   const CLS = {
     control: "fabric-user-picker__control",
@@ -130,10 +140,34 @@
 
   // ------------------------------------------------------------------ queries
 
-  const getControlElt = () => document.querySelector("." + CLS.control);
+  /**
+   * Are we on the "create pull request" form? Everything this script touches is
+   * on that form, and the two queries below answer `null` anywhere else, so the
+   * gate does not have to be repeated at each of their call sites. Gating the
+   * queries rather than the entry points also covers the awkward case: a
+   * navigation away part-way through a prune empties the pill list, which stops
+   * the loop the same way an empty form does, instead of letting it carry on
+   * against the reviewers field of whatever page we landed on.
+   *
+   * The workspace is named here because `@match` used to name it and no longer
+   * can. It keeps the reach exactly what it was: `REPOS` holds bare repository
+   * names, so without it a repository called `rundown-lib` in a stranger's
+   * workspace would be pruned against our reviewer list.
+   */
+  const CREATE_PR_PATH_RE = /^\/ooyalaflex\/[^/]+\/pull-requests\/new(?:\/|$)/;
+
+  const onCreatePullRequestForm = () =>
+    CREATE_PR_PATH_RE.test(location.pathname);
+
+  const getControlElt = () =>
+    onCreatePullRequestForm()
+      ? document.querySelector("." + CLS.control)
+      : null;
 
   const getReviewersLabelElt = () =>
-    document.getElementById(REVIEWERS_LABEL_ID);
+    onCreatePullRequestForm()
+      ? document.getElementById(REVIEWERS_LABEL_ID)
+      : null;
 
   const getRepository = () => document.location.pathname.split("/")[2] ?? "";
 
@@ -263,6 +297,12 @@
    * without leaving us bound to a node nobody can see any more.
    */
   function removeReviewerBySimpleClick(event) {
+    // This one reaches the pill through the event rather than through the
+    // gated queries, and it is bound for the life of the tab. Without the
+    // route check, a click on a reviewer pill anywhere on Bitbucket -- an open
+    // pull request's reviewers field, say -- would remove that reviewer.
+    if (!onCreatePullRequestForm()) return;
+
     const target = event.target;
     if (!(target instanceof Element)) return;
 
@@ -365,8 +405,21 @@
     await converge({
       name: "prune default reviewers",
       isGoalReached: () => !!getControlElt() && countIrrelevant() === 0,
-      actOnce: () =>
-        removeOnePill({ pillElt: irrelevantPills()[0], countIrrelevant, signal }),
+      actOnce: () => {
+        // The route gate on the queries stops a prune that outlives the form.
+        // This stops the narrower case it cannot see: the form for a different
+        // repository, whose reviewers answer to a different list from the one
+        // these pills are being judged against.
+        if (getRepository() !== repository) {
+          logger.debug(`no longer on a ${repository} pull request`);
+          return false;
+        }
+        return removeOnePill({
+          pillElt: irrelevantPills()[0],
+          countIrrelevant,
+          signal,
+        });
+      },
       budget: MAX_PRUNE_PASSES,
       signal,
     });
@@ -442,6 +495,13 @@
   const handledControls = new WeakSet();
 
   async function onPickerMounted(controlElt) {
+    // The node arrives from the mount event, not from `getControlElt`, so the
+    // gate is repeated here. Before the WeakSet rather than after: a picker
+    // seen elsewhere on Bitbucket must not be recorded as one we have dealt
+    // with. A prune is the destructive feature, and off this form the field it
+    // would edit belongs to a pull request that already exists.
+    if (!onCreatePullRequestForm()) return;
+
     if (handledControls.has(controlElt)) return;
     handledControls.add(controlElt);
 
@@ -514,7 +574,9 @@
   // The browser knows the instant the control renders and will say so through
   // `animationstart`. That beats polling on three counts: no dead time before a
   // first tick, no permanent subtree observer over a heavy React page, and it
-  // fires again on every remount -- so SPA navigation needs no handling at all.
+  // fires again on every remount -- so reaching the form by a soft navigation
+  // is the same event as reaching it by a page load, and the rule has to be in
+  // the document from the start for a form that arrives later to be caught.
   // Same lever as the Jira fixVersion script's ::after rules: let CSS reach the
   // nodes React has not created yet, here for detection rather than decoration.
   // `outline-color` is animated because it changes nothing visible.
@@ -554,7 +616,8 @@
 
   // Backstop for the one thing the animation trick cannot survive: page CSS
   // winning over `animation` on the control. Idempotent thanks to the WeakSet,
-  // so it normally costs one querySelector.
+  // so on the form it costs one querySelector, and everywhere else on
+  // Bitbucket -- which `@match` no longer excludes -- one regular expression.
   setInterval(() => {
     const controlElt = getControlElt();
     if (controlElt) guard(() => onPickerMounted(controlElt));
