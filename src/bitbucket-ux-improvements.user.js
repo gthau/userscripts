@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bitbucket UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.1
 // @description  Makes some UX improvements to Bitbucket: remove a reviewer by clicking anywhere on their pill, and drop the default reviewers that are irrelevant to the repository
 // @author       gthau
 // @match        https://bitbucket.org/*
@@ -149,12 +149,18 @@
    * the loop the same way an empty form does, instead of letting it carry on
    * against the reviewers field of whatever page we landed on.
    *
-   * The workspace is named here because `@match` used to name it and no longer
-   * can. It keeps the reach exactly what it was: `REPOS` holds bare repository
-   * names, so without it a repository called `rundown-lib` in a stranger's
-   * workspace would be pruned against our reviewer list.
+   * The pattern is the old `@match` -- `/ooyalaflex/`*`/pull-requests/new`* --
+   * translated literally, `*` and all, and not a tidier one written from
+   * scratch. That is the whole point: a gate narrower than the reach the script
+   * already had would turn pages that used to work into pages where nothing
+   * happens, which is exactly what a tidier pattern did. Both features hang off
+   * this one predicate, so it cannot afford to be a guess about the URL.
+   *
+   * Being a prefix, it accepts anything after `new`, and it keeps naming the
+   * workspace: `REPOS` holds bare repository names, so a `rundown-lib` in a
+   * stranger's workspace would otherwise be pruned against our reviewer list.
    */
-  const CREATE_PR_PATH_RE = /^\/ooyalaflex\/[^/]+\/pull-requests\/new(?:\/|$)/;
+  const CREATE_PR_PATH_RE = /^\/ooyalaflex\/.*\/pull-requests\/new/i;
 
   const onCreatePullRequestForm = () =>
     CREATE_PR_PATH_RE.test(location.pathname);
@@ -500,7 +506,17 @@
     // seen elsewhere on Bitbucket must not be recorded as one we have dealt
     // with. A prune is the destructive feature, and off this form the field it
     // would edit belongs to a pull request that already exists.
-    if (!onCreatePullRequestForm()) return;
+    //
+    // Said out loud, because a refusal here and a script that is not running at
+    // all look identical from the page: nothing happens either way. If the
+    // create form ever prints this line, the path it names is what the pattern
+    // above has to accept.
+    if (!onCreatePullRequestForm()) {
+      logger.debug(
+        `a reviewers picker mounted at ${location.pathname}, which is not the create form: leaving it alone`,
+      );
+      return;
+    }
 
     if (handledControls.has(controlElt)) return;
     handledControls.add(controlElt);
