@@ -1,13 +1,18 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 0.2.0 implements the whole of section 2.**
+- **Status:** Accepted. **Version 0.5.0 implements the whole of section 2.**
   Version 0.1.1 had built §2.1, §2.2, §2.4, §2.5, §2.7, §2.10, §2.12, §2.13 and
-  the badge of §2.9; 0.2.0 adds the drawer and everything in it — §2.3, §2.6,
-  §2.8, the rest of §2.9, and §2.11. What is left is **verification, not
-  features**: the steps of §7 that need two tabs, a damaged store, or a live
-  visit to each of the seven views. The two probes of appendix C are still not run
+  the badge of §2.9; 0.2.0 added the drawer and everything in it — §2.3, §2.6,
+  §2.8, the rest of §2.9, and §2.11; 0.3.0 changed one control, so that 🔍
+  **opens** the collection in Jira's search instead of copying the query (§2.8);
+  0.4.0 made every row's key a real link (§2.9) and fixed the ⚙, which a CSS
+  specificity trap had left inert (§2.11); 0.5.0 **reversed** the drawer's open
+  state into a stored preference (§2.9).
+  What is left is **verification, not features**: the steps of §7 that need two
+  tabs, a damaged store, or a live visit to each of the eight views. The two
+  probes of appendix C are still not run
 - **Date:** 2026-08-18
-- **Applies to:** `src/jira-cart.user.js` (version 0.2.0)
+- **Applies to:** `src/jira-cart.user.js` (version 0.5.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository
 
@@ -400,9 +405,13 @@ control is placed against.** §2.7 has the correction and its evidence: in a row
 whose summary is also a link to the same issue, the widest anchor is that
 summary. It is the right place to read text and the wrong place to put a button.
 
-The Cart's own UI is excluded from the scan. It holds no `/browse/` anchors
-today, so this is a guard and not a fix. A live list that scanned itself would be
-diagnosed as a Jira change rather than as our bug.
+The Cart's own UI is excluded from the scan. **That was written as a guard, and at
+version 0.4.0 it became the thing holding a feature up.** When every row's key
+became a link (§2.9), the drawer started carrying one `/browse/` anchor per key — so
+without this line the live list finds itself, every count doubles, and a live list
+that scanned itself would be diagnosed as a Jira change rather than as our bug. The
+line that cost nothing has now paid for itself twice: it also keeps the floating
+button from being summoned by our own rows (§2.7).
 
 **The label states the scope: `On this page (n)`.** It does not borrow Jira's own
 `(7 of 27 work items visible)`, for three reasons (`09` §4/5): that text is
@@ -950,10 +959,12 @@ GLX-402
 RDC-14817, RDC-23716, GLX-402
 ```
 
-**🔍 JQL** — for Jira's own search box.
+**🔍 Search** — Jira's own issue navigator, opened on the collection. The query is
+unchanged; only where it goes changed.
 
 ```
 key in (RDC-14817, RDC-23716, GLX-402)
+→ /issues/?jql=key%20in%20(RDC-14817%2C%20RDC-23716%2C%20GLX-402)
 ```
 
 **The four are a spanning set, not a wish list**: one rich list a person reads, one
@@ -975,6 +986,34 @@ save and share. An earlier argument — that it makes the data durable *inside* 
 while Links makes it durable *outside* — was withdrawn when `10` made the store
 survive a logout (`10` §6). The utility argument never depended on the store.
 
+**The button OPENS that query rather than copying it. Changed on 2026-08-18, at the
+user's request, after using 0.2.0.** The paragraph above is the reason: filtering,
+bulk-editing, saving and sharing all happen *in Jira*, so the copy was a step on the
+way to somewhere, and every use of it ended in the same paste. The control now goes
+there. `/issues/?jql=<encoded>` is the path, read off the user's own instance.
+
+**It opens a NEW TAB.** A same-tab navigation would take away the page the live list
+is mirroring and close the drawer with it, because the open state lives in memory
+(§2.9). Nothing would be lost — the collection is in storage — but the sitting would
+be. `window.open` inside a click handler carries the user activation a popup blocker
+asks for, the same as §2.7's menu entry. **Its return value cannot be tested:
+passing `noopener` makes it return `null` by specification, whether it worked or
+not.** So there is no success check, and a `null` there means nothing.
+
+**What this costs, stated because it is a real loss.** The JQL *text* no longer
+reaches the clipboard, and that text has secondary uses: a board's filter, an
+automation rule, a saved filter's edit box, a colleague. Each of those is now one
+step further away — which is the mirror of the step this change removes. The trade
+is accepted on frequency: the search was the common destination and the others were
+not. It is also softened rather than sealed, because the search page shows the query
+in its own box and its URL is shareable, so the text is one selection away and the
+link is arguably the better thing to send. **If both are ever wanted, it is one more
+entry in the same list, not a redesign** — which is the property this section was
+built for.
+
+**The query itself did not change**, and one function still builds it. So the format
+stays checkable on its own, and the spanning set still has exactly four slots.
+
 **No format ever drops an item.** The lines in a paste always equal the items
 copied. Silently omitting an item would hide something that is either pending or
 broken.
@@ -984,7 +1023,7 @@ broken.
 | 🔗 Links | `- [RDC-14817](url) Outline inside the edited field` | `- [GLX-402](url)` |
 | 📃 Names | `[RDC-14817] Outline inside the edited field` | `GLX-402` |
 | 🔑 Keys | unaffected | unaffected |
-| 🔍 JQL | unaffected | unaffected |
+| 🔍 Search | unaffected | unaffected |
 
 **Names drops its brackets, and that is not cosmetic.** The brackets separate the
 key from the summary. With no summary they separate nothing, and `[GLX-402] `
@@ -1002,9 +1041,9 @@ separator and the summary go together (`06` §3).
 | 🔗 Links | yes | yes | yes |
 | 📃 Names | yes | yes | yes |
 | 🔑 Keys | yes | yes | yes |
-| 🔍 JQL | yes | yes | **no** |
+| 🔍 Search | yes | yes | **no** |
 
-JQL is the exception because it exists to rebuild a set. For one issue,
+Search is the exception because it exists to rebuild a set. For one issue,
 `key in (RDC-14817)` is a worse way to reach it than the URL the other three
 formats already carry, and the idiomatic single form is `key = RDC-14817`, which
 would mean two shapes behind one menu entry.
@@ -1032,7 +1071,7 @@ uses them. `text/plain` + `text/html` is the whole surface (`06` §5).
 | 🔗 Links | markdown list | a `<ul>` of links |
 | 📃 Names | yes | — |
 | 🔑 Keys | yes | — |
-| 🔍 JQL | yes | — |
+| 🔍 Search | — | — |
 
 ```html
 <ul><li><a href="https://dalet.atlassian.net/browse/RDC-14817">RDC-14817</a>&nbsp;Outline inside the edited field</li><li><a href="…/RDC-23716">RDC-23716</a>&nbsp;Rundown grid does not refresh after a move</li><li><a href="…/GLX-402">GLX-402</a></li></ul>
@@ -1042,6 +1081,10 @@ uses them. `text/plain` + `text/html` is the whole surface (`06` §5).
 numbering would imply a ranking that does not exist. The `&nbsp;` after `</a>` is
 taken verbatim from
 [`jira-ux-improvements.user.js:337-342`](jira-ux-improvements.user.js#L337-L342).
+
+**Search writes no clipboard flavour at all**, because it writes no clipboard: its
+feedback is the tab that opens, which is a stronger receipt than a blink on a button,
+and there is nothing on that path that can half-succeed.
 
 **Names gets no rich version, and that is the point of Names.** A `<ul>` twin
 would put bullets into Confluence that were not asked for. The reason to choose
@@ -1128,7 +1171,9 @@ more:
 format(items, scope) → { text, html? }
 ```
 
-Four functions, one signature. `writeClipboard` does not care which one ran.
+Four functions, one signature. `writeClipboard` does not care which one ran. Three
+of the four entries end at the clipboard and the fourth carries one extra field that
+names its destination, so the table is not named after copying.
 Adding a fifth format means adding one entry to a list, which is how
 [`jira-ux`'s `BUTTONS` array](jira-ux-improvements.user.js#L404-L463) already
 works.
@@ -1174,16 +1219,37 @@ The user kept it open throughout a collecting session, which is the verdict — 
 live list is the reason it stays open**, so the drawer is a companion and not a
 review surface opened at the end (`08` §2).
 
-**Whether the drawer is open lives in memory, and it starts closed. Decided on
-2026-08-18, by the build session, because this section named the remembered size
-and the remembered divider and said nothing about this one.** It answers *am I
+**Whether the drawer is open is a STORED PREFERENCE, and a fresh install starts
+closed. REVERSED on 2026-08-18, at the user's request, after using it.**
+
+The first answer was the opposite, and it is kept here because the reasoning is
+still worth reading and was still wrong. It said: the open state answers *am I
 collecting right now*, which is a question about this sitting and not a standing
 preference — the same reading `jira-ux-improvements` gives its lock and
-`jira-backlog-sprints` gives its panel. A React remount must not close it, so the
-state is not on a node React owns: §7 steps 10 and 11 are what that has to satisfy.
-The cost is stated and accepted: **a reload closes a drawer you were collecting
-into.** Nothing is lost when it does, because the collection is in storage and the
-drawer is only a view of it.
+`jira-backlog-sprints` gives its panel. So it lived in memory, and the cost was
+stated and accepted: *a reload closes a drawer you were collecting into.*
+
+**Use overturned it, and the flaw was in the premise, not the deduction. A reload
+is not the end of a sitting.** It is a link you clicked, an edit you saved, a page
+that reloaded itself, or a full page load from the drawer's own key links (added in
+0.4.0, which is what made this frequent enough to notice). Closing the drawer on
+each of those made the reload cost more than the reload.
+
+It therefore joins the remembered size and the remembered divider in
+`gt-jira-cart.prefs`, and it is read the way `corner` is: **a function that asks
+storage, never a variable beside it.** A variable and a stored value are two things
+that can disagree, which is what principle 1 deletes everywhere else in this design.
+
+Two costs, both accepted and neither hidden: **a new tab opens with the drawer
+already open**, because it reads the same preference, and **a drawer left open a
+week ago is open when you come back.** Both follow from it being a preference,
+which is what it now is.
+
+One property is unchanged and still load-bearing: **a React remount must not close
+it.** The state is not on a node React owns — it is a stored value written onto
+`<html>` as an attribute by one CSS rule, which also means a drawer you left open is
+open on the FIRST PAINT of a reload rather than a frame later. §7 steps 10, 11 and
+13 are what that has to satisfy.
 
 **Plain `z-index`, not the top layer.** `popover="manual"` was built into the
 prototype as a switch and never earned its place. Nothing of Jira's ever covered
@@ -1223,8 +1289,39 @@ delete something and there is no undo. `07`'s constraint is honoured: the same i
 is removable in **both** sections, never removable in one and inert in the other
 (`08` §3).
 
-**The whole live-list row is the control.** The live list is the only add path for
-anyone who cannot hover, so the target is the row and not a small `+` inside it.
+**The whole live-list row is the control, EXCEPT ITS KEY. Corrected on 2026-08-18,
+at the user's request, after using 0.3.1.** The live list is the only add path for
+anyone who cannot hover, so the target is still most of the row rather than a small
+`+` inside it — that reason is untouched. What changed is that **the key is now a
+real link** in both sections, so a click opens the issue and a middle-click or a
+Ctrl-click opens it in a new tab.
+
+Three things follow, and each is a rule rather than a detail:
+
+- **The link is a SIBLING of the toggle, never a child.** An anchor inside a button
+  is invalid HTML and the parser lifts it straight out — the same trap the
+  collection chips hit, and the reason a live-list row is now a `<div>` holding two
+  controls.
+- **The two gestures are the browser's, not ours.** A real `href` answers
+  middle-click, Ctrl-click, *Copy link address* and the browser's own menu for free.
+  A script that reimplemented them with a click handler would get some of them right
+  and quietly lose the rest.
+- **A click costs a FULL PAGE LOAD, where Jira's own links re-render in place. That
+  is measured, and it is declined rather than deferred (appendix A.7, 2026-08-18).**
+  Jira's router is per-element: its own anchors carry their own React `onClick`, so
+  our anchor is invisible to it no matter what it does. Being seen would mean putting
+  the drawer inside `#jira-frontend`, where React can delete it — which is the one
+  thing this section refuses. The only route left is `history.pushState`, and §2.12
+  says a script under a `@grant` has no page context; a push that a router
+  half-honours gives a changed URL over a stale view, which is worse than a reload
+  rather than better. **The gesture that keeps your place already exists**, and it is
+  the middle-click above. And since 0.5.0 a reload costs the page load and not the
+  sitting, because the drawer comes back open.
+- **The pre-click warning moved onto the toggle.** A collected row used to turn red
+  under any hover; it now reddens only the half that removes, because the key beside
+  it navigates instead, and a red row would promise a removal on a click that does
+  something else. §2.7's rule is that the affordance names the action UNDER THE
+  CURSOR, and with two actions in one row that has to be read strictly.
 
 **The full summary is in the tooltip, on both sections' rows.** A 380px drawer
 cannot show a Jira title, so the row ellipsises and the hover carries the rest:
@@ -1252,9 +1349,11 @@ which is a worse thing to be.
 **Copy and refresh** (`08` §5):
 
 - **Four buttons at the foot of the collection section — 🔗 Links, 📃 Names, 🔑
-  Keys, 🔍 JQL — acting on the whole collection.** All four are disabled and dimmed
-  while the collection is empty, the convention `jira-ux` already uses for the
-  buttons that need a description.
+  Keys, 🔍 Search — acting on the whole collection.** Three copy; the fourth opens
+  Jira's issue search on the collection, in a new tab (§2.8). All four are disabled
+  and dimmed while the collection is empty, the convention `jira-ux` already uses
+  for the buttons that need a description — a copy of zero items must not write,
+  and `key in ()` is not valid JQL, so one rule serves both kinds.
 - **The refresh control is a ↻ in the collection's heading**, beside its name and
   count. An action on the named thing sits next to its name, and the foot row stays
   about getting data out. It must be findable: it is the only remedy for a stale
@@ -1472,8 +1571,24 @@ sight. The drawer's containers are **`overflow: clip`**, which is genuinely not 
 scroll container, and the one list that should scroll is scrolled by hand. That
 makes the whole class of bug unrepresentable rather than patched.
 
-*A note for whoever edits the stylesheet: it is a template literal, so one backtick
-in a CSS comment ends it. That cost twenty minutes once.*
+**Two notes for whoever edits the stylesheet, and both are cheap to re-learn the
+hard way.**
+
+*It is a template literal, so one backtick in a CSS comment ends it.* That cost
+twenty minutes the first time, and happened twice more afterwards — each time
+reporting a syntax error tens of lines below the real one.
+
+***The `hidden` attribute hides nothing where a more specific rule sets
+`display`.*** Found at version 0.3.0, in use: the ⚙ appeared to do nothing, because
+the preferences area's own rule set `display: flex` while naming two ids, and the
+drawer's generic `[hidden]` rule names one id and an attribute. The area was
+therefore **permanently visible**, and the button was toggling an attribute with no
+effect. The attribute's own rule is UA-origin, so ANY author `display` beats it,
+which means **an element whose own rule sets `display` needs the attribute in its
+own selector** — the way the floating button already did. The same arithmetic
+governs the generated collected-keys sheet of §2.7, which paints
+`a[href$="/browse/KEY"]` and would otherwise tint the drawer's own key links
+(§2.9): the drawer names its own, and wins.
 
 ### 2.12 The platform: a userscript, with a `@grant`
 
@@ -1621,7 +1736,8 @@ follows the hovered issue link. Everything else is inside the drawer.
 | 🛒 `Scratch 7 ▾` | the badge, bottom-right | Opens and closes the drawer. The label is the active collection's name and its item count |
 | ⚠️ on the badge | the badge | The last write failed. The drawer carries the sentence |
 | `+` / `✓` / `−` | floating, left of the hovered issue link | `+` adds. `✓` says it is in the collection. `−` (the pointer is on the button) removes |
-| A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it |
+| A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it. **The key itself is a link**: click to open the issue, middle-click or Ctrl-click for a new tab |
+| A key, in either section | drawer | A real link to the issue, so the browser's own gestures all apply, including its context menu |
 | `✕` on a collection row | drawer, the collection | Removes that item |
 | The collection's name | drawer, the collection's heading | Click to rename it in place. Enter or blur commits. Escape cancels |
 | ⌫ | drawer, the collection's heading | Empties the collection and keeps its name. Click once to arm it — the label becomes `Empty N?` — and again to commit |
@@ -1632,7 +1748,7 @@ follows the hovered issue link. Everything else is inside the drawer.
 | 🔗 Links | drawer, the foot | Copies the whole collection as a markdown list, plus a `<ul>` as HTML |
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
-| 🔍 JQL | drawer, the foot | Copies `key in (KEY, KEY, KEY)` |
+| 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | Opens the preferences: the right-click switch, the section layout, and which bottom corner the Cart takes |
 | Sections | drawer, the preferences | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
 | Corner | drawer, the preferences | Bottom right or bottom left. The drawer's chrome mirrors it |
@@ -1648,7 +1764,8 @@ Notes on the controls:
   labels its own scope.
 - **The four copy buttons act on the whole collection.** They are disabled and
   dimmed while it is empty, because a copy of zero items must not write.
-- A copy button shows ✅ or ⚠️ for 900 ms. Then `render` puts the label back.
+- A copy button shows ✅ or ⚠️ for 900 ms. Then `render` puts the label back. 🔍
+  Search shows neither: the tab that opens is the receipt.
 - **The label is the state**, everywhere: the badge, the floating button, and each
   row. This is the convention `jira-backlog-sprints` uses for `N sprints hidden ▾`.
 - **The Cart binds no keyboard shortcut.** `jira-ux-improvements` owns
@@ -1696,12 +1813,14 @@ Notes on the controls:
 | The `GM.*` promise-based API | An `await` in the copy handler puts the clipboard write outside its user activation |
 | Bare URLs, one per line | Links with the summary removed. Its only distinct paste target cannot be named |
 | `[KEY] Summary — URL` | Links' three fields with different punctuation |
+| Copying the JQL instead of opening it | Every use of it ended in the same paste into Jira's search box, so the button goes there instead. The query text is one selection away on that page, and its URL is the better thing to share |
 | The collection's name as a heading in a copy | Redundant where you paste, wrong for a selection, invalid inside Keys and JQL, and it breaks *lines equals items* |
 | A template engine for the formats | Names' summary-less line is a different line shape, not a substituted value. Templates would be a rewrite of this layer |
 | `localStorage` for the collections | It dies on a logout or a history cleanup |
 | A mirror into Jira's own user properties | Two copies of the user's data that can disagree, a reconciliation rule, and a 32,768-byte ceiling — all to avoid a grant that is free. Preserved at `10a` Part 5 |
 | A Chrome extension | It reads the same DOM and calls the same endpoint, and costs a manifest, a service worker, a build step and three install stories. Its users already run Tampermonkey |
 | A shared library with `@require`, or a build step | Tampermonkey and GitHub's raw server both cache the file. A version in the URL needs discipline; a build step means `src/*.user.js` is no longer what you install |
+| Client-side navigation from the drawer's key links | Jira's router is per-element, so our anchor is invisible to it; being seen would mean living inside React's root, where React can delete the drawer. `pushState` needs page context a `@grant` does not have, and a half-honoured push shows a changed URL over a stale view (appendix A.7) |
 | `watchRoute` | A strict mirror has nothing to forget on navigation, and the collections are in storage |
 
 ---
@@ -1836,6 +1955,13 @@ These are not gaps in the design. Each was named, and each was left.
     one listener.
 12. **Whether a backlog section header's total is post-filter.** Nothing reads it.
     Recorded so that a future grouping effort establishes it first.
+13. **Whether the drawer's own key links can navigate the way Jira's do.** Opened
+    and **CLOSED on 2026-08-18, as DECLINED rather than deferred.** The probe ran
+    the same day: Jira's router is per-element, so our anchor can never be caught by
+    it, and the two remaining routes are each worse than the full page load they
+    would replace. The measurement is in **appendix A.7** and the verdict is in
+    §2.9. The item keeps its number, because §2.9 cites it. **It would reopen only if
+    Atlassian moved to a delegated router**, which A.7's probe re-tests in one line.
 
 ---
 
@@ -1876,13 +2002,17 @@ There is no test system in this repository. Use these steps in a browser, with
 12. **Thirty items still read.** Fill the collection with thirty items. `On this
     page` must keep its share of the drawer, its heading must not be sliced, and the
     list — not the drawer — must scroll.
-13. **Resize.** Drag the grip. The drawer must follow the pointer. Widen it past
-    560px: the sections must go side by side. Double-click the grip: it must size
-    itself again. Then reload — the size must come back.
-14. **Copy.** With three items, one of them summary-less, press each of the four
-    buttons and paste into a plain editor. **Every paste must have as many lines as
-    the collection has items.** Paste Links into Confluence: it must arrive as live
-    links. Paste JQL into Jira's search box: it must return the collection.
+13. **Resize, and reload.** Drag the grip. The drawer must follow the pointer.
+    Widen it past 560px: the sections must go side by side. Double-click the grip: it
+    must size itself again. Then reload — **the size must come back, and so must the
+    drawer itself, open, on the first paint** (§2.9, reversed at 0.5.0). Close it and
+    reload again: it must stay closed.
+14. **Copy, and search.** With three items, one of them summary-less, press 🔗
+    Links, 📃 Names and 🔑 Keys and paste each into a plain editor. **Every paste
+    must have as many lines as the collection has items.** Paste Links into
+    Confluence: it must arrive as live links. Then press 🔍 Search: **a new tab
+    must open on Jira's issue search showing exactly the collection**, this tab
+    must stay where it was, and the drawer must still be open on it.
 15. **Empty means disabled.** Empty the collection. All four buttons must be dimmed
     and must write nothing.
 16. **Two tabs.** Open Jira in two tabs. Add an item in one. The other's badge and
@@ -1910,7 +2040,13 @@ There is no test system in this repository. Use these steps in a browser, with
     Active sprints. **No warning badge may appear** — 37 keys with no row around
     them is what raised one before 2026-08-18. Add a row: the item must carry the
     title beside the key, and the live list must label it `timeline`.
-25. **Emptying, and deleting.** With items in the collection, press ⌫ once: the
+25. **The keys are links.** In both sections, click a key: the issue must open in
+    this tab, and the collection must not change. Middle-click another: it must open
+    in a new tab, with this one left where it was. Then check a **collected** row —
+    its key must stay readable while the rest of the row goes red under the cursor,
+    and `On this page (n)` must not double, because the drawer holds issue links now
+    and the scan has to skip its own (§2.3).
+26. **Emptying, and deleting.** With items in the collection, press ⌫ once: the
     label must become `Empty N?` and **nothing may be removed**. Click a row
     instead — it must disarm. Press ⌫ twice: the items go and **the name stays**.
     Then press a chip's ✕ twice: that collection goes and the next becomes
@@ -2074,6 +2210,37 @@ floating button in the wrong place on one view. It corrected four things.
 The consequences are in §2.1 (a fifth row container, and the leaf rule widened for
 it), §2.2 (the cascade reads the group's widest anchor), §2.3 (the breadcrumb
 name), and §2.7 (a group has two answers).
+
+
+### A.7 The router probe, 2026-08-18
+
+One line in the console, on a live Jira page, asked whether Jira's own issue anchors
+carry their own click handler or leave it to a delegated listener. It was run because
+the drawer's key links (§2.9, added at 0.4.0) do a full page load where Jira's do
+not, and the answer decides whether that is fixable at all.
+
+```js
+(() => {
+  const own = document.querySelector('#jira-frontend a[href*="/browse/"]');
+  const props = Object.entries(own ?? {}).find(([k]) => k.startsWith("__reactProps"))?.[1];
+  console.log("it carries its own onClick:", typeof props?.onClick === "function");
+})();
+```
+
+| What | Result |
+| --- | --- |
+| Jira's own anchor carries a React `onClick` | **`true`.** The router is PER-ELEMENT |
+| Therefore, can our anchor be caught by that router? | **No**, and no amount of markup on our side changes it: our link is outside React's tree and carries no React props |
+| The only way to be seen | Put the drawer inside `#jira-frontend`, which §2.9 refuses because React can then delete it |
+| The remaining route | `history.pushState` plus a synthetic `popstate`. **Not attempted**: §2.12 says a script under a `@grant` has no page context, and a router that half-honours the push shows a changed URL over a stale view — worse than the reload, not better |
+
+**Verdict: declined, not deferred** (§6 item 13, §4). Two things make the cost small.
+The middle-click and Ctrl-click gestures already keep your place, because the key is
+a real link. And a reload no longer costs the collecting session, because 0.5.0 made
+the drawer's open state a stored preference (§2.9).
+
+**What would reopen it:** Atlassian moving to a delegated router. The line above
+re-tests that in one command, which is why it is recorded rather than described.
 
 ---
 
