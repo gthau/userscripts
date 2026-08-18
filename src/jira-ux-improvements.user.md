@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-06
-- **Applies to:** `src/jira-ux-improvements.user.js` (version 0.3.0)
+- **Applies to:** `src/jira-ux-improvements.user.js` (version 0.3.2)
 
 ## About this document
 
@@ -321,6 +321,17 @@ This is a position, not a height. Two earlier methods were not correct:
 5. **A sticky header.** The move down past the description puts the next
    section at the top of the container. If Jira adds a sticky header to that
    container, the header can hide the first line.
+6. **The fallback corner is inside Jira's navigation band.** Without anchor
+   positioning the toolbar goes to the top right corner, where Jira's own global
+   navigation paints above a low `z-index`. At `z-index: 1` the toolbar was
+   **invisible**, not merely in a poor position. Firefox never takes the anchor
+   branch, so **each Firefox user of version 0.3.1 and earlier had no toolbar at
+   all**, and no Chromium user ever saw it. Version 0.3.2 gives the fixed corner
+   `z-index: 9999` and keeps the anchored rule at `1`, so the Chromium position
+   does not change and the toolbar cannot paint over a dialog of Jira. The
+   condition was found by the harness of the Jira Cart effort, with a switch that
+   forces the fallback path. Refer to
+   [`jira-cart.user.md` §2.9](jira-cart.user.md).
 
 ---
 

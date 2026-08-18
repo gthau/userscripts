@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.3.2
 // @description  A toolbar on Jira issues: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -623,7 +623,14 @@ div#${TOOLBAR_ID} {
   position: fixed;
   inset-block-start: 0.5rem;
   inset-inline-end: 0.5rem;
-  z-index: 1;
+  /* This corner is inside Jira's own global navigation band, which paints above
+     a low z-index: at z-index 1 the toolbar was not merely in a poor position,
+     it was invisible. Only the fallback path reaches this rule, so no Chromium
+     user has ever seen it -- Firefox users see nothing else. 9999 is the value
+     a separate harness confirmed nothing of Jira's covers. The anchored branch
+     below keeps z-index 1, so the position that Chromium uses is unchanged and
+     the toolbar still cannot paint over one of Jira's own dialogs. */
+  z-index: 9999;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -705,6 +712,10 @@ div#${TOOLBAR_ID} button:disabled {
     position-area: center right;
     inset-block-start: auto;
     inset-inline-end: auto;
+    /* Back to 1. The toolbar sits beside the breadcrumbs here, inside Jira's
+       own tree, where it must not paint over a dialog. The high value above is
+       for the fixed corner only. */
+    z-index: 1;
   }
 }`,
   );
