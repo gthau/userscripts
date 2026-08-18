@@ -1,8 +1,11 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. The script is not written yet.
+- **Status:** Accepted. Written in part. Version 0.1.1 implements §2.1, §2.2,
+  §2.4, §2.5, §2.7, §2.10, §2.12, §2.13, and the badge of §2.9. The drawer and
+  everything inside it — §2.3, §2.6, §2.8, the rest of §2.9, and §2.11 — is not
+  written yet
 - **Date:** 2026-08-18
-- **Applies to:** `src/jira-cart.user.js` (to be written)
+- **Applies to:** `src/jira-cart.user.js` (version 0.1.1)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository
 
@@ -165,8 +168,9 @@ loses the decoration or the summary. That is principle 4 by construction.
 | --- | --- | --- |
 | Row | `[data-testid*="card-list.card.content-container."]` | backlog |
 | Row | `[data-testid$="ui.card.card"]` | board |
-| Row | `[data-testid$="ui.issue-row"]` | search results, epic children |
+| Row | `[data-testid$="ui.issue-row"]` | search results, epic children, child work items |
 | Row | `[data-testid$="scope.issues.issue.row"]` | timeline |
+| Row | `[data-testid$="issue-line-card.card-container"]` | linked work items |
 | Summary | `[data-testid$="summary-field-static.content"]` | backlog |
 | Summary | `[data-testid$="issue-summary.issue-summary-cell"]` | search results, epic children |
 | Summary | `[data-testid$="single-line-text.container.box"]` | board |
@@ -189,10 +193,51 @@ Four rules about that table, each from evidence:
   are not reliably the same node, and neither reliably contains the other in a
   fixed direction (`02`, probe limitations). `closest()` on the row list is the
   only safe direction.
+- **The linked-work-items card is a row, and it was added on 2026-08-18** by the
+  build session, from a probe on a live issue (appendix A.6). Its card carries
+  **two** anchors to the same issue, the key and the summary, and with no row
+  around them there is no group (§2.7) and tier 1 cannot run — which is where
+  §2.2 says this view's summary comes from. The name takes **two segments**, and
+  this is the one place the leaf rule above is widened rather than followed:
+  `card-container` on its own is generic, and `*="issue-line-card"` matches the
+  summary's own wrapper (`…issue-line-card-view.summary`) before the card, which
+  splits one card into two groups and defeats the purpose.
+- **`ui.issue-row` covers three views, and its live name is
+  `native-issue-table.ui.issue-row`.** An issue's child work items use the same
+  component as search results and an epic's children, so no fourth name is
+  needed. That row also carries two anchors to the same issue (appendix A.6).
 
 The platform check is selector-free:
 `document.querySelector('meta[name="application-name"]')?.content` is `"JIRA"` on
 every view (`02`).
+
+**What trips the broken-contract badge, and what may never trip it.** The badge
+(§2.13, risk 1) announces a rotted `data-testid`. The comparison is **distinct keys
+against row containers**: keys were found and no row was found around them, which
+means the row list has rotted and the summaries and the decorations went with it.
+**It may never compare anchor counts against anything** (`02` §4). An anchor count
+is not an issue count, and it means something different per view: a backlog card
+carries two anchors and a board card carries one. A check built on anchors would
+report a defect on the backlog every time it ran.
+
+**Two conditions guard the report. Added on 2026-08-18, by the build session,
+because the comparison alone cries wolf.** An ordinary issue page holds issue
+links in its breadcrumbs, in its description and in its linked-items panel, and
+is not a list view at all, so *keys with no row around them* is its normal
+condition. Taken literally the check would put a warning on every issue page.
+
+1. **No row container anywhere on the page.** One row found is proof that the row
+   list still works.
+2. **At least twelve distinct keys in none of the containers this document
+   names** — no row, no current-issue breadcrumb, no linked-work-items card, no
+   `.ak-renderer-document`. Jira's own quick-search dropdown draws a handful of
+   issue links inside none of them, and a warning it set off would be false.
+
+**The check therefore under-reports, and that is the intended trade.** A backlog
+filtered down to five rows, on the day Atlassian renames the backlog row, is
+silent. The same reasoning as the live list's label in §2.3: a wrong report costs
+more than a missing one, because the first thing a false warning does is teach the
+user to ignore the true one.
 
 ### 2.2 The summary comes from the page, in six tiers
 
@@ -209,6 +254,12 @@ The cascade tries six sources, in this order. The first one that answers wins.
 | 4 | The anchor's own text, when it is not the key | issue links, epic children |
 | 5 | The parent's text, minus the anchor's text — **inside a known row only** | timeline |
 | 6 | The page is about this issue: the issue-view heading, then `document.title` in the form `[KEY] Summary` | the issue view |
+
+**The cascade reads the group's widest anchor** (§2.7). It matters at tier 4:
+where a row carries a link on the key and another on the summary, the summary is
+the wider one, and its own text is the answer. Tier 1's claim about issue links
+also depends on that panel's card being a row, which it became on 2026-08-18
+(§2.1).
 
 Tier 2 works because the accessibility affordances are consistently the richest
 text on a card (`02` §1). The label ends with `. Use the enter key to load the work
@@ -300,6 +351,11 @@ is the visible key rather than the screen-reader twin — which selects the righ
 element without naming `…screen-reader-key`, and so without adding a testid to
 the list of things that can rot (`08`, `07` §6.3).
 
+**The widest anchor is the anchor the row READS FROM, and not always the anchor a
+control is placed against.** §2.7 has the correction and its evidence: in a row
+whose summary is also a link to the same issue, the widest anchor is that
+summary. It is the right place to read text and the wrong place to put a button.
+
 The Cart's own UI is excluded from the scan. It holds no `/browse/` anchors
 today, so this is a guard and not a fix. A live list that scanned itself would be
 diagnosed as a Jira change rather than as our bug.
@@ -325,7 +381,7 @@ walking up from the anchor. First match wins.
 
 | Origin label | Container |
 | --- | --- |
-| this work item | `[data-testid*="breadcrumbs.current-issue"]` |
+| this work item | `[data-testid$="breadcrumb-current-issue-container"]` |
 | backlog | `[data-testid*="card-list.card.content-container."]` |
 | board | `[data-testid$="ui.card.card"]` |
 | work-item table | `[data-testid$="ui.issue-row"]` |
@@ -441,9 +497,21 @@ and the UI's settings are different kinds of state — the distinction
 between the lock and the collapse — and separating them means a malformed
 preference can never take a collection with it.
 
-**Which store those two keys live in is not settled.** `10` moved *the
-collections*. It said nothing about the other two. §6 item 1 has it, and it is the
-one question to ask before writing the load path.
+**All three keys live in Tampermonkey's storage. Decided on 2026-08-18, by the
+build session, which `10` left this to.** `10` moved *the collections* and said
+nothing about the other two. The other two follow them, for three reasons. A
+backup in `localStorage` is destroyed by a logout — the exact event the `@grant`
+exists to survive, and the event a bad migration is most likely to follow, so a
+backup there is missing when it is needed. One store means the load path has one
+failure mode and not two. And the Cart then never touches `localStorage` on this
+origin at all, whose wrapper is the hazard the scar below describes. The cost is
+known and accepted: the preferences are no longer visible in the developer tools'
+Application tab, and are read in Tampermonkey's own storage view for the script.
+
+**The separation is unchanged. Three keys, not one.** `05`'s reason for keeping
+the preferences apart from the collections is about **separation**, not about the
+store, so it stands either way: a malformed preference still cannot take a
+collection with it.
 
 **`v` is at the root and nowhere else.** It is bumped only when an existing field
 changes shape or meaning. **Adding an optional field never bumps it**, or one new
@@ -741,13 +809,38 @@ a[href*="/browse/KEY#"], a[href*="/browse/KEY/"]
 
 Only a key that matches `^[A-Z][A-Z0-9]*-\d+$` goes into a generated stylesheet.
 
-**Group anchors by (row, key) before decorating anything**, and take the widest
-anchor in each group. Two reasons that pull in opposite directions: a backlog card
-carries two anchors to the **same** issue, so a per-anchor loop decorates it
-twice; and a prose paragraph carries anchors to **different** issues under one
-parent, so a per-row loop decorates one and loses the rest (`07` §6.3). Note that
-the live list's rule is not the same rule: it wants one row per key for the whole
-page (§2.3).
+**Group anchors by (row, key) before decorating anything.** Two reasons that pull
+in opposite directions: a backlog card carries two anchors to the **same** issue,
+so a per-anchor loop decorates it twice; and a prose paragraph carries anchors to
+**different** issues under one parent, so a per-row loop decorates one and loses
+the rest (`07` §6.3). Note that the live list's rule is not the same rule: it
+wants one row per key for the whole page (§2.3).
+
+**A group has two answers, not one. Corrected on 2026-08-18, from use.** This
+section said the **widest** anchor served the whole group, which is true on the
+backlog, where the other anchor is an invisible screen-reader twin. It is wrong
+on every row whose summary is **also a link to the same issue** — child work
+items, search results, an epic's children, linked work items (appendix A.6). The
+summary link is the wider one there, so the button landed 6px to the left of the
+summary, which reads as *to the right of the key*: the middle of the row, and not
+the row's own left margin, where this section put it and where nothing else is.
+
+| The group's role | The anchor |
+| --- | --- |
+| Where the button goes | the anchor that **says nothing but the key** |
+| Where the summary is read from | the **widest** anchor |
+
+The two must stay separate, and the second is why the fix is not simply "use the
+key's anchor". In those rows the summary arrives from tier 4, which reads the
+anchor's own text (§2.2), so reading from the key's anchor would store **no
+summary at all**. Placing beside the key and reading from the summary is one
+group with two roles, and neither role names a `data-testid`.
+
+"Says nothing but the key" is decided by `stripKeyPrefix` returning an empty
+string, not by an equality test. So the timeline's
+`RDC-21069, (opens new window)` counts, and the backlog's screen-reader twin,
+which carries the key **and** the summary, does not. Document order decides when
+more than one anchor qualifies, so the key column wins.
 
 **The right-click menu is a preference, and it ships off.** It was liked. It is
 not the gesture. The user's words: *"the context menu is nice, but I would like to
@@ -1554,12 +1647,11 @@ Notes on the controls:
 
 These are not gaps in the design. Each was named, and each was left.
 
-1. **Where `gt-jira-cart.prefs` and `gt-jira-cart.collections.bak` live.** `10`
-   moved *the collections* into Tampermonkey's storage and said nothing about the
-   other two keys. `05`'s reason for keeping preferences apart from the collections
-   is about **separation**, not about the store, so the separation stands either
-   way. **This document does not decide the mechanism.** It is the one question the
-   build session must ask before it writes the load path.
+1. **Where `gt-jira-cart.prefs` and `gt-jira-cart.collections.bak` live.**
+   **Closed on 2026-08-18: all three keys live in Tampermonkey's storage.** It was
+   the one question the build session had to ask before it wrote the load path,
+   and §2.4 holds the decision with its reasons. The item keeps its number here,
+   because other sections cite it.
 2. **Grouping the live list by the page's own sections.** Deferred at the user's
    request. It is blocked on one devtools probe: the element carrying
    `software-backlog.card-list.container.BACKLOG` does **not** contain its own
@@ -1801,6 +1893,26 @@ call and version 1 sent it on one. The four that followed were clean.
 | `GM_addValueChangeListener` across tabs | **Fires.** `remote: true` on the other tab, `remote: false` on the writer |
 | Its latency | *"After a short time."* **Not measured** |
 | A documented size ceiling for that store | **Unreadable.** `tampermonkey.net/documentation.php` renders its API sections client-side and returns only its table of contents. Confirmed twice, in two separate sessions |
+
+### A.6 The build session's probe, 2026-08-18
+
+One console probe over every `/browse/` anchor on a live issue page, printing each
+anchor's width, its nearest matching row container, its text, and the first four
+ancestors carrying a `data-testid`. It was run because version 0.1.0 put the
+floating button in the wrong place on one view. It corrected four things.
+
+| What | Result |
+| --- | --- |
+| The child-work-items row | `native-issue-table.ui.issue-row`, so `$="ui.issue-row"` already matched it |
+| That row's anchors | **Two to the same issue**: the key at 68–79px, and the summary at 191–519px |
+| The linked-work-items card | `issue-line-card.card-container`, which **no row selector matched**. Its summary anchor's own wrapper is `issue.issue-view.views.common.issue-line-card.issue-line-card-view.summary`, which is why a `*="issue-line-card"` match would split the card |
+| The current-issue breadcrumb | `issue.views.issue-base.foundation.breadcrumbs.breadcrumb-current-issue-container`. **§2.3's table said `breadcrumbs.current-issue`, which matches nothing**, so tier 6's second witness was dead and only the path answered |
+| The project breadcrumb, and the sidebar's project links | `/browse/RDC` at 24–270px wide. The anchored path expression rejects them, as it should |
+| A prose smart link | text `RDC-1377: Rundown - Full Day Pattern Epic spl…`, inside `smart-link-draggable-inline` in `issue.views.field.rich-text.description`. Tier 4 strips the key and the colon and keeps the title |
+
+The consequences are in §2.1 (a fifth row container, and the leaf rule widened for
+it), §2.2 (the cascade reads the group's widest anchor), §2.3 (the breadcrumb
+name), and §2.7 (a group has two answers).
 
 ---
 
