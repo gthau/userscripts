@@ -259,9 +259,12 @@
   // it is cleared by the next write that works. The badge says so (§2.9).
   let writeFailed = false;
 
-  // Whether you asked for the drawer. It answers "am I looking at it right now",
-  // so it lives in memory and starts closed, the same treatment the backlog
-  // script gives its panel. NOTHING OPENS in this version.
+  // Whether you asked for the drawer. It answers "am I collecting right now", so it
+  // lives in memory and starts closed, the same treatment the backlog script gives
+  // its panel -- decided on 2026-08-18 and recorded in §2.9, which had named the
+  // remembered size and the remembered divider and not this. A reload closes the
+  // drawer and loses nothing, because the collection is in storage and the drawer
+  // is only a view of it. NOTHING OPENS in this version.
   let drawerOpen = false;
 
   // Use the `GM_*` functions. NEVER the `GM.*` functions. `GM_setValue` is

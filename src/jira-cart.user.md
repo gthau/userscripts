@@ -1115,6 +1115,17 @@ The user kept it open throughout a collecting session, which is the verdict — 
 live list is the reason it stays open**, so the drawer is a companion and not a
 review surface opened at the end (`08` §2).
 
+**Whether the drawer is open lives in memory, and it starts closed. Decided on
+2026-08-18, by the build session, because this section named the remembered size
+and the remembered divider and said nothing about this one.** It answers *am I
+collecting right now*, which is a question about this sitting and not a standing
+preference — the same reading `jira-ux-improvements` gives its lock and
+`jira-backlog-sprints` gives its panel. A React remount must not close it, so the
+state is not on a node React owns: §7 steps 10 and 11 are what that has to satisfy.
+The cost is stated and accepted: **a reload closes a drawer you were collecting
+into.** Nothing is lost when it does, because the collection is in storage and the
+drawer is only a view of it.
+
 **Plain `z-index`, not the top layer.** `popover="manual"` was built into the
 prototype as a switch and never earned its place. Nothing of Jira's ever covered
 the drawer at `z-index: 9999`, on any view tried, and the top layer made no
