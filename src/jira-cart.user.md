@@ -1,11 +1,13 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. Written in part. Version 0.1.1 implements §2.1, §2.2,
-  §2.4, §2.5, §2.7, §2.10, §2.12, §2.13, and the badge of §2.9. The drawer and
-  everything inside it — §2.3, §2.6, §2.8, the rest of §2.9, and §2.11 — is not
-  written yet
+- **Status:** Accepted. **Version 0.2.0 implements the whole of section 2.**
+  Version 0.1.1 had built §2.1, §2.2, §2.4, §2.5, §2.7, §2.10, §2.12, §2.13 and
+  the badge of §2.9; 0.2.0 adds the drawer and everything in it — §2.3, §2.6,
+  §2.8, the rest of §2.9, and §2.11. What is left is **verification, not
+  features**: the steps of §7 that need two tabs, a damaged store, or a live
+  visit to each of the seven views. The two probes of appendix C are still not run
 - **Date:** 2026-08-18
-- **Applies to:** `src/jira-cart.user.js` (version 0.1.1)
+- **Applies to:** `src/jira-cart.user.js` (version 0.2.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository
 
@@ -146,6 +148,44 @@ uses, so a `/browse/` path that is not an issue cannot pass:
 The key is uppercased (`05` §3). `/browse/` keys already are, so this is free
 safety.
 
+**THERE IS AN EIGHTH VIEW, AND THE SURVEY NEVER SAW IT. Found in use on
+2026-08-18, at version 0.2.0, and closed the same day.** The **Team's own Timeline
+tab** sits beside Backlog and Active sprints, and it is **not** the Plans timeline
+this document already names.
+
+**The detector found its 37 keys, exactly as designed.** That is the point of this
+section's first paragraph: an unknown or rotted `data-testid` costs a decoration or
+a summary, never a found issue. What it cost here was the contract check, which
+reported a broken contract on a page that is not broken, because none of those keys
+sat in a row this document named.
+
+Its names, read off the row's own `outerHTML` on a live page:
+
+| Part | Name |
+| --- | --- |
+| The whole view | `sr-timeline` |
+| The row | `roadmap.timeline-table.components.list-item.container-<issueId>`, `role="gridcell"` |
+| The key's anchor | `roadmap.timeline-table-kit.ui.list-item-content.summary.key` |
+| The title | `roadmap.timeline-table-kit.ui.list-item-content.summary.title` |
+
+Three things to carry, each of which nearly cost a defect:
+
+- **The row's leaf ends with the issue's numeric id**, as the backlog's ends with
+  the key. So it is a substring match with a trailing hyphen, and never a suffix.
+- **The row contains a span called `…list-item.expand-button.container-<id>`.** A
+  shorter match seizes that first and splits one row into two groups. The match
+  therefore takes three segments — the same widening the linked-work-items card
+  needed, and for the same reason.
+- **This one view draws from TWO component libraries.** The row is
+  `roadmap.timeline-table.components.*`; the key and the title inside it are
+  `roadmap.timeline-table-kit.ui.*`. One prefix does not cover both.
+
+With the row named, tier 1 answers on this view, the group has one anchor, and the
+origin label is `timeline` — the same label the Plans timeline takes, because the
+label names a region and both are a timeline to the person reading the row. The
+anchor's own testid is also in the known-region list below, where it buys silence
+rather than a false warning on the day the row's name rots.
+
 **The premise of ticket `02` was wrong, and the correction matters.** The ticket
 was written around a warning that issue references are not always links. The
 warning was real, but about other Jira entities: a fixVersion and a sprint are
@@ -171,10 +211,12 @@ loses the decoration or the summary. That is principle 4 by construction.
 | Row | `[data-testid$="ui.issue-row"]` | search results, epic children, child work items |
 | Row | `[data-testid$="scope.issues.issue.row"]` | timeline |
 | Row | `[data-testid$="issue-line-card.card-container"]` | linked work items |
+| Row | `[data-testid*="timeline-table.components.list-item.container-"]` | the Team's Timeline tab |
 | Summary | `[data-testid$="summary-field-static.content"]` | backlog |
 | Summary | `[data-testid$="issue-summary.issue-summary-cell"]` | search results, epic children |
 | Summary | `[data-testid$="single-line-text.container.box"]` | board |
 | Summary | `[data-testid$="inline-read.link-item"]` | issue links |
+| Summary | `[data-testid$="list-item-content.summary.title"]` | the Team's Timeline tab |
 | Summary | `[data-testid$="foundation.summary.heading"]` | the issue view |
 
 Four rules about that table, each from evidence:
@@ -202,6 +244,8 @@ Four rules about that table, each from evidence:
   `card-container` on its own is generic, and `*="issue-line-card"` matches the
   summary's own wrapper (`…issue-line-card-view.summary`) before the card, which
   splits one card into two groups and defeats the purpose.
+- **The Team's Timeline row is the SECOND place the leaf rule is widened**, and
+  the third place a name ends in an identifier. See the eighth-view note above.
 - **`ui.issue-row` covers three views, and its live name is
   `native-issue-table.ui.issue-row`.** An issue's child work items use the same
   component as search results and an epic's children, so no fourth name is
@@ -386,6 +430,7 @@ walking up from the anchor. First match wins.
 | board | `[data-testid$="ui.card.card"]` |
 | work-item table | `[data-testid$="ui.issue-row"]` |
 | timeline | `[data-testid$="scope.issues.issue.row"]` |
+| timeline | `[data-testid="sr-timeline"]` — the Team's Timeline tab. **The one origin that names a whole view rather than a row**, so the label survives the row's name changing |
 | linked work items | `[data-testid*="issue-line-card"]` |
 | description or comments | `.ak-renderer-document` |
 
@@ -438,7 +483,8 @@ path has to repair anything: deleting the active collection promotes the next on
 by construction (`05` §4).
 
 **`collections` is never empty.** The first run writes one collection. Deleting
-the last collection empties its items instead of removing it. With these two
+the last collection empties its items instead of removing it — which the chip's ✕
+implements, and says in its own tooltip (§2.9). With these two
 invariants together, *the active collection* is total: it always resolves, and no
 code path anywhere handles "there is no active collection".
 
@@ -643,7 +689,11 @@ Three guards come with the state trigger:
 2. **Exclude keys already in flight**, so a re-render during the request does not
    duplicate it.
 3. **Debounce into one request per burst.** Adding five links to an open drawer is
-   one `bulkfetch`, not five.
+   one `bulkfetch`, not five. **The window is 400 ms. The build session chose that
+   number on 2026-08-18 and nobody measured it**, the same standing as the 200 ms
+   grace period in §2.7: it is long enough to join a burst of clicks and short
+   enough that a single add does not feel delayed. If gap-fill ever feels slow,
+   suspect this number first.
 
 The write-back is a read-modify-write that **patches only keys that are still
 present**. The gesture is a toggle (§2.7), so a response that lands after an item
@@ -846,6 +896,15 @@ more than one anchor qualifies, so the key column wins.
 not the gesture. The user's words: *"the context menu is nice, but I would like to
 have this option with a toggle, not always on because I expect to be able to use
 the browser's context menu whenever I want."*
+
+**Cancelling the event is not enough. The interception must also stop it.
+Corrected on 2026-08-18, by the build session.** This section said "intercepting
+`contextmenu`, cancelling it, and drawing our own". `preventDefault` alone stops
+the browser's menu and leaves the event to reach Jira's own handler, which is on
+the row and therefore contains the key. The result is both menus on the one
+element the feature is about. `stopPropagation` in the capture phase is what makes
+the interception exclusive, and it does not widen the interception: the target
+test still requires an issue anchor.
 
 What being on costs, established before anything was built and confirmed in use: a
 userscript cannot add an entry to the browser's native right-click menu. Nothing
@@ -1178,6 +1237,8 @@ cannot show a Jira title, so the row ellipsises and the hover carries the rest:
 | The default collection's name | **`Scratch`**. Short enough for the badge, and it names what the thing is: working state that gets emptied. Not "Cart", which is reserved for the UI itself |
 | Renaming | **Click the name in the heading and edit it in place.** The thing you click is the thing you change. Enter or blur commits, Escape cancels |
 | Duplicate names | **Prevented, by appending a number.** ` 2`, then ` 3`; lowest free wins; the same rule on create and on rename; a clash ignores case. The cost is known and accepted: a collection genuinely called `Sprint 2` duplicates to `Sprint 2 2`, because incrementing the trailing number would silently name it after a different sprint |
+| Emptying | **⌫ in the heading, beside ↻.** It removes every item and KEEPS the collection and its name, which is the whole reason it is not the same control as delete: a collection you refill every sprint is worth keeping, and deleting it to clear it means typing the name again |
+| Deleting | **✕ on the chip**, because a collection is deleted where it is named. Deleting the active one promotes the next by construction, and deleting the only one empties it instead — both already decided in §2.4 |
 | Reorder | **It does not exist.** Order is most-recently-activated (§2.4), and a hand-chosen order is not expressible |
 
 The collection switcher is a row of chips, each carrying a name and its own count.
@@ -1198,6 +1259,35 @@ which is a worse thing to be.
   count. An action on the named thing sits next to its name, and the foot row stays
   about getting data out. It must be findable: it is the only remedy for a stale
   title. Gap-fill is separate, automatic, and has no control of its own.
+
+**THE TWO DESTRUCTIVE CONTROLS ARE ARMED BEFORE THEY FIRE. Added on 2026-08-18,
+at the user's request, because emptying a collection meant clicking ✕ on every row
+and deleting one was not possible at all.** §2.4 had designed the delete —
+promoting the next collection, and emptying the last one instead of removing it —
+and this section never gave it a control. Both gaps are closed together, because
+they are the same gesture with different scope.
+
+**Neither is a plain click.** The reason is this section's own argument for the
+per-row ✕: *a mis-click on a whole row would delete something and there is no
+undo*. These remove twelve items, or a whole named collection, so that argument
+applies with more force, and the chip row is the narrowest and busiest part of the
+drawer.
+
+| The first click | The second click | Anything else |
+| --- | --- | --- |
+| **Arms it, and says what will happen.** ⌫ becomes `Empty 12?` and turns red; a chip turns red and its tooltip names what goes | **Commits.** There is no undo, and the wording says so before the click | **Disarms.** Another control, the drawer's dead space, a click back on the page, closing the drawer, or six seconds |
+
+That is the same pre-click warning the floating button gives with its red `−` and
+the live row gives on hover (§2.7), in the one shape a heading and a chip can
+carry. **Only one control is ever armed**, so there is no pair of flags that can
+disagree — principle 1. The six seconds is a chosen number, not a measured one,
+the same standing as §2.7's hover grace period.
+
+**An undo was considered and not chosen.** A single click plus *"12 items removed
+— Undo"* is better on the common path, and it costs two things this design refuses:
+per-session state holding the removed items, and a resurrection hazard, because
+every write is a read-modify-write (§2.5) and an undo could put back items another
+tab has since deleted. The two-step needs one boolean.
 
 **The collection is the selection.** There is no multi-select and no per-row copy.
 You curate the collection by adding and removing, then empty it into a paste. A
@@ -1227,6 +1317,31 @@ link opens the Cart's menu instead of the browser's"*. It is a settings home rat
 than a loose checkbox, because more of these are coming — keyboard shortcuts are
 still open — and because the two standing sections should hold nothing that is not
 a link or an item (`08` §7).
+
+**The area holds three switches, not one. Decided on 2026-08-18, by the build
+session, because this section named two more preferences and gave neither a way to
+be set.** The right-click switch is the one `08` specified. The other two are the
+**layout** — `auto`, `stacked` or `split`, which this section calls "the user
+pinning it" — and the **corner**, which this section says is bottom-right by
+default while describing what the chrome does when the drawer is docked
+bottom-left. Both were reachable only by hand-editing `gt-jira-cart.prefs`, which
+is not a user interface. A preference no control can set is a preference that does
+not exist, and it is worse than no preference: the code carries it, and the reader
+believes it works. The cost is two rows in the ⚙ area.
+
+**The drawer's own numbers, all chosen by the build session on 2026-08-18 and none
+of them measured.** The default is **380 by 520 pixels**, with the height capped at
+`70vh` until a drag lifts the cap (§2.11). 380 is the width this section already
+reasons about when it says a drawer that narrow cannot show a Jira title. The
+drawer sits **3.5rem from the bottom edge**, which clears the badge, and 1rem from
+its own side. The divider travels between **20% and 85%**, so that neither section
+can be collapsed past the point where its own divider is still grabbable. The
+minimum is 300 by 160, from risk 10.
+
+**An empty name is not a name.** Creating with an empty field does nothing and
+keeps the focus. Renaming to an empty string cancels, and the previous name
+stands. Neither writes. The reason is principle 4: the safe default is what
+remains, and a nameless collection would leave the badge reading `🛒  7 ▾`.
 
 **Theming is the Atlassian `--ds-*` design tokens with standard-colour fallbacks**,
 the way both other scripts do it, so light and dark work without the script asking
@@ -1291,7 +1406,10 @@ None of the six would have come out of an argument. They are written here as rul
 with their causes, because a rule with no cause gets simplified away.
 
 **1. Flex all the way down. `min-block-size: 0` everywhere. The list is the only
-thing that scrolls.**
+thing that scrolls.** There are two sections, so there are **two scrollers, one per
+section**, and nothing else in the drawer scrolls at all. The rule is about what
+may NOT scroll: the drawer, the head, the body and each section are `overflow:
+clip`.
 
 The live list was **cut** rather than scrolled past about fifteen links. The lists
 were capped with a viewport-relative height (`34vh`, and `46vh` side by side) —
@@ -1506,14 +1624,18 @@ follows the hovered issue link. Everything else is inside the drawer.
 | A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it |
 | `✕` on a collection row | drawer, the collection | Removes that item |
 | The collection's name | drawer, the collection's heading | Click to rename it in place. Enter or blur commits. Escape cancels |
+| ⌫ | drawer, the collection's heading | Empties the collection and keeps its name. Click once to arm it — the label becomes `Empty N?` — and again to commit |
 | ↻ | drawer, the collection's heading | Refreshes every summary in the collection |
 | A collection chip | drawer, below the collection | Makes that collection active. Each chip carries its own count |
+| ✕ on a chip | drawer, below the collection | Deletes that collection. Armed first: the chip turns red and its tooltip names what goes. On the only collection it empties it instead (§2.4) |
 | `new collection…` + create | drawer, below the chips | Creates a collection and makes it active |
 | 🔗 Links | drawer, the foot | Copies the whole collection as a markdown list, plus a `<ul>` as HTML |
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
 | 🔍 JQL | drawer, the foot | Copies `key in (KEY, KEY, KEY)` |
-| ⚙ | drawer, the head | Opens the preferences |
+| ⚙ | drawer, the head | Opens the preferences: the right-click switch, the section layout, and which bottom corner the Cart takes |
+| Sections | drawer, the preferences | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
+| Corner | drawer, the preferences | Bottom right or bottom left. The drawer's chrome mirrors it |
 | ✕ | drawer, the head | Closes the drawer |
 | The grip | drawer, the free corner | Drag to resize. Double-click to let the drawer size itself again |
 | The divider | drawer, between the sections | Drag to give one section more room. Double-click to hand it back |
@@ -1621,7 +1743,14 @@ Notes on the controls:
    sandbox does not touch, so they should transfer. *Should* is reasoning. The build
    session confirms it cheaply.
 10. **The drawer below a laptop screen is untried.** The minimum is 300×160 and the
-    layout derives from width, but nothing smaller was used.
+    layout derives from width, but nothing smaller was used. **At that minimum the
+    collection section cannot fit its own fixed parts.** The build session
+    measured them at about 130 pixels — the heading, the chips, the create field
+    and the four copy buttons — against the 38% that §2.9's fixed basis leaves,
+    which is 61 pixels at a height of 160. The surplus is clipped, because the
+    containers are `overflow: clip`. The fix is not a `min-height` on that
+    section: §2.11 defect 3 is the argument against exactly that. It is either a
+    larger minimum height or a divider that yields, and neither is decided.
 11. **The Cart exists once per tab.** Several tabs hold several copies of the same
     collection, and their freshness rests on a notification that a frozen or
     discarded tab may never receive. The re-read on drawer open and on tab-visible
@@ -1651,6 +1780,16 @@ Notes on the controls:
     effort's harness, not of a Firefox run.** Version 0.3.2 raises the fixed
     corner to `z-index: 9999`. The forced-fallback switch is what showed the
     defect and what shows the repair. A Firefox check is still wanted.
+
+---
+
+
+19. **THE SURVEY OF SEVEN VIEWS WAS NOT EXHAUSTIVE, and one more view was found by
+   USING the Cart rather than by surveying.** The Team's Timeline tab (§2.1) was
+   the eighth, and it announced itself as a false contract warning. Two lessons,
+   both cheap: the detector held on a view nobody had ever tested it against, and
+   **the contract check is the thing that finds a new view**, so a warning on a
+   page that works is worth reading rather than suppressing. Expect a ninth.
 
 ---
 
@@ -1767,6 +1906,17 @@ There is no test system in this repository. Use these steps in a browser, with
     become `<name> 2`. Rename a collection by clicking its name. Activate it: it
     must move to the front, and the badge must follow.
 23. **The console must show no errors, and the page must show no warning badge.**
+24. **The eighth view.** Open the Team's **Timeline** tab, beside Backlog and
+    Active sprints. **No warning badge may appear** — 37 keys with no row around
+    them is what raised one before 2026-08-18. Add a row: the item must carry the
+    title beside the key, and the live list must label it `timeline`.
+25. **Emptying, and deleting.** With items in the collection, press ⌫ once: the
+    label must become `Empty N?` and **nothing may be removed**. Click a row
+    instead — it must disarm. Press ⌫ twice: the items go and **the name stays**.
+    Then press a chip's ✕ twice: that collection goes and the next becomes
+    active, and the badge follows. On your last remaining collection the ✕ must
+    **empty it and not remove it** (§2.4). Leave one armed and wait: after a few
+    seconds it must disarm by itself.
 
 ---
 
