@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      0.5.0
+// @version      1.0.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -799,7 +799,9 @@
    * it. `closest()` on the row list is the only safe direction (§2.1).
    *
    * Returns the tier as well. It reaches no UI: it is written to the console at
-   * debug level, which is how §7 step 5 is checked on each of the seven views.
+   * debug level, which is how §7 step 5 is checked on each of the EIGHT views --
+   * seven from the survey, plus the Team's Timeline tab that using the Cart found
+   * (§2.1). Risk 19 says to expect a ninth.
    */
   function readSummary(anchor, key) {
     const row = anchor.closest(ROW_SELECTOR);
@@ -2222,10 +2224,35 @@ ${selectors.join(",\n")} {
   const FOOT_ID = "gt-cart-foot";
   const GRIP_ID = "gt-cart-grip";
 
-  // The drawer's own minimum. Below a laptop screen is untried (risk 10), so the
-  // number is a floor rather than a measurement.
+  // The drawer's own minimum. The width is still a chosen floor rather than a
+  // measurement. THE HEIGHT IS DERIVED, and it was 160 until 1.0.0: at 160 the
+  // collection section was left about 42 pixels for the 135 its own fixed parts
+  // need, so the create field and all four copy buttons were clipped away
+  // (risk 10, measured off this stylesheet). 215 is the height at which BOTH
+  // sections' fixed parts fit -- the head, the two section headings, the divider,
+  // the chips, the create field and the foot -- so below it something must be
+  // clipped whatever the basis does.
   const MIN_INLINE = 300;
-  const MIN_BLOCK = 160;
+  const MIN_BLOCK = 215;
+
+  // What the collection section cannot shrink below, PLUS the 5px divider that
+  // comes out of the same reserve, and the live section's basis yields to the sum
+  // (see the stylesheet). Its parts, read off the rules below: the section heading
+  // 32, one row of chips 29, the create field 35, the foot 38, and its own top
+  // border 1 -- 135. With the divider that is 140, and the last five are headroom
+  // for the fractional line boxes those numbers round off.
+  //
+  // ONE ROW OF CHIPS. Enough collections wrap that row, and every extra row asks
+  // for about 27 pixels more, which this number does not know about: the floor for
+  // "nothing is clipped" then rises with it. That is stated in risk 10 rather than
+  // guarded, because the alternative is sizing a fixed part from its own content,
+  // which is defect 2 of §2.11 in a new costume.
+  //
+  // IT IS A MAGIC NUMBER, and the only one in the layout. It has to be kept in
+  // step with the four rules above it: a fifth fixed part in this section makes it
+  // stale and the clipping comes back silently. `css-smoke` counts the flex: none
+  // list for exactly that reason.
+  const COLLECTION_FIXED_PX = 145;
 
   // The divider's travel. A fraction outside this cannot be dragged back, because
   // the section it collapsed would have no grab area left.
@@ -3920,8 +3947,12 @@ ${D} {
      were capped with a viewport-relative height -- a number that knows nothing
      about the drawer it is inside -- and a grid row sizes to its content and does
      not shrink. Flex shrinks. Every box from here down to the list can now go
-     below its content size, so a section heading can never be pushed out. */
-  min-block-size: 0;
+     below its content size, so a section heading can never be pushed out.
+
+     THE DRAWER ITSELF IS THE ONE EXCEPTION, and its min-block-size is below with
+     the other sizes. Rule 1 is about what a box may do as a FLEX ITEM of the box
+     above it, and this one is not a flex item of anything: it is position: fixed.
+     Its own floor is rule 7's business. */
   min-inline-size: 0;
 
   inline-size: 380px;
@@ -3931,6 +3962,19 @@ ${D} {
      look broken in one direction (§2.11 defect 4). */
   max-block-size: 70vh;
   max-inline-size: calc(100vw - 2rem);
+
+  /* THE FLOOR IS IN THE SHEET AND NOT ONLY IN THE DRAG. Added at 1.0.0 with rule
+     7: MIN_BLOCK was enforced by the grip's clamp alone, so on a window shorter
+     than about 307px the 70vh cap above went under it and the clipping rule 7
+     exists to prevent came back. A min-block-size beats a max-block-size in CSS,
+     which is what makes the guarantee hold at EVERY size the drawer can reach
+     rather than only at the ones a drag produces.
+
+     There is deliberately no min-inline-size to match. max-inline-size is there to
+     keep the drawer inside a narrow viewport, and a width floor fighting it would
+     push the drawer off-screen -- where the grip, the only way to get the size
+     back, goes with it (risk 10). The width has no clipping problem to solve. */
+  min-block-size: ${MIN_BLOCK}px;
 
   /* overflow: clip, NOT hidden. hidden is still PROGRAMMATICALLY scrollable, and
      scrollIntoView scrolls EVERY scrollable ancestor: one call on a row in here
@@ -4115,8 +4159,34 @@ ${D} section.gt-cart-section {
   min-inline-size: 0;
   overflow: clip;
 }
+/* RULE 7, and it is the one place the fixed basis BENDS. Added at 1.0.0, for
+   risk 10.
+
+   The basis is still fixed, so rule 2 stands: the split does not shift as the
+   collection fills, because the number below is a CONSTANT and not the
+   collection's content size. What it says is that the live list may not take room
+   the collection cannot do without -- the collection's fixed parts are
+   unshrinkable by rule 3, so whatever they do not get is CLIPPED, and at the old
+   300x160 minimum that was the create field and all four copy buttons.
+
+   It is a NO-OP on any drawer taller than about 406px, which is where 62% of the
+   body and (the body minus 140) cross. So the default 520 and everything above it
+   behaves exactly as it did before this rule existed; only a short drawer yields,
+   and it yields the section that scrolls rather than the section that cannot.
+
+   THE FIX IS NOT A min-height ON THE COLLECTION SECTION. Defect 3 above is the
+   argument against exactly that: the section's own heading needs overflow: hidden
+   for its ellipsis, which removes the automatic minimum, and a min-height there
+   would re-introduce the magic number one level lower down, where it fights
+   flex: none instead of cooperating with it.
+
+   max(0px, ...) is load-bearing: a negative flex-basis is invalid, and on a drawer
+   short enough for the subtraction to go below zero the whole declaration would be
+   dropped -- which falls back to flex: 0 1 auto and brings DEFECT 2 back, sections
+   competing by content size. An engine with no min() or max() in calc does the
+   same, and there is no such Chromium (§2.11, risk 10). */
 ${D} section.gt-cart-live {
-  flex: 0 0 var(--gt-cart-basis);
+  flex: 0 0 max(0px, min(var(--gt-cart-basis), calc(100% - ${COLLECTION_FIXED_PX}px)));
 }
 ${D} section.gt-cart-collection {
   flex: 1 1 0;
@@ -4137,6 +4207,16 @@ ${D} section.gt-cart-collection {
     border-block-start: none;
     border-inline-start: 1px solid var(--gt-cart-border);
   }
+  /* RULE 7 IS UNDONE SIDE BY SIDE, and that is not an exception to it: the basis
+     is the INLINE size here, while the parts it protects stack vertically. Left
+     in, it would steal width from the live list to buy height the collection
+     already has -- side by side, each section is the whole body tall, so the
+     minimum height is the only thing that has to hold and MIN_BLOCK is what holds
+     it (risk 10). This selector is (1,2,3) against the base rule's (1,1,2), so it
+     wins wherever the container query applies. */
+  html[data-gt-cart-layout="auto"] ${D} section.gt-cart-live {
+    flex: 0 0 var(--gt-cart-basis);
+  }
   html[data-gt-cart-layout="auto"] ${D} div#${DIVIDER_ID} {
     block-size: auto;
     inline-size: 5px;
@@ -4150,6 +4230,12 @@ html[data-gt-cart-layout="split"] ${D} div#${BODY_ID} {
 html[data-gt-cart-layout="split"] ${D} section.gt-cart-collection {
   border-block-start: none;
   border-inline-start: 1px solid var(--gt-cart-border);
+}
+/* Rule 7 undone for the pinned split, for the reason the container query above
+   gives: side by side the basis is a width, and the parts it protects are a
+   height. */
+html[data-gt-cart-layout="split"] ${D} section.gt-cart-live {
+  flex: 0 0 var(--gt-cart-basis);
 }
 html[data-gt-cart-layout="split"] ${D} div#${DIVIDER_ID} {
   block-size: auto;
@@ -4632,12 +4718,24 @@ div#${MENU_ID} button.gt-cart-menu-item:hover {
   guard(writeFirstRun);
 
   // Cross-tab freshness, and it is ONLY that: correctness is the read-modify-
-  // write in `update`. Registered on our key, so it hears our key and nothing
+  // write in `update`. Registered on our own keys, so it hears them and nothing
   // else. One path -- event, load, render -- so the event's own values never
   // become a second way in. It is better than the `storage` event, which tells a
   // tab about its own write by NOT firing (§2.5).
+  //
+  // BOTH KEYS, and the second one was missing until 1.0.0. Found by running the
+  // whole script twice over one store: only the collections were listened for, so
+  // a preference changed in one tab did not reach the other WHEN IT HAPPENED -- it
+  // arrived at that tab's next render for some unrelated reason, a mount burst or
+  // the backstop tick. Since 0.5.0 the drawer's open state is one of those
+  // preferences (§2.9), so the other tab's drawer closed by itself, seconds later,
+  // with nobody having touched it there. The state was shared and the propagation
+  // was not. The size, the divider, the corner and the layout all had it too.
   if (typeof GM_addValueChangeListener === "function") {
     GM_addValueChangeListener(STORE_KEY, () => guard(scheduleRender));
+    // `render` only READS, so a notification cannot start a write that notifies
+    // again: there is no loop to break here.
+    GM_addValueChangeListener(PREFS_KEY, () => guard(scheduleRender));
   } else {
     logger.warn(
       "GM_addValueChangeListener is not available: another tab's changes will arrive when this tab becomes visible",

@@ -1,18 +1,26 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 0.5.0 implements the whole of section 2.**
+- **Status:** Accepted. **Version 1.0.0 implements the whole of section 2 and has
+  been checked against it.** 1.0.0 means *the spec is built and checked*, not
+  *nothing is left to want* — §6 will always hold open items, so waiting for an
+  empty §6 would mean never reaching 1.0.0.
   Version 0.1.1 had built §2.1, §2.2, §2.4, §2.5, §2.7, §2.10, §2.12, §2.13 and
   the badge of §2.9; 0.2.0 added the drawer and everything in it — §2.3, §2.6,
   §2.8, the rest of §2.9, and §2.11; 0.3.0 changed one control, so that 🔍
   **opens** the collection in Jira's search instead of copying the query (§2.8);
   0.4.0 made every row's key a real link (§2.9) and fixed the ⚙, which a CSS
   specificity trap had left inert (§2.11); 0.5.0 **reversed** the drawer's open
-  state into a stored preference (§2.9).
-  What is left is **verification, not features**: the steps of §7 that need two
-  tabs, a damaged store, or a live visit to each of the eight views. The two
-  probes of appendix C are still not run
-- **Date:** 2026-08-18
-- **Applies to:** `src/jira-cart.user.js` (version 0.5.0)
+  state into a stored preference (§2.9). **1.0.0 added no feature.** It settled
+  the two design calls §2 had left open — risk 10's clipped collection section and
+  the keyboard — and it fixed **one defect the reversal of 0.5.0 had opened**: the
+  cross-tab notification was registered on the collections key only, so a
+  preference changed in one tab reached the other at an arbitrary later moment
+  (§2.5, §2.9, risk 12).
+  What is left is the part of §7 that only a browser can answer: a live visit to
+  each of the eight views, a store damaged by hand, and a real logout. The two
+  probes of appendix C are still not run, and 1.0.0 added a third
+- **Date:** 2026-08-19
+- **Applies to:** `src/jira-cart.user.js` (version 1.0.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository
 
@@ -56,7 +64,7 @@ and §2.11, and the files themselves are not kept. **So this document is the
 record.** Three things that lived only in that directory are folded into the
 appendices: the measurements with their dates
 (appendix A), the storage design that was measured and rejected
-(appendix B), and the two probes that are written but not yet run (appendix C).
+(appendix B), and the probes that are written but not yet run (appendix C).
 Nothing else in it was load-bearing.
 
 ---
@@ -645,8 +653,16 @@ Same information, less inference.
 Four rules for the notification, and note that **it is only a freshness
 optimisation.** Correctness is the read-modify-write above.
 
-1. **The listener is registered on the key**, so it hears our key and nothing
-   else.
+1. **The listener is registered on EACH OF OUR KEYS**, so it hears them and
+   nothing else. **Corrected on 2026-08-19, at 1.0.0.** This rule said *the key*,
+   singular, and the script listened on the collections key alone. That was
+   harmless while every preference was a setting you change once — and it stopped
+   being harmless at 0.5.0, when the drawer's open state became one of those
+   preferences (§2.9). The state was shared by every tab and the propagation was
+   not, so the other tab's drawer closed by itself at its next render for some
+   unrelated reason. **The rule is now: a key that any tab writes and any tab reads
+   needs a listener.** Both of ours do. Nothing else does, and `…collections.bak`
+   is written and never read.
 2. **Re-read storage. Ignore the new value in the event.** One path:
    *event → load → render*. The event never becomes a second way in.
 3. **Re-read when the drawer opens.** This is free, because `render` always reads
@@ -1245,6 +1261,19 @@ already open**, because it reads the same preference, and **a drawer left open a
 week ago is open when you come back.** Both follow from it being a preference,
 which is what it now is.
 
+**A THIRD COST WAS NOT SEEN UNTIL 1.0.0, and half of it was a defect. Found on
+2026-08-19, by running the whole script twice over one store.** Because the state
+is shared, **closing the drawer in one tab closes it in every tab** — that half is
+the decision above working as decided, and it is accepted. The defect was the
+timing: the cross-tab listener was registered on the collections key and on
+nothing else (§2.5, rule 1), so the other tab was not told when it happened. It
+found out at its next render for some unrelated reason — a mount burst, another
+tab's add, the five-second backstop — and its drawer then closed by itself,
+seconds later, with nobody having touched it there. **The state was shared and the
+propagation was not**, which reads as a bug rather than as a preference. The
+remembered size, the divider, the corner and the layout all had it too. §2.5 now
+carries the general rule, and the fix is one more listener.
+
 One property is unchanged and still load-bearing: **a React remount must not close
 it.** The state is not on a node React owns — it is a stored value written onto
 `<html>` as an attribute by one CSS rule, which also means a drawer you left open is
@@ -1434,8 +1463,12 @@ of them measured.** The default is **380 by 520 pixels**, with the height capped
 reasons about when it says a drawer that narrow cannot show a Jira title. The
 drawer sits **3.5rem from the bottom edge**, which clears the badge, and 1rem from
 its own side. The divider travels between **20% and 85%**, so that neither section
-can be collapsed past the point where its own divider is still grabbable. The
-minimum is 300 by 160, from risk 10.
+can be collapsed past the point where its own divider is still grabbable.
+
+**The minimum is 300 by 215. The height was 160 until 1.0.0, and it is now
+DERIVED rather than chosen** — it is the shortest drawer in which neither section's
+fixed parts are clipped. Risk 10 has the arithmetic and §2.11 rule 7 has the
+other half of the fix. The width is still a chosen floor.
 
 **An empty name is not a name.** Creating with an empty field does nothing and
 keeps the focus. Renaming to an empty string cancels, and the previous name
@@ -1504,6 +1537,11 @@ three costumes: a box given a size by something that knew nothing about that box
 None of the six would have come out of an argument. They are written here as rules
 with their causes, because a rule with no cause gets simplified away.
 
+**Rule 7 is a seventh rule and not a seventh defect.** It was added at 1.0.0 to
+settle risk 10, which this document had carried open since the prototype, and it is
+the one place rule 2 bends. It is here rather than in the risk because it is a
+layout rule and this is where the layout rules live.
+
 **1. Flex all the way down. `min-block-size: 0` everywhere. The list is the only
 thing that scrolls.** There are two sections, so there are **two scrollers, one per
 section**, and nothing else in the drawer scrolls at all. The rule is about what
@@ -1562,6 +1600,59 @@ made the grip look broken in one direction.
 collided: on a left dock, the ✕ sat where the grip lands. §2.9 has the rule.
 
 **6. The timeline's summary is readable.** §2.2, tier 5.
+
+**7. The fixed basis YIELDS to the collection's fixed parts, and only downwards.
+Added at 1.0.0, for risk 10, and it is the one place rule 2 bends.**
+
+Rule 2 says the sections must not compete by content size, and it still holds: the
+number this rule subtracts is a **constant**, not the collection's content, so the
+split still cannot shift under you as the collection fills. What it says is that
+the live list may not take room the collection cannot do without. Rule 3 makes the
+collection's four fixed parts unshrinkable, so whatever they are not given is
+**clipped** — and at the old 300×160 minimum what was clipped was the create field
+and all four copy buttons.
+
+```
+flex: 0 0 max(0px, min(var(--gt-cart-basis), calc(100% - 145px)));
+```
+
+Five things about it, each of which is a way to get it wrong:
+
+- **It is a no-op above about 419px of height**, where 62% of the body and the body
+  minus 145 cross. The default 520 and everything above it behaves exactly as it did
+  before this rule existed. Only a short drawer yields, and it yields **the section
+  that scrolls** rather than the section that cannot.
+- **`max(0px, …)` is load-bearing.** A negative `flex-basis` is invalid, and an
+  invalid `flex` shorthand falls back to `flex: 0 1 auto` — which is **defect 2
+  back again**, sections competing by content size. On a drawer short enough for the
+  subtraction to go below zero, that clamp is the only thing between the fix and the
+  defect it replaced.
+- **It is undone side by side**, in both the container query and the pinned `split`.
+  There the basis is a *width* while the parts it protects are a *height*, so left
+  in it would steal width to buy height the collection already has. Each override
+  is (1,2,3) against the base rule's (1,1,2), and a container query does not change
+  specificity.
+- **145 is the only magic number in the layout**, and it is 135 for the four fixed
+  parts plus the 5px divider plus five of headroom for the fractional line boxes.
+  A fifth fixed part in that section makes it stale and the clipping comes back
+  silently, which is why `css-smoke` counts the `flex: none` list.
+- **The minimum height is in the SHEET as well as in the drag.** It was enforced by
+  the grip's clamp alone, so on a window shorter than about 307 pixels the drawer's
+  own `max-block-size: 70vh` went under it and the clipping came straight back. A
+  `min-block-size` beats a `max-block-size`, which is what makes the guarantee hold
+  at every size the drawer can reach rather than only at the ones a drag produces.
+  **There is deliberately no width floor to match**: `max-inline-size` is what keeps
+  the drawer inside a narrow viewport, and a `min-inline-size` fighting it would push
+  the drawer — and the grip, which is the only way to get the size back — off-screen.
+  Rule 1's own `min-block-size: 0` on the drawer was removed to make room for it,
+  because rule 1 governs what a box may do as a **flex item** of the box above it —
+  and the drawer is a flex item of nothing. It is `position: fixed`.
+
+**The fix is NOT a `min-height` on the collection section.** Defect 3 above is the
+argument against exactly that: the section's own heading needs `overflow: hidden`
+for its ellipsis, which removes the automatic minimum, so a `min-height` there puts
+the magic number one level lower down where it fights `flex: none` instead of
+cooperating with it.
 
 **And one hazard found while chasing defect 3, fixed anyway:
 `scrollIntoView` scrolls EVERY scrollable ancestor**, and `overflow: hidden` is
@@ -1856,20 +1947,65 @@ Notes on the controls:
    strategy changes that.
 8. **The floating gesture is hover-only.** It has no answer for touch, and the
    keyboard path was never designed. The live list is the click-only path to the
-   same add. Whether the drawer can be driven from the keyboard alone is untested.
+   same add.
+   **THE KEYBOARD IS A STATED LIMIT, NOT A GAP. Decided on 2026-08-19, by the
+   user: the Cart is not intended to be operated by keyboard input.** An audit of
+   every focusable control at 1.0.0 found that it can be, mostly, and that fact is
+   recorded so that nobody mistakes the three shortfalls below for defects. Body
+   order is badge → floating toggle (hidden, so skipped) → drawer, so Tab from the
+   badge lands in the drawer with no focus trap needed, and every action has a
+   focusable control: add and remove, rename, empty, delete, activate, create, all
+   four foot buttons and all three preferences. Three shortfalls, each accepted:
+   closing with ✕ destroys the focused element, so **focus falls to `<body>` and
+   the keyboard user loses their place**; the key link and the row body are **two
+   tab stops per row**, so a twenty-row live list costs forty; and the Cart's own
+   right-click menu is appended after the drawer, so it has **no practical keyboard
+   path** — it ships off. Resizing and re-proportioning stay pointer-only, which
+   §2.11 defect 4 already decided. **This was audited, not walked in a browser.**
 9. **The prototypes ran under `@grant none`.** Their placement, positioning,
    coexistence and remount findings are DOM and CSS behaviour, which Tampermonkey's
    sandbox does not touch, so they should transfer. *Should* is reasoning. The build
    session confirms it cheaply.
-10. **The drawer below a laptop screen is untried.** The minimum is 300×160 and the
-    layout derives from width, but nothing smaller was used. **At that minimum the
-    collection section cannot fit its own fixed parts.** The build session
-    measured them at about 130 pixels — the heading, the chips, the create field
-    and the four copy buttons — against the 38% that §2.9's fixed basis leaves,
-    which is 61 pixels at a height of 160. The surplus is clipped, because the
-    containers are `overflow: clip`. The fix is not a `min-height` on that
-    section: §2.11 defect 3 is the argument against exactly that. It is either a
-    larger minimum height or a divider that yields, and neither is decided.
+10. **The drawer below a laptop screen is still untried in a browser, and the
+    clipping it hid is fixed. Settled on 2026-08-19, at 1.0.0.**
+
+    **The numbers, re-derived from the stylesheet, and one of the old ones was
+    wrong.** The collection section's unshrinkable parts are **135 pixels**: its
+    heading 32, one row of chips 29, the create field 35, the copy foot 38, and its
+    own top border 1. The document said "about 130", which was close enough. It then
+    said those parts had 61 pixels — 38% of a height of 160 — and **that number was
+    generous, because the basis does not resolve against the drawer.** It resolves
+    against the **body**, which is the drawer less its two borders and less the
+    35-pixel head, and the 5-pixel divider comes out as well. The real figure at
+    300×160 was **42 pixels for 135**, so about **70% of the section was clipped**:
+    the create field and all four copy buttons were gone entirely, because the
+    containers are `overflow: clip`.
+
+    **Two more numbers reframed the fix.** Both sections' fixed parts together need
+    about **210 pixels**, so below that something must be clipped whatever the basis
+    does — and it was **the 62% basis alone** that pushed the nothing-clipped floor
+    all the way to about **405**. A minimum tall enough on its own would therefore
+    have had to be 410, which removes the short drawer entirely.
+
+    **The fix is both halves, and neither of them is a `min-height`** — §2.11
+    defect 3 is the argument against that. **§2.11 rule 7** makes the live list's
+    basis yield to a 145-pixel reserve, and **§2.9's minimum height goes from 160 to
+    215** — in the stylesheet as well as in the grip's clamp, because the drawer's own
+    `max-block-size: 70vh` undercut a JavaScript-only floor on any window shorter
+    than about 307 pixels. Together nothing is clipped at any size the drawer can
+    reach, and the yield is a **no-op above about 419 pixels**, so normal use is
+    unchanged.
+
+    **One part is stated rather than guarded: the chips row wraps.** The 145 counts
+    ONE row of chips. Enough collections wrap it, and every extra row asks for about
+    27 pixels more, so the floor for "nothing is clipped" rises with the number of
+    collections. Sizing the reserve from the chips' own content would be §2.11
+    defect 2 in a new costume, so it is not done. The remedies are the two the drawer
+    already has: drag it taller, or drag the divider, which can give the collection
+    80%.
+
+    **All of these numbers are derived from the stylesheet, not measured in a
+    browser.** A three-line probe would confirm them, and it is in appendix C.3.
 11. **The Cart exists once per tab.** Several tabs hold several copies of the same
     collection, and their freshness rests on a notification that a frozen or
     discarded tab may never receive. The re-read on drawer open and on tab-visible
@@ -1877,6 +2013,12 @@ Notes on the controls:
     stays on the platform list.
 12. **The cross-tab event arrives late**, by an unmeasured amount. It costs a late
     redraw, because the notification is a hint and not the correctness mechanism.
+    **That is true of the collections. It was NOT true of the preferences until
+    1.0.0, and there it was a defect rather than a late redraw** — no listener was
+    registered on that key at all, so the other tab found out at its next render for
+    some unrelated reason, and since 0.5.0 one of those preferences is whether the
+    drawer is open (§2.5 rule 1, §2.9). A hint that never arrives is not a hint.
+    Both keys are listened for now, and the two-tab harness holds four checks on it.
 13. **Permission-denied was never observed with a real forbidden key.** The
     conclusion survives either way: Atlassian's own 404 text conflates absent and
     forbidden, so **one** failed state is correct under both outcomes.
@@ -1930,8 +2072,14 @@ These are not gaps in the design. Each was named, and each was left.
 3. **Container testids for the description and the comment stream.**
    `.ak-renderer-document` renders both, so one origin label serves both. One probe
    closes it: **appendix C, probe 2.** Never invent a `data-testid`.
-4. **Keyboard shortcuts, and keyboard reachability of the drawer.** Whether the two
-   scripts need a shared convention is open.
+4. **Keyboard shortcuts.** Whether the two scripts need a shared convention is
+   still open, and it is a separate effort.
+   **The second half of this item — keyboard reachability of the drawer — is
+   CLOSED on 2026-08-19, as a STATED LIMIT: the Cart is not intended to be
+   operated by keyboard input.** The user's decision. An audit at 1.0.0 found the
+   drawer is nevertheless mostly drivable, and risk 8 records that finding with the
+   three shortfalls it names, so that none of them is later mistaken for a defect.
+   The two pointer-only drags stay pointer-only by §2.11 defect 4.
 5. **The dashboard gadget.** See risk 7.
 6. **Import into a collection** — pasting a list of keys, or adding every result of
    a JQL query. "Add all 12,816 results" belongs here, not to the scan. Search
@@ -1952,7 +2100,12 @@ These are not gaps in the design. Each was named, and each was left.
 11. **Two questions the prototypes could not answer by use:** whether the
     right-click preference is ever switched on, and whether the section divider is
     ever dragged. Both shipped because the cost of having them is one CSS rule and
-    one listener.
+    one listener. **Still open at 1.0.0, and only use can close either.** What did
+    change is that the right-click menu is no longer *unexercised*: no session had
+    ever switched it on, so until 2026-08-19 not one line of that path had run.
+    Seventeen checks now drive it — off, on, the toggle in both directions, *Open
+    link in new tab*, our own rows keeping the browser's menu, Escape, and a scroll.
+    That says the code works. It does not say anybody wants it.
 12. **Whether a backlog section header's total is post-filter.** Nothing reads it.
     Recorded so that a future grouping effort establishes it first.
 13. **Whether the drawer's own key links can navigate the way Jira's do.** Opened
@@ -1970,6 +2123,33 @@ These are not gaps in the design. Each was named, and each was left.
 There is no test system in this repository. Use these steps in a browser, with
 `jira-ux-improvements` and `jira-backlog-sprints` also installed.
 
+**What is confirmed at 1.0.0, and by what.** Seven Node harnesses hold 372 checks:
+the pure helpers, the store, the (row, key) group, the four formats and the API's
+response validation, the whole script against a fake DOM, the generated stylesheet's
+cascade, and the script run twice over one store. They pull the real functions out of
+the file by brace matching, so they cannot drift from it and a rename breaks them
+loudly. **They are not committed and they are not a deliverable** — they were the
+working record of two build sessions, and **this table is what survives them.** Treat
+a row here as the claim; if a harness is gone, the row still says what was
+established and what was not.
+
+| Steps | Standing | What answered it |
+| --- | --- | --- |
+| 3, 6, 10, 14, 15, 20, 22, 24, 26 | **Confirmed outside a browser** | The whole script driven against a fake DOM: the count is distinct keys and not anchors, a prose link keeps its title, Escape does not close the drawer, all four foot buttons including 🔍 Search on a three-item collection, the empty-collection lockout, a summary-less item staying bare, the naming rules, **the eighth view arriving through the mount signal**, and both armed destructive controls |
+| 25, less the middle-click | **Confirmed outside a browser** | Every row's key is a real anchor with an absolute `href` and no action on it, a click on one changes nothing in the collection, and **`On this page` does not double**, because the scan skips the Cart's own UI. The red hover's readability is the cascade check of §2.11, not a click |
+| 17, 18 | **Confirmed outside a browser** | The store's four migration rows and every sentence §2.9's table promises, word for word — including the case the storage view actually produces, where a hand-edited blob arrives as an **object** rather than a string |
+| 13 (reload), 16 | **Mechanism confirmed outside a browser** | The script run TWICE over one store: a drawer left open comes back open with its size, and a stale tab that adds one item does not write away the five it never saw. **All six are there** |
+| 1, 5, 7 | **Needs a live visit to each of the eight views** | Nothing but Jira has eight views |
+| 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
+| 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
+| 23 | **Needs both** | It is the standing condition on every step above |
+
+**The four fixes nobody had re-checked are now checked, except in a browser.** Each
+was reported in use, fixed, and never seen working: 🔍 Search, the eighth view, the
+key links, and the ⚙. All four are driven by the harnesses. What a harness cannot
+say is whether the browser PAINTS the result — so steps 14, 24 and 25 still want one
+pass each, and they are cheap.
+
 1. **The badge appears on every view.** Open an issue, a backlog, a board, search
    results, an epic, and a timeline. The badge must sit in the bottom-right corner
    on all of them, and must not cover Jira's own controls.
@@ -1981,9 +2161,15 @@ There is no test system in this repository. Use these steps in a browser, with
    number of anchors — a backlog card carries two. Scroll. Rows must enter and leave.
 4. **Filters are respected.** Apply a filter to the backlog. The live list must show
    only what the page shows.
-5. **The summary arrives from the page.** On each of the seven views, add a link and
-   confirm the item carries a summary. **The timeline is the interesting one**, and
-   it must not carry the sentence around the link.
+5. **The summary arrives from the page.** On each of the **eight** views, add a
+   link and confirm the item carries a summary. Seven came from the survey; the
+   eighth is the Team's Timeline tab that using the Cart found (§2.1), and **there
+   are now two timelines, which are different components**. The tier is in the
+   console at debug level, so each view answers in one line: `added KEY to NAME:
+   "…" (tier N)`. **The timeline is the interesting one**, and it must not carry
+   the sentence around the link. **Expect a ninth view** — risk 19 says the survey
+   was not exhaustive, and the contract check is what finds one, so a warning badge
+   on a page that works is a finding to read rather than an alarm to suppress.
 6. **A prose link works.** Open an issue whose description links other issues. Those
    keys must appear in the live list, and must be addable.
 7. **The floating toggle.** Hover an issue key. The `+` must appear to its left,
@@ -2006,7 +2192,11 @@ There is no test system in this repository. Use these steps in a browser, with
     Widen it past 560px: the sections must go side by side. Double-click the grip: it
     must size itself again. Then reload — **the size must come back, and so must the
     drawer itself, open, on the first paint** (§2.9, reversed at 0.5.0). Close it and
-    reload again: it must stay closed.
+    reload again: it must stay closed. Then **drag it to its floor, which is 300×215
+    since 1.0.0**: the collection section must still show its create field and all
+    four copy buttons, and it is the live list that gives up its room (§2.11 rule 7,
+    risk 10). With four or more collections the chips wrap and that floor rises,
+    which risk 10 states and does not guard.
 14. **Copy, and search.** With three items, one of them summary-less, press 🔗
     Links, 📃 Names and 🔑 Keys and paste each into a plain editor. **Every paste
     must have as many lines as the collection has items.** Paste Links into
@@ -2242,6 +2432,32 @@ the drawer's open state a stored preference (§2.9).
 **What would reopen it:** Atlassian moving to a delegated router. The line above
 re-tests that in one command, which is why it is recorded rather than described.
 
+### A.8 Two tabs over one store, 2026-08-19
+
+**No browser was involved, and that is the point.** The hardening session ran the
+whole script **twice**, in two isolated fake documents, over one shared `GM_*` store
+with a working value-change bus. §7 step 16 had been open through two build sessions
+because a build session cannot open two browser tabs — and it turns out it does not
+have to, for the part that matters.
+
+| What was asked | Result |
+| --- | --- |
+| Add in one tab. Does the other's badge and drawer catch up? | **Yes**, on the notification alone |
+| Leave a tab open, add five in the other, return and add one | **All six are there.** The stale tab's add did not write away the five it never saw — §2.5's read-modify-write, doing the one job it exists for |
+| Was the stale tab genuinely stale first? | **Yes**, its badge still said 0. Without that the result proves nothing |
+| A tab the notification never reached, then made visible | **Catches up**, on the raw-string comparison of §2.5 rule 4 |
+| **Is a PREFERENCE propagated the same way?** | **No, and that was a defect.** No listener was registered on that key. Fixed at 1.0.0 — §2.5 rule 1, §2.9, risk 12 |
+| A fresh tab over a store that already says the drawer is open | **Open on the first paint**, with its remembered size, its corner, its layout and its per-layout divider |
+
+**What it does not cover, and a browser still has to:** Tampermonkey's real
+cross-tab delivery and its latency (risk 12), a genuinely frozen or discarded tab
+(risk 11), and whether the drawer is **painted** open on the first frame rather than
+merely carrying the attribute that says so.
+
+**The lesson worth keeping is the cheap one.** Two of the three steps that had been
+open longest were not waiting on a browser at all — they were waiting on somebody
+running the script twice. The defect it found had been shipping since 0.5.0.
+
 ---
 
 ## Appendix B — The store that was measured and rejected
@@ -2326,10 +2542,11 @@ appendix, not from code.
 
 ---
 
-## Appendix C — The two probes that are written and not yet run
+## Appendix C — The three probes that are written and not yet run
 
-Both are blocked items from §6. Both need a live Jira page and the developer tools.
-Neither blocks the build.
+The first two are blocked items from §6. The third confirms arithmetic that 1.0.0
+acted on without measuring. All three need a live Jira page and the developer tools.
+None of them blocks the build.
 
 ### C.1 Probe 1 — which element holds a backlog section's rows
 
@@ -2397,3 +2614,39 @@ same direction.
 
 **Until it runs**, a row whose region cannot be identified appears with no label.
 That is the stated degradation, and it costs nothing else.
+
+### C.3 Probe 3 — the drawer's own fixed parts, measured rather than derived
+
+**Why.** Risk 10 and §2.11 rule 7 both rest on one number: the collection section
+cannot shrink below **135 pixels**, so the reserve is 145 and the minimum height is
+215. That number was **derived by reading the stylesheet**, part by part, and not
+measured on a rendered drawer. Every part of it is a padding, a border or a line box
+that a browser resolves with its own rounding, and the derivation rounded four
+fractional line boxes up.
+
+**What to establish.** Open the drawer on any Jira page, then run this. It reports
+what each unshrinkable part actually occupies, and the sum.
+
+```js
+(() => {
+  const drawer = document.getElementById("gt-cart-drawer");
+  const section = drawer.querySelector(".gt-cart-collection");
+  const parts = [".gt-cart-section-head", ".gt-cart-chips", ".gt-cart-create", "#gt-cart-foot"];
+  const each = parts.map((sel) => [sel, section.querySelector(sel).getBoundingClientRect().height]);
+  console.log("head", document.getElementById("gt-cart-head").getBoundingClientRect().height);
+  console.log("live heading", drawer.querySelector(".gt-cart-live .gt-cart-section-head").getBoundingClientRect().height);
+  console.table(Object.fromEntries(each));
+  console.log("collection fixed total", each.reduce((n, [, h]) => n + h, 0) + 1);
+})();
+```
+
+**What to do with the answer.** If the total is **at or below 140**, the reserve of
+145 stands and nothing changes. If it is **above 140**, raise
+`COLLECTION_FIXED_PX` and `MIN_BLOCK` together by the same amount — `css-smoke`
+re-derives the relationship and fails if only one of them moves. Run it a second
+time with **four collections**, so the chips row wraps: risk 10 states that this
+raises the floor by about 27 pixels a row and does not guard it, and this is the
+measurement that would say whether 27 is right.
+
+**Until it runs**, the numbers are reasoning rather than measurement, and they are
+conservative by five pixels in the direction that matters.
