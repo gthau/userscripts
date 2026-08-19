@@ -50,12 +50,36 @@ setTimeout(function () {
   var style = bar ? getComputedStyle(bar) : null;
   var doc = document.querySelector(".ak-renderer-document");
 
+  // Everything above is read before anything is clicked, because the click below
+  // changes the lock, and the lock is what two of the checks are about.
+  var lock = document.getElementById("gt-toggle-lock");
+  var lockedIcon = lock ? lock.firstChild.getAttribute("data-gt-icon") : null;
+  var lockedPressed = lock ? lock.getAttribute("aria-pressed") : null;
+  var lockedHtml = document.documentElement.dataset.gtJiraLocked;
+  var lockedOutline = doc ? getComputedStyle(doc).outlineWidth : null;
+
+  // The icon and the pressed state are two ways of saying the same thing, so
+  // they have to swap together. A toggle drawn with the icon of the opposite
+  // action would pass every other check in this file.
+  if (lock) lock.click();
+  var unlocked = document.getElementById("gt-toggle-lock");
+
   document.getElementById("result").textContent = "RESULT:" + JSON.stringify({
+    lockedIcon: lockedIcon,
+    lockedPressed: lockedPressed,
+    unlockedIcon: unlocked ? unlocked.firstChild.getAttribute("data-gt-icon") : null,
+    unlockedPressed: unlocked ? unlocked.getAttribute("aria-pressed") : null,
+    // The STYLE, not the width. With no outline drawn, outline-width still
+    // computes to medium, which reports as 3px and reads like a pass. No
+    // backticks in here: this whole fixture is a template literal.
+    unlockedOutline: doc ? getComputedStyle(doc).outlineStyle : null,
     anchorSupported: CSS.supports("anchor-name", "--gt-breadcrumbs"),
     toolbarBuilt: !!bar,
     toolbarParent: bar && bar.parentNode ? (bar.parentNode.id || bar.parentNode.nodeName) : null,
     insideJiraFrontend: !!bar && document.getElementById("jira-frontend").contains(bar),
-    buttons: bar ? bar.children.length : 0,
+    buttons: bar ? bar.querySelectorAll("button").length : 0,
+    separators: bar ? bar.querySelectorAll(".gt-sep").length : 0,
+    tier: bar ? bar.dataset.gtTier : null,
     position: style ? style.position : null,
     zIndex: style ? style.zIndex : null,
     // Positive means the toolbar sits below the middle of the breadcrumbs.
@@ -65,8 +89,8 @@ setTimeout(function () {
     onScreen: rect ? rect.top >= 0 && rect.left >= 0 && rect.width > 0 : null,
     // The lock and the collapse are stylesheet rules keyed off <html>, not inline
     // styles, which is what lets them survive React remounting the description.
-    htmlLocked: document.documentElement.dataset.gtJiraLocked,
-    descriptionOutline: doc ? getComputedStyle(doc).outlineWidth : null,
+    htmlLocked: lockedHtml,
+    descriptionOutline: lockedOutline,
   });
 }, ${REPORT_AT});
 </script>
@@ -84,6 +108,11 @@ const { is, done } = reporter();
 
 is("the toolbar is built on an issue page", issue.toolbarBuilt, true);
 is("all eight buttons are on it", issue.buttons, 8);
+// This fixture's line has room for every one of them, so the ladder is at its
+// top rung and the two separators are drawing the three groups. `ladder-smoke`
+// beside this file is where the other three rungs are measured.
+is("at the full rung, because this line has the room", issue.tier, "full");
+is("and two separators group them", issue.separators, 2);
 is("its parent is <body>, not Jira's React root", issue.toolbarParent, "BODY");
 is("and it is outside #jira-frontend entirely", issue.insideJiraFrontend, false);
 
@@ -93,7 +122,10 @@ is("and it is outside #jira-frontend entirely", issue.insideJiraFrontend, false)
 // means nothing -- which is why it is asserted rather than branched on.
 is("this Chrome has anchor positioning, so the rules below are the ones under test", issue.anchorSupported, true);
 is("the toolbar sits on the breadcrumbs' own line", Math.abs(issue.centreOffset) <= 3, true);
-is("and immediately after where they end", Math.abs(issue.leftGap) <= 3, true);
+// The toolbar is a card now -- a surface with a border and a shadow -- so it
+// keeps a hair of clearance rather than butting straight up against the last
+// crumb. The gap is the anchored branch's own margin.
+is("and immediately after where they end, clear of them by a hair", issue.leftGap >= 4 && issue.leftGap <= 16, true);
 is("it is on screen, not parked at the document origin", issue.onScreen, true);
 is("anchored, so absolutely positioned", issue.position, "absolute");
 // Not the 9999 of the fixed corner: beside the breadcrumbs the toolbar must stay
@@ -102,6 +134,16 @@ is("at the low z-index the anchored branch asks for", issue.zIndex, "1");
 
 is("every issue starts locked", issue.htmlLocked, "true");
 is("and the lock is a real outline on the description", issue.descriptionOutline, "1px");
+
+// The two toggles say what IS, not what a click does, and they say it twice
+// over: the icon and the pressed state. These four hold the two in step. A
+// padlock left showing "closed" on an unlocked description would look exactly
+// like a working toolbar until someone typed into the description.
+is("locked draws the closed padlock", issue.lockedIcon, "lock");
+is("and reads as a pressed toggle", issue.lockedPressed, "true");
+is("unlocking swaps in the open padlock", issue.unlockedIcon, "unlock");
+is("and drops the pressed state with it", issue.unlockedPressed, "false");
+is("and takes the outline off the description", issue.unlockedOutline, "none");
 
 // The route gate, from the other side. Same page, same markup, a path that is not
 // an issue: the script still writes its state attributes, and still builds nothing.

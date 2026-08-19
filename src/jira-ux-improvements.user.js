@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.3.3
-// @description  A toolbar on Jira issues: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
+// @version      0.4.0
+// @description  A toolbar on Jira issues that folds to fit the breadcrumb line: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
@@ -13,21 +13,36 @@
 // ==/UserScript==
 
 /**
- * A toolbar beside the issue breadcrumbs. Each button has an Alt+Shift
- * shortcut, listed in its tooltip.
+ * A toolbar beside the issue breadcrumbs: one small card with eight actions
+ * segmented inside it, in three groups. Every action has an Alt+Shift shortcut,
+ * listed in its tooltip.
  *
- * - 🔒 / ✏️      block or allow Jira's click-to-edit on the Description.
- *                Locked outlines the field in red; media inside it stays
- *                clickable, so attachments still open and videos still play.
- * - ⏬ / ⏩      expand or collapse the Description, for quicker access to the
- *                child issues below it.
- * - 📃 name      copy "[ABC-123] Summary".
- * - 📃 name/URL  the same, plus the issue URL.
- * - 🔗 link      markdown when pasted as text, a live link when pasted into
- *                anything that takes HTML.
- * - 🔑 key       "ABC-123" on its own, for branch names and commit messages.
- * - ⤵️ desc.     scroll past the Description.
- * - ⤴️ top       scroll back to the top.
+ * - padlock         block or allow Jira's click-to-edit on the Description.
+ *                   Locked outlines the field in red; media inside it stays
+ *                   clickable, so attachments still open and videos still play.
+ * - chevrons        expand or collapse the Description, for quicker access to
+ *                   the child issues below it.
+ * - name            copy "[ABC-123] Summary".
+ * - name/URL        the same, plus the issue URL.
+ * - link            markdown when pasted as text, a live link when pasted into
+ *                   anything that takes HTML.
+ * - key             "ABC-123" on its own, for branch names and commit messages.
+ * - desc.           scroll past the Description.
+ * - top             scroll back to the top.
+ *
+ * The icons are drawn here, as strokes in `currentColor`. Emoji were the
+ * previous answer: a colour nobody chose, a different drawing on every
+ * platform, and no way to take the disabled colour.
+ *
+ * THE BREADCRUMB LINE IS NOT A FIXED AMOUNT OF ROOM -- a parent chain can be one
+ * crumb or five, in any window width. So the toolbar is drawn at the widest of
+ * four rungs that fits the space after the breadcrumbs, and folds a group at a
+ * time as that space runs out: the four copy formats collapse into one menu,
+ * then the two jumps drop their labels, then everything but the two toggles
+ * goes behind a single overflow menu. Which rung fits is measured, not guessed:
+ * each one is built into the real toolbar and its box read back, once, and
+ * again after a resize. The two toggles never fold -- they answer a question
+ * about what is on screen right now.
  *
  * The collapse choice persists across issues and sessions. The lock does not:
  * every issue starts locked, and an unlock lasts only while you are on that
@@ -92,6 +107,17 @@
   const MOUNT_ANIMATION = "gt-jira-ux-mount";
   const COLLAPSED_HEIGHT = "200px";
   const COPY_FEEDBACK_MS = 900;
+
+  // Breathing room between the end of the breadcrumbs and the toolbar, and the
+  // amount the collapse ladder holds back when it measures the room it has.
+  const TOOLBAR_GAP = 16;
+
+  // Which of the two positions this browser gets, asked once. Chromium anchors
+  // the toolbar to the breadcrumbs; everyone else gets the fixed corner, where
+  // the breadcrumbs are not what bounds the space.
+  const ANCHORED =
+    typeof CSS !== "undefined" &&
+    CSS.supports?.("anchor-name", "--gt-breadcrumbs") === true;
 
   // Both backstops exist for the case where the event-driven path missed
   // something, not as the primary mechanism. They cost a querySelector each.
@@ -363,22 +389,39 @@
   // and Safari do not recognise that permission name, so the promise rejected,
   // nothing caught it, and the copy silently never happened. Inside a click
   // handler the write needs no gate anyway.
-  async function copyIssue(button, kind) {
+  async function copyIssue(action, kind) {
     try {
       await writeClipboard(buildClipboard(kind));
-      flash(button, "✅");
+      flash(action.id, "check");
     } catch (e) {
       logger.error("clipboard write failed", e);
-      flash(button, "⚠️");
+      flash(action.id, "warn");
     }
   }
 
   // Both clipboard callbacks used to be empty, so a failed copy and a
   // successful one looked identical from the outside: nothing happened either
-  // way. `render` puts the real label back.
-  function flash(button, label) {
-    button.textContent = label;
-    setTimeout(() => guard(render), COPY_FEEDBACK_MS);
+  // way.
+  //
+  // The feedback is state rather than a write straight into a button, because
+  // the control an action belongs to is not always a button of its own: at a
+  // narrow rung the copy formats live behind a fold, and a copy fired by its
+  // shortcut from inside a closed menu still has to show something. `render` is
+  // the one thing that knows where that something goes.
+  let flashing = null;
+
+  function flash(id, iconName) {
+    flashing = { id, icon: iconName };
+    render();
+    setTimeout(
+      () =>
+        guard(() => {
+          if (flashing?.id !== id) return;
+          flashing = null;
+          render();
+        }),
+      COPY_FEEDBACK_MS,
+    );
   }
 
   // One capture-phase listener on the document, rather than one attached to the
@@ -396,78 +439,453 @@
     );
   }
 
-  // ----------------------------------------------------------------- toolbar
+  // ------------------------------------------------------------------- icons
 
-  // Labels and tooltips are functions of the current state rather than values
-  // written at build time, so `render` cannot leave a button showing one thing
+  // One 16px stroke set, drawn in `currentColor`. Emoji were the previous
+  // answer and they were the wrong one: they arrive in a colour nobody here
+  // chose, they are a different drawing on every platform -- three of the eight
+  // fell back to a flat blue glyph on Windows -- and they cannot take the
+  // disabled colour, so a disabled button still had a bright yellow key on it.
+  // A stroke in `currentColor` inherits all three for free.
+  //
+  // THE TWO TOGGLE ICONS SAY WHAT IS, NOT WHAT A CLICK DOES. Each of them is an
+  // ARIA toggle with a pressed fill, and a pressed control drawn with the icon
+  // of the opposite action contradicts both the fill and what a screen reader
+  // announces. Neither toggle carries a text label either, so the icon is the
+  // only thing on the toolbar that can report the state at all -- the
+  // description's red outline is off-screen the moment you scroll. Both pairs
+  // are therefore drawn in one vocabulary: closed padlock against open padlock,
+  // chevrons apart against chevrons together.
+  //
+  // Built with `createElementNS` rather than `innerHTML`. Namespace, because an
+  // SVG built through the HTML parser is not an SVG element and does not draw
+  // -- the same trap that made the toolbar's buttons stop being buttons before
+  // 0.3.0. And no `innerHTML`, because a page that turns on Trusted Types would
+  // make every assignment throw.
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  const ICONS = {
+    lock: [
+      "M4.75 7h6.5a1.5 1.5 0 0 1 1.5 1.5v3.5a1.5 1.5 0 0 1-1.5 1.5h-6.5a1.5 1.5 0 0 1-1.5-1.5v-3.5a1.5 1.5 0 0 1 1.5-1.5z",
+      "M5.5 7V4.9a2.5 2.5 0 0 1 5 0V7",
+    ],
+    // The same body, and a shackle that has swung open: the arc still leaves the
+    // left of the body, but it stops in the air instead of coming back down.
+    // The first draft of this set drew a pencil here, which put two vocabularies
+    // in one pair -- a padlock says what IS, a pencil says what a click DOES --
+    // so whichever way the pair was read, one of the two was lying. Both are
+    // padlocks now.
+    unlock: [
+      "M4.75 7h6.5a1.5 1.5 0 0 1 1.5 1.5v3.5a1.5 1.5 0 0 1-1.5 1.5h-6.5a1.5 1.5 0 0 1-1.5-1.5v-3.5a1.5 1.5 0 0 1 1.5-1.5z",
+      "M5.5 7V4.9a2.5 2.5 0 0 1 4.9-1",
+    ],
+    // The chevrons say which way the description currently stands: apart for a
+    // description at full height, together for one that is folded.
+    expanded: ["M4.5 5.5 8 2l3.5 3.5", "M4.5 10.5 8 14l3.5-3.5"],
+    collapsed: ["M4.5 2.5 8 6l3.5-3.5", "M4.5 13.5 8 10l3.5 3.5"],
+    docName: [
+      "M5 2.25h6a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5v-8.5A1.5 1.5 0 0 1 5 2.25z",
+      "M6 5.75h4M6 8h4M6 10.25h2.5",
+    ],
+    docUrl: [
+      "M11 7.75v4.5a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 3 12.25v-7.5a1.5 1.5 0 0 1 1.5-1.5H8",
+      "M5.5 7.25h3M5.5 9.75h3",
+      "M10.5 2.25h3.25V5.5M13.75 2.25 9.75 6.25",
+    ],
+    link: [
+      "M6.9 9.1a2.6 2.6 0 0 0 3.7 0l2-2a2.6 2.6 0 1 0-3.7-3.7l-.9.9",
+      "M9.1 6.9a2.6 2.6 0 0 0-3.7 0l-2 2a2.6 2.6 0 1 0 3.7 3.7l.9-.9",
+    ],
+    key: ["M8.55 10.3a2.85 2.85 0 1 1-5.7 0 2.85 2.85 0 0 1 5.7 0z", "M7.7 8.3 13.2 2.8", "M10.6 5.4l1.7 1.7"],
+    jumpDown: ["M8 2.5v7.6", "M4.9 7.3 8 10.4l3.1-3.1", "M3.5 13.4h9"],
+    jumpTop: ["M3.5 2.6h9", "M8 13.5V5.9", "M4.9 9 8 5.9 11.1 9"],
+    copy: [
+      "M7.25 5.75h4.5a1.5 1.5 0 0 1 1.5 1.5v4.5a1.5 1.5 0 0 1-1.5 1.5h-4.5a1.5 1.5 0 0 1-1.5-1.5v-4.5a1.5 1.5 0 0 1 1.5-1.5z",
+      "M10.25 3.25h-6a1.5 1.5 0 0 0-1.5 1.5v6",
+    ],
+    // Three dots, drawn as three zero-length segments with a round cap. A dot
+    // per `<circle>` would need a second element type in `icon` below.
+    more: ["M3.6 8h.01", "M8 8h.01", "M12.4 8h.01"],
+    chevron: ["M4.5 6.5 8 10l3.5-3.5"],
+    check: ["M3 8.6 6.3 12 13 4.6"],
+    warn: ["M8 2.8 14 13H2z", "M8 6.6v3", "M8 11.2h.01"],
+  };
+
+  function icon(name) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.5");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("data-gt-icon", name);
+    svg.setAttribute("class", "gt-icon");
+
+    for (const d of ICONS[name] ?? []) {
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", d);
+      svg.append(path);
+    }
+    return svg;
+  }
+
+  // ----------------------------------------------------------------- actions
+
+  // Eight actions, in three groups. A group is not decoration: it is the unit
+  // the ladder below folds, and the unit the separators draw.
+  //
+  // Labels and icons are functions of the current state rather than values
+  // written at build time, so a redraw cannot leave a control showing one thing
   // while the state says another.
-  const BUTTONS = [
+  const ACTIONS = [
     {
       id: "gt-toggle-lock",
+      group: "state",
       needsDescription: true,
-      label: () => (locked ? "🔒" : "✏️"),
+      icon: () => (locked ? "lock" : "unlock"),
+      label: () => "",
+      pressed: () => locked,
+      menuLabel: () => (locked ? "Allow click-to-edit" : "Block click-to-edit"),
       title: () =>
         locked
           ? "Description is locked: click-to-edit is blocked"
           : "Description is editable: click to lock it, or just browse to another issue",
-      onClick: () => setLocked(!locked),
+      run: () => setLocked(!locked),
     },
     {
       id: "gt-toggle-collapse",
+      group: "state",
       needsDescription: true,
-      label: () => (prefs.collapsed ? "⏩" : "⏬"),
+      icon: () => (prefs.collapsed ? "collapsed" : "expanded"),
+      label: () => "",
+      pressed: () => prefs.collapsed,
+      menuLabel: () => (prefs.collapsed ? "Expand the description" : "Collapse the description"),
       title: () =>
         prefs.collapsed
           ? "Description is collapsed: click to expand it"
           : "Description is expanded: click to collapse it",
-      onClick: () => setPref("collapsed", !prefs.collapsed),
+      run: () => setPref("collapsed", !prefs.collapsed),
     },
     {
       id: "gt-copy-name",
-      label: () => "📃 name",
+      group: "copy",
+      icon: () => "docName",
+      label: () => "name",
+      menuLabel: () => "Copy the key and summary",
       title: () => "Copy the issue key and summary",
-      onClick: (button) => copyIssue(button, "name"),
+      run: (action) => copyIssue(action, "name"),
     },
     {
       id: "gt-copy-name-url",
-      label: () => "📃 name/URL",
+      group: "copy",
+      icon: () => "docUrl",
+      label: () => "name/URL",
+      menuLabel: () => "Copy the key, summary and URL",
       title: () => "Copy the issue key, summary and URL",
-      onClick: (button) => copyIssue(button, "url"),
+      run: (action) => copyIssue(action, "url"),
     },
     {
       id: "gt-copy-link",
-      label: () => "🔗 link",
+      group: "copy",
+      icon: () => "link",
+      label: () => "link",
+      menuLabel: () => "Copy as a link",
       title: () =>
         "Copy as a link: markdown when pasted as text, a live link when pasted into an editor",
-      onClick: (button) => copyIssue(button, "link"),
+      run: (action) => copyIssue(action, "link"),
     },
     {
       id: "gt-copy-key",
-      label: () => "🔑 key",
+      group: "copy",
+      icon: () => "key",
+      label: () => "key",
+      menuLabel: () => "Copy the key on its own",
       title: () => "Copy the issue key on its own, for branches and commits",
-      onClick: (button) => copyIssue(button, "key"),
+      run: (action) => copyIssue(action, "key"),
     },
     {
       id: "gt-jump-description",
+      group: "move",
       needsDescription: true,
-      label: () => "⤵️ desc.",
+      icon: () => "jumpDown",
+      label: () => "desc.",
+      menuLabel: () => "Scroll past the description",
       title: () => "Scroll past the description",
-      onClick: jumpDescHandler,
+      run: jumpDescHandler,
     },
     {
       id: "gt-go-top",
-      label: () => "⤴️ top",
+      group: "move",
+      icon: () => "jumpTop",
+      label: () => "top",
+      menuLabel: () => "Scroll back to the top",
       title: () => "Scroll back to the top",
-      onClick: goToTopHandler,
+      run: goToTopHandler,
     },
   ];
+
+  const actionsIn = (group) => ACTIONS.filter((action) => action.group === group);
+  const actionById = (id) => ACTIONS.find((action) => action.id === id);
+
+  // Set once per render, so eight enabled-checks and up to six menu items do not
+  // each run their own querySelector.
+  let described = false;
+
+  const isEnabled = (action) => !(action.needsDescription && !described);
+
+  // --------------------------------------------------------------- the ladder
+
+  // The breadcrumb line is not a fixed amount of room. It is whatever is left
+  // after a parent chain that can be one crumb or five, in a window that can be
+  // any width, beside a sidebar that opens and closes. So the toolbar is drawn
+  // at the widest rung that fits and folds a group at a time as the room runs
+  // out. The two toggles never fold: they are the ones that answer a question
+  // about what is on screen right now.
+  const TIERS = [
+    { key: "full", copy: "buttons", move: "labels" },
+    { key: "tight", copy: "menu", move: "labels" },
+    { key: "compact", copy: "menu", move: "icons" },
+    { key: "minimal", copy: "overflow", move: "overflow" },
+  ];
+
+  const COPY_TRIGGER_ID = "gt-copy-menu";
+  const MORE_TRIGGER_ID = "gt-more-menu";
+
+  // Which rung a width buys is measured, never guessed: each rung is built into
+  // the real toolbar and its box is read back. Building four and keeping one
+  // costs nothing visible, because layout is synchronous and no frame is painted
+  // in the middle of it -- and the measurement is of the real element, with the
+  // real font and the real border, rather than of a copy that would have to be
+  // kept in step with the sheet.
+  //
+  // Measured once and cached. Nothing about a rung's width depends on the
+  // state: the labels are fixed strings and a disabled button is the same size
+  // as an enabled one. A resize is the one thing that can invalidate it, and it
+  // says so by clearing this.
+  let tierWidths = null;
+
+  function measureTiers(toolbar) {
+    const widths = {};
+    for (const tier of TIERS) {
+      fillToolbar(toolbar, tier.key, null);
+      widths[tier.key] = toolbar.getBoundingClientRect().width;
+    }
+    // Whatever is in the toolbar now is the last probe, not a choice.
+    builtSignature = null;
+    return widths;
+  }
+
+  // The room the toolbar has: from where the breadcrumbs end to where their
+  // header ends. Not the window -- a deep parent chain eats this space without
+  // the window changing at all, and that is the common case rather than the
+  // exotic one.
+  function availableWidth() {
+    const header = document.getElementById("jira-issue-header");
+    const breadcrumbs = header?.querySelector(SEL.breadcrumbs);
+
+    // In the fixed corner the breadcrumbs are not the constraint; the viewport
+    // is, and there is plenty of it.
+    if (!ANCHORED || !header || !breadcrumbs) {
+      return document.documentElement.clientWidth - TOOLBAR_GAP * 2;
+    }
+
+    return (
+      header.getBoundingClientRect().right -
+      breadcrumbs.getBoundingClientRect().right -
+      TOOLBAR_GAP
+    );
+  }
+
+  function chooseTier(toolbar) {
+    tierWidths ??= measureTiers(toolbar);
+    const room = availableWidth();
+    const fits = TIERS.find((tier) => tierWidths[tier.key] <= room);
+    return (fits ?? TIERS[TIERS.length - 1]).key;
+  }
+
+  // ----------------------------------------------------------------- toolbar
+
+  // Which menu is open, by the id of the control that opens it. Part of the
+  // state like everything else, so `render` draws it rather than a click
+  // handler reaching into the page behind `render`'s back.
+  let menuOpen = null;
+
+  // What the toolbar currently holds, as `tier|menu`. `render` runs on two
+  // backstop timers, and rebuilding the toolbar twice a second would flicker,
+  // drop hover and close a menu under the pointer. So a redraw that changes
+  // neither only refreshes the labels.
+  let builtSignature = null;
+
+  function separator() {
+    const span = document.createElement("span");
+    span.className = "gt-sep";
+    span.setAttribute("aria-hidden", "true");
+    return span;
+  }
+
+  function control(action, labelled) {
+    const button = document.createElement("button");
+    button.id = action.id;
+    button.type = "button";
+    if (!labelled) button.className = "gt-icon-only";
+    button.append(icon(action.icon()));
+
+    if (labelled) {
+      const label = document.createElement("span");
+      label.className = "gt-label";
+      label.textContent = action.label();
+      button.append(label);
+    }
+
+    button.addEventListener("click", () => guard(() => activate(action.id)));
+    return button;
+  }
+
+  // A fold: one button that stands for several actions. It carries the ids it
+  // holds, which is how a shortcut for a folded action finds something to flash
+  // and how the menu knows what to list.
+  function foldTrigger(id, iconName, title, held) {
+    const button = document.createElement("button");
+    button.id = id;
+    button.type = "button";
+    button.className = "gt-icon-only gt-fold";
+    button.title = title;
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", String(menuOpen === id));
+    button.dataset.gtHolds = held.map((action) => action.id).join(" ");
+    button.append(icon(iconName), icon("chevron"));
+
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      guard(() => {
+        menuOpen = menuOpen === id ? null : id;
+        render();
+      });
+    });
+    return button;
+  }
+
+  function menuFor(trigger) {
+    const menu = document.createElement("div");
+    menu.className = "gt-menu";
+    menu.setAttribute("role", "menu");
+
+    let group = null;
+    for (const id of trigger.dataset.gtHolds.split(" ")) {
+      const action = actionById(id);
+      if (!action) continue;
+
+      if (group !== null && action.group !== group) {
+        const rule = document.createElement("hr");
+        rule.setAttribute("aria-hidden", "true");
+        menu.append(rule);
+      }
+      group = action.group;
+
+      const item = document.createElement("button");
+      item.type = "button";
+      item.setAttribute("role", "menuitem");
+      item.dataset.gtFor = action.id;
+      item.disabled = !isEnabled(action);
+      item.append(icon(action.icon()));
+
+      const label = document.createElement("span");
+      label.className = "gt-label";
+      label.textContent = action.menuLabel();
+
+      const hint = document.createElement("span");
+      hint.className = "gt-hint";
+      hint.textContent = SHORTCUT_HINT[action.id] ?? "";
+
+      item.append(label, hint);
+      // `activate` redraws, and `menuOpen` is already null by then, so the menu
+      // closes on the way out.
+      item.addEventListener("click", (event) => {
+        event.stopPropagation();
+        guard(() => {
+          menuOpen = null;
+          activate(action.id);
+        });
+      });
+      menu.append(item);
+    }
+    return menu;
+  }
+
+  function fillToolbar(toolbar, tierKey, openMenu) {
+    const tier = TIERS.find((entry) => entry.key === tierKey) ?? TIERS[0];
+    toolbar.replaceChildren();
+    toolbar.dataset.gtTier = tier.key;
+
+    for (const action of actionsIn("state")) toolbar.append(control(action, false));
+
+    if (tier.copy === "buttons") {
+      toolbar.append(separator());
+      for (const action of actionsIn("copy")) toolbar.append(control(action, true));
+    } else if (tier.copy === "menu") {
+      toolbar.append(separator());
+      toolbar.append(
+        foldTrigger(COPY_TRIGGER_ID, "copy", "Copy this issue", actionsIn("copy")),
+      );
+    }
+
+    toolbar.append(separator());
+
+    if (tier.move === "overflow") {
+      toolbar.append(
+        foldTrigger(
+          MORE_TRIGGER_ID,
+          "more",
+          "The rest of the toolbar",
+          actionsIn("copy").concat(actionsIn("move")),
+        ),
+      );
+    } else {
+      for (const action of actionsIn("move")) {
+        toolbar.append(control(action, tier.move === "labels"));
+      }
+    }
+
+    // The menu is a child of the toolbar, so it is positioned against it and
+    // goes away with it. `data-gt-menu` lifts the toolbar's z-index while it is
+    // open: beside the breadcrumbs the toolbar deliberately sits at z-index 1,
+    // which is under anything of Jira's that paints over the page.
+    const trigger = openMenu ? toolbar.querySelector(`#${openMenu}`) : null;
+    toolbar.dataset.gtMenu = trigger ? "open" : "closed";
+    if (trigger) toolbar.append(menuFor(trigger));
+  }
+
+  // The one door. A click and a shortcut both come through here, so the
+  // disabled rule, the copy feedback and the fold are described once -- and a
+  // shortcut still works for an action that the current rung has folded into a
+  // menu, which is the thing that would otherwise have quietly broken.
+  function activate(id) {
+    const action = actionById(id);
+    if (action && isEnabled(action)) action.run(action);
+    // Unconditionally, and not left to the action: two of the eight only scroll,
+    // and a scroll changes no state, so nothing else would redraw. An action
+    // reached from an open menu would then leave that menu on the screen.
+    render();
+  }
+
+  // Where an action's feedback shows: its own button, or the fold that holds it.
+  function controlFor(id) {
+    const toolbar = document.getElementById(TOOLBAR_ID);
+    if (!toolbar) return null;
+    return (
+      toolbar.querySelector(`#${id}`) ??
+      toolbar.querySelector(`[data-gt-holds~="${id}"]`)
+    );
+  }
 
   // --------------------------------------------------------------- shortcuts
 
   // Alt+Shift rather than bare letters: Jira binds plenty of single keys of its
-  // own. Each one names a button rather than a handler, so the disabled state,
-  // the flash feedback and the toolbar's own wiring are shared rather than
-  // reimplemented -- and a shortcut does nothing on a page with no toolbar.
+  // own. Each one names an action, and `activate` is the same door a click uses.
   const SHORTCUTS = {
     KeyL: "gt-toggle-lock",
     KeyE: "gt-toggle-collapse",
@@ -487,6 +905,12 @@
   );
 
   function onKeyDown(event) {
+    if (event.key === "Escape" && menuOpen) {
+      menuOpen = null;
+      guard(render);
+      return;
+    }
+
     if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey) {
       return;
     }
@@ -502,11 +926,21 @@
 
     // `event.code`, not `event.key`: Option+Shift on macOS produces a different
     // character altogether.
-    const button = document.getElementById(SHORTCUTS[event.code] ?? "");
-    if (!button || button.disabled) return;
+    const id = SHORTCUTS[event.code];
+    if (!id || !currentKey || !document.getElementById(TOOLBAR_ID)) return;
 
     event.preventDefault();
-    button.click();
+    menuOpen = null;
+    guard(() => activate(id));
+  }
+
+  // A click anywhere else closes an open menu. The toolbar's own clicks stop at
+  // their handlers, so this only ever sees the outside.
+  function onDocumentClick(event) {
+    if (!menuOpen) return;
+    if (event.target?.closest?.(`#${TOOLBAR_ID}`)) return;
+    menuOpen = null;
+    guard(render);
   }
 
   function ensureToolbar() {
@@ -514,6 +948,8 @@
 
     if (!currentKey) {
       existing?.remove();
+      builtSignature = null;
+      menuOpen = null;
       return null;
     }
 
@@ -544,24 +980,20 @@
 
     const toolbar = document.createElement("div");
     toolbar.id = TOOLBAR_ID;
-
-    for (const spec of BUTTONS) {
-      const button = document.createElement("button");
-      button.id = spec.id;
-      button.type = "button";
-      button.addEventListener("click", () => guard(() => spec.onClick(button)));
-      toolbar.append(button);
-    }
-
     mount.append(toolbar);
+
+    // A new element, so nothing measured about the old one still holds.
+    builtSignature = null;
+    tierWidths = null;
+
     logger.debug(`toolbar built for ${currentKey}`);
     return toolbar;
   }
 
   // Idempotent, and the only way state reaches the page. Every signal -- route
-  // change, mount, preference toggle, backstop tick -- calls this and nothing
-  // else, so there is one description of what the page should look like rather
-  // than a set of branches that have to agree with each other.
+  // change, mount, preference toggle, resize, backstop tick -- calls this and
+  // nothing else, so there is one description of what the page should look like
+  // rather than a set of branches that have to agree with each other.
   function render() {
     const root = document.documentElement;
     root.dataset.gtJiraLocked = String(locked);
@@ -571,15 +1003,36 @@
     if (!toolbar) return;
 
     // Nothing to lock, collapse or scroll past until the description mounts.
-    const hasDescription = !!document.querySelector(SEL.description);
+    described = !!document.querySelector(SEL.description);
 
-    for (const spec of BUTTONS) {
-      const button = toolbar.querySelector(`#${spec.id}`);
+    const tier = chooseTier(toolbar);
+    const signature = `${tier}|${menuOpen ?? ""}`;
+    if (signature !== builtSignature) {
+      fillToolbar(toolbar, tier, menuOpen);
+      builtSignature = signature;
+    }
+
+    for (const action of ACTIONS) {
+      const button = toolbar.querySelector(`#${action.id}`);
       if (!button) continue;
-      const hint = SHORTCUT_HINT[spec.id];
-      button.textContent = spec.label();
-      button.title = hint ? `${spec.title()} (${hint})` : spec.title();
-      button.disabled = Boolean(spec.needsDescription) && !hasDescription;
+      const hint = SHORTCUT_HINT[action.id];
+      button.title = hint ? `${action.title()} (${hint})` : action.title();
+      button.disabled = !isEnabled(action);
+      if (action.pressed) button.setAttribute("aria-pressed", String(action.pressed()));
+      button.replaceChild(icon(action.icon()), button.firstChild);
+    }
+
+    for (const item of toolbar.querySelectorAll("[data-gt-for]")) {
+      const action = actionById(item.dataset.gtFor);
+      if (!action) continue;
+      item.disabled = !isEnabled(action);
+      item.replaceChild(icon(action.icon()), item.firstChild);
+    }
+
+    // Last, so it wins over the icon each control has just been given back.
+    if (flashing) {
+      const button = controlFor(flashing.id);
+      if (button) button.replaceChild(icon(flashing.icon), button.firstChild);
     }
   }
 
@@ -622,15 +1075,17 @@ html[data-gt-jira-collapsed="true"] ${SEL.description} {
    dark block below only swaps those fallbacks, since a live token already
    carries the right value for the active theme. */
 div#${TOOLBAR_ID} {
-  --gt-bg: var(--ds-background-neutral, #091e420f);
-  --gt-bg-hover: var(--ds-background-neutral-hovered, #091e4224);
-  --gt-bg-active: var(--ds-background-neutral-pressed, #091e424f);
-  --gt-bg-selected: var(--ds-background-selected, #e9f2ff);
-  --gt-bg-disabled: var(--ds-background-disabled, #091e4208);
+  --gt-surface: var(--ds-surface-overlay, #ffffff);
+  --gt-border: var(--ds-border, #091e4224);
+  --gt-shadow: var(--ds-shadow-overlay, 0 4px 8px #091e4226);
   --gt-text: var(--ds-text-subtle, #44546f);
-  --gt-text-hover: var(--ds-text, #172b4d);
-  --gt-text-selected: var(--ds-text-selected, #0c66e4);
+  --gt-text-strong: var(--ds-text, #172b4d);
   --gt-text-disabled: var(--ds-text-disabled, #091e424f);
+  --gt-text-hint: var(--ds-text-subtlest, #626f86);
+  --gt-hover: var(--ds-background-neutral-subtle-hovered, #091e4214);
+  --gt-pressed: var(--ds-background-neutral-hovered, #091e4224);
+  --gt-selected: var(--ds-background-selected, #e9f2ff);
+  --gt-selected-text: var(--ds-text-selected, #0c66e4);
   --gt-focus: var(--ds-border-focused, #388bff);
 
   position: fixed;
@@ -646,34 +1101,50 @@ div#${TOOLBAR_ID} {
   z-index: 9999;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
+
+  /* One surface with the buttons segmented inside it, rather than eight
+     separately filled chips. It reads as a single tool, it is findable at a
+     glance, and in the fixed corner -- where it floats over the navigation band
+     and over whatever colour happens to be under it -- the surface is what makes
+     it legible at all. */
+  padding: 2px;
+  border: 1px solid var(--gt-border);
+  border-radius: 6px;
+  background: var(--gt-surface);
+  box-shadow: var(--gt-shadow);
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
 @media (prefers-color-scheme: dark) {
   div#${TOOLBAR_ID} {
-    --gt-bg: var(--ds-background-neutral, #a1bdd914);
-    --gt-bg-hover: var(--ds-background-neutral-hovered, #a6c5e229);
-    --gt-bg-active: var(--ds-background-neutral-pressed, #bfdbf847);
-    --gt-bg-selected: var(--ds-background-selected, #1c2b41);
-    --gt-bg-disabled: var(--ds-background-disabled, #bcd6f00a);
+    --gt-surface: var(--ds-surface-overlay, #282e33);
+    --gt-border: var(--ds-border, #a6c5e229);
+    --gt-shadow: var(--ds-shadow-overlay, 0 4px 8px #03040442);
     --gt-text: var(--ds-text-subtle, #9fadbc);
-    --gt-text-hover: var(--ds-text, #b6c2cf);
-    --gt-text-selected: var(--ds-text-selected, #579dff);
+    --gt-text-strong: var(--ds-text, #b6c2cf);
     --gt-text-disabled: var(--ds-text-disabled, #bfdbf847);
+    --gt-text-hint: var(--ds-text-subtlest, #8c9bab);
+    --gt-hover: var(--ds-background-neutral-subtle-hovered, #a6c5e21f);
+    --gt-pressed: var(--ds-background-neutral-hovered, #a6c5e229);
+    --gt-selected: var(--ds-background-selected, #1c2b41);
+    --gt-selected-text: var(--ds-text-selected, #579dff);
   }
 }
 
-/* Sized to sit inside the breadcrumb line rather than tower over it: no
-   border, 24px tall, and the label at the breadcrumbs' own weight. */
+/* Sized to sit inside the breadcrumb line rather than tower over it: 26px tall,
+   no border of its own, and the label at the breadcrumbs' own weight. */
 div#${TOOLBAR_ID} button {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 6px;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 7px;
   border: none;
-  border-radius: 3px;
-  background: var(--gt-bg);
+  border-radius: 4px;
+  background: transparent;
   color: var(--gt-text);
   font-family: inherit;
   font-size: 12px;
@@ -683,33 +1154,99 @@ div#${TOOLBAR_ID} button {
   cursor: pointer;
   transition: background 100ms ease-out, color 100ms ease-out;
 }
-div#${TOOLBAR_ID} button:hover {
-  background: var(--gt-bg-hover);
-  color: var(--gt-text-hover);
+div#${TOOLBAR_ID} button.gt-icon-only {
+  padding: 0;
+  min-width: 26px;
 }
-div#${TOOLBAR_ID} button:active {
-  background: var(--gt-bg-active);
+div#${TOOLBAR_ID} button.gt-fold {
+  min-width: 34px;
+  gap: 1px;
 }
-/* The buttons are keyboard-reachable now, so the focus ring has to be visible.
+div#${TOOLBAR_ID} button:hover:not(:disabled) {
+  background: var(--gt-hover);
+  color: var(--gt-text-strong);
+}
+div#${TOOLBAR_ID} button:active:not(:disabled) {
+  background: var(--gt-pressed);
+}
+/* The buttons are keyboard-reachable, so the focus ring has to be visible.
    :focus-visible keeps it off the mouse path. */
 div#${TOOLBAR_ID} button:focus-visible {
   outline: 2px solid var(--gt-focus);
   outline-offset: 1px;
 }
-
-/* The two toggles read as pressed straight off the state attributes render
-   already sets, so "is it locked" is answerable without reading the emoji. */
-html[data-gt-jira-locked="true"] div#${TOOLBAR_ID} #gt-toggle-lock:not(:disabled),
-html[data-gt-jira-collapsed="true"] div#${TOOLBAR_ID} #gt-toggle-collapse:not(:disabled) {
-  background: var(--gt-bg-selected);
-  color: var(--gt-text-selected);
+/* The two toggles read as pressed straight off the ARIA state, so "is it
+   locked" is answerable without reading the icon. */
+div#${TOOLBAR_ID} button[aria-pressed="true"]:not(:disabled),
+div#${TOOLBAR_ID} button[aria-expanded="true"]:not(:disabled) {
+  background: var(--gt-selected);
+  color: var(--gt-selected-text);
 }
-
 /* Last, because a disabled button still matches :hover. */
 div#${TOOLBAR_ID} button:disabled {
-  background: var(--gt-bg-disabled);
+  background: transparent;
   color: var(--gt-text-disabled);
   cursor: not-allowed;
+}
+
+div#${TOOLBAR_ID} .gt-icon {
+  flex: none;
+  display: block;
+}
+/* Three dots want a fatter stroke than three lines do. */
+div#${TOOLBAR_ID} .gt-icon[data-gt-icon="more"] {
+  stroke-width: 2;
+}
+div#${TOOLBAR_ID} .gt-icon[data-gt-icon="chevron"] {
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
+}
+
+/* The separators are what turn eight controls into three groups. */
+div#${TOOLBAR_ID} .gt-sep {
+  flex: none;
+  align-self: stretch;
+  width: 1px;
+  margin: 3px 5px;
+  background: var(--gt-border);
+}
+
+/* The fold. A menu of the actions this rung had no room for. */
+div#${TOOLBAR_ID} .gt-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 5px);
+  inset-inline-end: 0;
+  min-width: 250px;
+  padding: 4px;
+  border: 1px solid var(--gt-border);
+  border-radius: 6px;
+  background: var(--gt-surface);
+  box-shadow: var(--gt-shadow);
+  display: flex;
+  flex-direction: column;
+}
+div#${TOOLBAR_ID} .gt-menu button {
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--gt-text-strong);
+  font-size: 14px;
+  font-weight: 400;
+}
+div#${TOOLBAR_ID} .gt-menu .gt-hint {
+  margin-inline-start: auto;
+  padding-inline-start: 14px;
+  color: var(--gt-text-hint);
+  font-size: 11px;
+}
+div#${TOOLBAR_ID} .gt-menu hr {
+  width: calc(100% - 4px);
+  margin: 4px 2px;
+  border: none;
+  border-block-start: 1px solid var(--gt-border);
 }
 
 /* The anchor name is namespaced because this rule matches every breadcrumbs
@@ -725,15 +1262,23 @@ div#${TOOLBAR_ID} button:disabled {
     position-area: center right;
     inset-block-start: auto;
     inset-inline-end: auto;
+    margin-inline-start: 8px;
     /* Back to 1. The toolbar sits beside the breadcrumbs here, inside Jira's
        own tree, where it must not paint over a dialog. The high value above is
        for the fixed corner only. */
     z-index: 1;
   }
+
+  /* Except while a menu is open, which is a thing the user asked for and has to
+     be able to see. It goes back down the moment the menu closes. */
+  div#${TOOLBAR_ID}[data-gt-menu="open"] {
+    z-index: 20;
+  }
 }`,
   );
 
   document.addEventListener("click", blockClickToEdit, true);
+  document.addEventListener("click", onDocumentClick);
   document.addEventListener("keydown", onKeyDown, true);
 
   // A remount within one issue leaves the lock alone -- saving an edit should
@@ -741,8 +1286,34 @@ div#${TOOLBAR_ID} button:disabled {
   // issue starts locked again.
   watchRoute(() => {
     locked = true;
+    menuOpen = null;
     render();
   });
   watchMounts(render);
+
+  // The one signal the ladder needs that nothing else provides: the room after
+  // the breadcrumbs can change with no remount and no navigation at all. Once
+  // per frame at most, and it drops the measured widths because a zoom changes
+  // them along with the window.
+  let resizeFrame = null;
+  window.addEventListener("resize", () => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = null;
+      tierWidths = null;
+      guard(render);
+    });
+  });
+
   guard(render);
+
+  // The first measurement happens in whatever font is resolved at that moment.
+  // If Jira's own face arrives later, every label is a different width and the
+  // rung chosen was chosen against the wrong numbers.
+  document.fonts?.ready.then(() =>
+    guard(() => {
+      tierWidths = null;
+      render();
+    }),
+  );
 })();

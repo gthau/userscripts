@@ -1,8 +1,8 @@
 # ADR: Jira UX Improvements userscript
 
 - **Status:** Accepted
-- **Date:** 2026-08-06
-- **Applies to:** `src/jira-ux-improvements.user.js` (version 0.3.2)
+- **Date:** 2026-08-06. Revised 2026-08-20 for version 0.4.0.
+- **Applies to:** `src/jira-ux-improvements.user.js` (version 0.4.0)
 
 ## About this document
 
@@ -249,35 +249,151 @@ Only Chromium supports this feature today. Therefore:
 - Without anchor positioning, the toolbar goes to the top right corner. This
   position is not as good, but the user can use it.
 
+### 2.12 The toolbar is one card
+
+The toolbar is a surface. It has a border, a corner radius, and a shadow. All
+the buttons are inside it. A button has no fill of its own until the pointer is
+on it.
+
+Version 0.3.3 gave each button a grey fill. Eight filled buttons made a solid
+block. The block was beside a line of text that has no other blocks in it.
+
+Three designs were built and compared in a browser at the same time:
+
+| Design | Container            | Buttons                        |
+| ------ | -------------------- | ------------------------------ |
+| A      | none                 | flat, with labels              |
+| B      | none                 | icons only, copy in a menu     |
+| C      | one surface          | flat, with labels, segmented   |
+
+A and C have the same buttons. Only the container is different. C was selected,
+for these reasons:
+
+- The toolbar is a tool. It is not part of the page. The surface says so.
+- The user can find it at one glance.
+- The fixed corner needs the surface. There the toolbar floats above the
+  navigation band of Jira, above a colour that the script does not control.
+
+### 2.13 The toolbar folds to the width of the line
+
+The space after the breadcrumbs is not a constant. Three things change it: the
+number of parent issues, the width of the window, and the sidebar.
+
+The toolbar has four rungs:
+
+| Rung      | What it shows                                                |
+| --------- | ------------------------------------------------------------ |
+| `full`    | All eight actions. The four copy actions have labels.        |
+| `tight`   | The four copy actions become one menu.                       |
+| `compact` | The two move actions lose their labels.                      |
+| `minimal` | One menu holds the six. The two toggles stay.                |
+
+The script measures. It builds each rung into the toolbar and reads the width of
+the box. Then it keeps the widest rung that is not larger than the space. Four
+builds and one keep are not visible, because the browser calculates the layout
+in one operation and paints no frame in the middle of it.
+
+The measurement is of the true element, with the true font and the true border.
+A copy of the toolbar would be a second thing to keep in agreement with the
+style sheet.
+
+The script measures one time and keeps the widths. No rung changes width when
+the state changes: each label is a constant string, and a disabled button has
+the size of an enabled button. A resize deletes the widths, because a zoom
+changes them. A resize is also the one event that changes the space with no new
+build and no new URL. Thus the script listens for it.
+
+Two rules control the ladder:
+
+- The two toggles stay at each rung. They answer a question about the
+  description that is on the screen now.
+- A group folds as one group. One part of a group does not fold.
+
+### 2.14 The icons are drawn in the script
+
+Each icon is an SVG of 16 pixels. It has one colour: `currentColor`. Thus an
+icon takes the colour of the theme, the colour of a disabled button, and the
+colour of a pressed toggle. It does this with no other rule.
+
+Version 0.3.3 used emoji. Emoji have three problems. The colour is not a colour
+that this script selected. The image is different on each operating system: on
+Windows three of the eight became a flat blue glyph. And an emoji cannot take
+the disabled colour, so a disabled button kept a bright yellow key.
+
+The script builds each icon with `createElementNS`. There are two reasons. An
+SVG element that comes from the HTML parser has no namespace and does not draw:
+this is the same trap as §2.9. And a page that operates Trusted Types makes each
+`innerHTML` operation fail.
+
+**The icon of a toggle shows the state. It does not show the action.** The first
+design of this set showed a closed padlock for a locked description and a pencil
+for an unlocked one. A padlock and a pencil are not the same type of word: a
+padlock says what the description IS, and a pencil says what a click DOES. Thus
+one of the two icons was always incorrect. The pair is now a closed padlock and
+an open padlock.
+
+The state is the correct type for these two controls, for three reasons:
+
+- Each toggle is an ARIA toggle. It has `aria-pressed`, and the style sheet
+  gives it a different colour when it is pressed. An icon of the opposite action
+  disagrees with the colour and with the words of a screen reader.
+- Neither toggle has a text label. Thus the icon is the only part of the toolbar
+  that can show the state. The red outline of the description is not sufficient:
+  it is not on the screen when the user moves down the page.
+- The other toggle already operates in this manner. Chevrons that point away
+  from each other show a description at full height.
+
+### 2.15 A click and a shortcut use one door
+
+Both call `activate(id)`. This function finds the action, tests the disabled
+rule, and operates the action.
+
+Version 0.3.3 did something different: the shortcut found the button by its id
+and clicked it. The ladder makes that method incorrect, because an action at a
+narrow rung has no button. Each shortcut for a folded action would do nothing.
+
+The feedback goes to the control that shows the action: the button of the
+action, or the fold that holds it. Thus a copy that starts from a keyboard
+shortcut, inside a menu that is closed, still shows a result.
+
 ---
 
 ## 3. What the script gives the user
 
-The toolbar has eight buttons. Each button has a keyboard shortcut.
+The toolbar has eight actions in three groups. A line separates each group.
+Each action has a keyboard shortcut.
 
-| Button      | Function                                           | Shortcut      |
-| ----------- | -------------------------------------------------- | ------------- |
-| 🔒 / ✏️     | Prevent or permit click-to-edit on the description | `Alt+Shift+L` |
-| ⏬ / ⏩     | Expand or collapse the description                 | `Alt+Shift+E` |
-| 📃 name     | Copy `[ABC-123] Summary`                           | `Alt+Shift+N` |
-| 📃 name/URL | Copy the name and the URL                          | `Alt+Shift+U` |
-| 🔗 link     | Copy a link                                        | `Alt+Shift+M` |
-| 🔑 key      | Copy `ABC-123`                                     | `Alt+Shift+I` |
-| ⤵️ desc.    | Move down past the description                     | `Alt+Shift+D` |
-| ⤴️ top      | Move up to the top                                 | `Alt+Shift+T` |
+| Group | Icon and label  | Function                                           | Shortcut      |
+| ----- | --------------- | -------------------------------------------------- | ------------- |
+| state | padlock, closed or open | Prevent or permit click-to-edit on the description | `Alt+Shift+L` |
+| state | chevrons, apart or together | Expand or collapse the description             | `Alt+Shift+E` |
+| copy  | page + name     | Copy `[ABC-123] Summary`                           | `Alt+Shift+N` |
+| copy  | page + name/URL | Copy the name and the URL                          | `Alt+Shift+U` |
+| copy  | chain + link    | Copy a link                                        | `Alt+Shift+M` |
+| copy  | key + key       | Copy `ABC-123`                                     | `Alt+Shift+I` |
+| move  | arrow + desc.   | Move down past the description                     | `Alt+Shift+D` |
+| move  | arrow + top     | Move up to the top                                 | `Alt+Shift+T` |
+
+The group is not decoration. It is the unit that the ladder of §2.13 folds, and
+the unit that the separator lines show.
 
 Notes on the buttons:
 
 - The 🔗 link button writes two formats to the clipboard. Plain text gets
   Markdown. HTML gets an `<a>` element. Thus a paste into Confluence, Slack, or
   a pull request gives a link that operates.
-- The two toggle buttons show a different color when their condition is active.
-- A copy button shows ✅ or ⚠️ for 900 ms. Then `render` puts the label back.
-- The script disables the three buttons that need the description if the
-  description is not in the page.
-- A shortcut operates the button. It does not call the function of the button.
-  Therefore the disabled condition and the ✅ signal are the same for the mouse
-  and for the keyboard.
+- The two toggle buttons show a different colour when their condition is
+  active. The icon of a toggle shows the condition, not the operation. Refer to
+  §2.14.
+- A copy action shows a check icon or a warning icon for 900 ms. Then `render`
+  puts the true icon back.
+- The script disables the three actions that need the description if the
+  description is not in the page. This includes the actions inside a menu.
+- A shortcut and a click use one door, `activate`. Therefore the disabled
+  condition and the feedback are the same for the mouse and for the keyboard.
+  Refer to §2.15.
+- At a narrow rung, some actions are in a menu. Their labels and their shortcuts
+  are in that menu.
 - The script ignores a shortcut if the user types in a field.
 
 Shortcuts use `Alt+Shift` because Jira uses many single keys. The script reads
@@ -314,6 +430,11 @@ This is a position, not a height. Two earlier methods were not correct:
 | `AbortController` for each route      | The design has no listener that belongs to one route. The two document listeners are permanent. The button listeners go away with their buttons.                                                                                                    |
 | The toolbar inside the breadcrumbs    | React can delete the children of a node that it controls.                                                                                                                                                                                           |
 | Bare keys for the shortcuts           | Jira uses many single keys.                                                                                                                                                                                                                         |
+| Emoji for the icons                   | Refer to §2.14. Three of the eight became a flat blue glyph on Windows, and no emoji can take the colour of a disabled button.                                                                                                                      |
+| Icons only, with no labels            | Design B of §2.12. It is the shortest toolbar. But the four copy actions become four similar glyphs, and the user must point at one to know which it is.                                                                                            |
+| A surface only in the fixed corner    | This rule was built and compared: no surface beside the breadcrumbs, a surface in the corner. It gives one tool two appearances. §2.12 selected one appearance.                                                                                     |
+| A media query for the ladder          | The width of the window is not the constraint. A deep parent chain removes the space with no change to the window. Only a measurement sees this.                                                                                                    |
+| A `ResizeObserver` for the ladder     | An observer on a node of React has the cost that the first row of this table gives. The `resize` event of the window answers the same question.                                                                                                     |
 
 ---
 
@@ -323,9 +444,9 @@ This is a position, not a height. Two earlier methods were not correct:
    Jira. Atlassian can change them. If the summary selector fails, the script
    reads `document.title` instead. If the description selector fails, the
    script disables three buttons but continues to operate.
-2. **The Navigation API path is not fully tested.** The automatic test uses
-   jsdom, which has no Navigation API. Therefore the test examines the second
-   method only.
+2. **The Navigation API path is not tested.** The harnesses beside the script
+   drive a real Chrome, but no harness makes it navigate. Therefore the
+   `pushState` path is the path that the tests examine.
 3. **`@match` on the full site.** The script now loads on each Atlassian page.
    The cost is small, but it is not zero.
 4. **A change to `history`.** The script replaces two methods on the `history`
@@ -345,12 +466,40 @@ This is a position, not a height. Two earlier methods were not correct:
    condition was found by the harness of the Jira Cart effort, with a switch that
    forces the fallback path. Refer to
    [`jira-cart.user.md` §2.9](jira-cart.user.md).
+7. **The element that bounds the measurement.** The ladder measures from the end
+   of the breadcrumbs to the right edge of `#jira-issue-header`. This is an
+   assumption about the page of Jira, and no harness can test it, because the
+   fixtures supply that element themselves. If Atlassian puts its own controls
+   in that space, the toolbar can select a rung that is too wide and cover them.
+8. **A sidebar that opens gives no event.** The space after the breadcrumbs can
+   change with no resize of the window. The mount backstop calculates the space
+   again each 5 seconds, so the rung is correct after 5 seconds and not
+   immediately.
+9. **A folded shortcut is less easy to find.** At a narrow rung the labels and
+   the shortcut hints of the folded actions are in a menu. The user must open
+   the menu to see them.
+10. **The width of a rung is measured one time.** A resize deletes the
+    measurements, and `document.fonts.ready` causes one more measurement. A font
+    that Jira loads after that point makes each label a different width, and no
+    signal reports it.
 
 ---
 
 ## 6. How to test
 
-There is no test system in this repository. Use these steps in a browser.
+Three harnesses are beside the script, in `test/jira-ux-improvements/`. They
+drive a real Chrome:
+
+```
+node test/jira-ux-improvements/run.mjs
+```
+
+`ladder-smoke.mjs` measures the four rungs of §2.13 at four widths of the line.
+It also operates a shortcut for an action that the rung folded away, which is
+the failure that §2.15 prevents.
+
+The harnesses do not use the true DOM of Jira. Therefore use these steps in a
+browser too.
 
 1. Open an issue with a cold cache. Use the "Slow 3G" setting of the developer
    tools. The toolbar must appear, and the buttons must become active.
@@ -364,7 +513,14 @@ There is no test system in this repository. Use these steps in a browser.
 6. Unlock the description. Then go to a different issue. The lock must be
    active again.
 7. Collapse the description. Then expand it. No unwanted scroll bar must stay.
-8. The console must show no errors.
+8. Make the window more narrow, slowly. The toolbar must fold: first the copy
+   actions, then the labels of the two move actions, then all six.
+9. Open an issue that has a deep chain of parent issues. The toolbar must fold,
+   with no change to the window.
+10. At a narrow rung, use `Alt+Shift+I`. The key must go to the clipboard, and
+    the fold must show a check icon.
+11. Open a menu. Then click outside it, and press `Escape`. Both must close it.
+12. The console must show no errors.
 
 ---
 
@@ -374,3 +530,8 @@ There is no test system in this repository. Use these steps in a browser.
   method, and of the `logger`, `guard`, and `injectStyle` functions.
 - `jira-show-fixversion-dates.user.js` — the source of the method that puts
   state into a style sheet, to keep it after a new build.
+- `jira-cart.user.js` — the source of the card: one surface with a border, a
+  radius, and the overlay shadow, from the design tokens of Atlassian.
+- The three designs of §2.12 and the ladder of §2.13 were built first as one
+  prototype page with instruments for the width, the theme, and the state. The
+  prototype is not in this repository. The decision is in this document.
