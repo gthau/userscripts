@@ -1,0 +1,214 @@
+// The generated stylesheet, checked for the three CSS traps this effort has
+// actually hit. None of these is visible in JavaScript, so no other harness can
+// see them: the boot harness has no cascade. Committed since 1.0.0; see the README beside this file.
+import { readFileSync } from "node:fs";
+// THE ONE SEAM BETWEEN THIS HARNESS AND THE CODE. Resolved from this file rather
+// than from the working directory, so it runs from anywhere -- and if the Cart ever
+// becomes a browser extension, THIS LINE AND THIS LINE ALONE is what has to point at
+// the new home of the code.
+//
+// `import.meta.dirname` and NOT `new URL(..., import.meta.url)`: these harnesses
+// shadow globals freely to stand in for a browser, and `format-smoke` already has a
+// local `URL`, which puts the real one in the temporal dead zone for the whole
+// module and fails at this line with an error that names neither cause.
+const src = readFileSync(import.meta.dirname + "/../../src/jira-cart.user.js", "utf8");
+
+// The sheet, exactly as the script builds it, with the ${...} names resolved.
+const at = src.indexOf("injectStyle(\n    STYLE_ID,");
+const start = src.indexOf("`", at);
+let end = start + 1;
+for (;;) {
+  if (src[end] === "\\") { end += 2; continue; }
+  if (src[end] === "`") break;
+  end++;
+}
+const raw = src.slice(start + 1, end);
+const ids = Object.fromEntries(
+  [...src.matchAll(/^  const ([A-Z_]+) = (?:"([^"]*)"|'([^']*)'|(\d+));/gm)]
+    .map((m) => [m[1], m[2] ?? m[3] ?? m[4]]),
+);
+ids.D = "aside#gt-cart-drawer";
+const css = raw.replace(/\$\{([A-Z_D]+)\}/g, (m, name) => ids[name] ?? m);
+
+let fails = 0;
+const is = (label, got, want) => {
+  const ok = JSON.stringify(got) === JSON.stringify(want);
+  if (!ok) { fails++; console.log(`FAIL ${label}\n  got  ${JSON.stringify(got)}\n  want ${JSON.stringify(want)}`); }
+  else console.log(`ok   ${label}`);
+};
+
+// ---- 1. THE BACKTICK. The sheet is a template literal, so one backtick in a CSS
+// comment ends it and the file stops parsing. §2.11 warns about it; it has still
+// happened twice, and both times the reported line was far below the real one.
+//
+// COUNTING BACKTICKS IN THE EXTRACTED TEXT CANNOT WORK, and the first version of
+// this check made exactly that mistake: a stray backtick simply becomes the end of
+// the extraction, so the text always holds none. What is testable is WHERE the
+// literal ended -- the real one is followed by the rest of the injectStyle call, and
+// a truncated one is followed by CSS.
+is("the sheet ends where the injectStyle call does, not at a stray backtick",
+   /^,\s*\);/.test(src.slice(end + 1, end + 12)), true);
+is("every interpolation resolved to a real name", [...css.matchAll(/\$\{[^}]*\}/g)].map((m) => m[0]), []);
+
+// ---- 2. SPECIFICITY vs the `hidden` attribute. The attribute's own rule is
+// UA-origin, so ANY author `display` beats it. The drawer's generic author rule
+// puts the hiding back -- but it is lower specificity than every rule that names an
+// id, so an element whose own rule sets `display` needs the attribute in its own
+// selector or it never hides. That is exactly what made the ⚙ inert at 0.3.0.
+const spec = (sel) => [
+  (sel.match(/#[\w-]+/g) || []).length,
+  (sel.match(/\[[^\]]+\]|\.[\w-]+|:[\w-]+\([^)]*\)|:(?!:)[\w-]+/g) || []).length,
+  (sel.match(/(^|[\s>+~])[a-z][a-z0-9]*/g) || []).length,
+];
+// STRICTLY more specific. Equal specificity is not enough: then document order
+// decides, and a rule's position in this sheet is not something to rely on.
+const beats = (x, y) => {
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+};
+const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+  .map((m) => ({ sel: m[1].trim().replace(/\s+/g, " "), body: m[2] }))
+  .filter((r) => !r.sel.startsWith("@") && !r.sel.startsWith(":root"));
+
+// The elements the script actually hides. The list is explicit because mapping a
+// JavaScript variable back to a selector is guesswork -- and the count below is
+// what stops the list going quietly stale: hide a sixth element and this fails
+// until someone adds it here.
+const HIDDEN_ABLE = [
+  "aside#gt-cart-drawer",             // the drawer itself, hidden by the html attribute
+  "button#gt-cart-toggle",
+  "aside#gt-cart-drawer p.gt-cart-alert",
+  "aside#gt-cart-drawer div#gt-cart-prefs",
+  "aside#gt-cart-drawer input#gt-cart-rename",
+  "aside#gt-cart-drawer button.gt-cart-name",
+];
+is("the script still hides exactly the elements this list names",
+   (src.match(/\.hidden = /g) || []).length, 10);
+
+const hidingRules = rules.filter((r) => /display:\s*none/.test(r.body));
+const showsDisplay = (sel) =>
+  rules.filter((r) => r.sel.split(",").map((one) => one.trim()).includes(sel))
+       .filter((r) => /(^|;)\s*display\s*:/.test(r.body) && !/display:\s*none/.test(r.body));
+
+const unhideable = [];
+for (const sel of HIDDEN_ABLE) {
+  for (const shown of showsDisplay(sel)) {
+    // Some rule with display: none must reach this element and beat the rule that
+    // turned display on -- either by naming it with the attribute, or by being
+    // strictly more specific.
+    const covered = hidingRules.some((h) =>
+      h.sel.split(",").map((one) => one.trim()).some((one) =>
+        one === `${sel}[hidden]` ||
+        one === `html[data-gt-cart-open="false"] ${sel}` ||
+        beats(spec(one), spec(shown.sel)),
+      ),
+    );
+    if (!covered) unhideable.push(sel);
+  }
+}
+console.log(`     ${HIDDEN_ABLE.length} hidden-able elements; ${hidingRules.length} rules can hide something`);
+is("every one of them can still be hidden, cascade and all", unhideable, []);
+
+// ---- 3. The generated collected-keys sheet (§2.7) paints EVERY anchor whose href
+// names a collected key, and since 0.4.0 the drawer holds such anchors itself. Our
+// own rule has to win, or a collected key in the drawer is green on the red hover.
+const generated = 'a[href$="/browse/RDC-1"]';
+// EXACTLY that selector: a substring match finds the focus-visible group first,
+// whose body is an outline and says nothing about the tint.
+const ours = rules.find((r) => r.sel === "aside#gt-cart-drawer a.gt-cart-row-key");
+is("the drawer styles its own key links", !!ours, true);
+is("and out-specifies the generated sheet, whichever is parsed last",
+   ours ? beats(spec(ours.sel), spec(generated)) : false, true);
+is("it neutralises the background the generated sheet would set", /background:\s*none/.test(ours?.body ?? ""), true);
+is("and the colour, so the red hover stays readable", /color:\s*inherit/.test(ours?.body ?? ""), true);
+
+// ---- 4. The mount detector animates every issue anchor (§2.10). Our own links
+// must be exempt, or each row rebuild announces itself as a Jira mount.
+const animated = rules.find((r) => r.sel === ids.ISSUE_ANCHOR);
+is("issue anchors carry the mount animation", /animation:/.test(animated?.body ?? ""), true);
+const exempt = rules.find((r) => r.sel === "aside#gt-cart-drawer a");
+is("and the drawer's own anchors are exempt", /animation:\s*none/.test(exempt?.body ?? ""), true);
+is("by a selector that beats the animating one",
+   exempt && animated ? beats(spec(exempt.sel), spec(animated.sel)) : false, true);
+
+// ---- 5. RULE 7, the yielding basis (risk 10, added at 1.0.0). Three things can
+// rot here and each one puts the clipping back silently, which is why they are
+// checked rather than trusted to a comment.
+const liveBasis = rules.find((r) => r.sel === "aside#gt-cart-drawer section.gt-cart-live");
+is("the live section still yields to the collection's fixed parts",
+   /min\(var\(--gt-cart-basis\),\s*calc\(100% - \d+px\)\)/.test(liveBasis?.body ?? ""), true);
+// A negative flex-basis is invalid, and an invalid `flex` shorthand falls back to
+// `flex: 0 1 auto` -- which is DEFECT 2 back again, sections competing by content
+// size. On a drawer short enough for the subtraction to go below zero, max(0px, ...)
+// is the only thing standing between the fix and the defect it replaced.
+is("and clamps at zero, or a short drawer drops the declaration and revives defect 2",
+   /max\(0px,/.test(liveBasis?.body ?? ""), true);
+
+// SIDE BY SIDE THE YIELD MUST BE UNDONE: there the basis is a width, while the
+// parts it protects are a height. Both split paths need it, and each needs to beat
+// the base rule strictly -- a container query does not change specificity.
+const splitLive = rules.filter((r) =>
+  /section\.gt-cart-live$/.test(r.sel) && /data-gt-cart-layout="(auto|split)"/.test(r.sel));
+is("both split paths undo it -- the container query and the pinned one", splitLive.length, 2);
+is("each with the plain basis back",
+   splitLive.map((r) => /flex:\s*0 0 var\(--gt-cart-basis\);?\s*$/.test(r.body.trim())), [true, true]);
+is("and each strictly beats the yielding rule",
+   splitLive.map((r) => beats(spec(r.sel), spec(liveBasis?.sel ?? ""))), [true, true]);
+
+// THE CONSTANT IS A MAGIC NUMBER and it counts the collection section's fixed
+// parts. A fifth fixed part makes it stale, and this is the tripwire: the
+// `flex: none` list is where a new fixed part has to be declared, so its length is
+// what changes. Update BOTH together or not at all.
+const fixedRule = rules.find((r) => /flex:\s*none/.test(r.body) && r.sel.includes("gt-cart-section-head"));
+const fixedParts = (fixedRule?.sel ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+console.log(`     ${fixedParts.length} unshrinkable parts; the yield reserves ${css.match(/calc\(100% - (\d+)px\)/)?.[1]}px for the four in the collection`);
+is("the unshrinkable list is the length the constant was counted against", fixedParts.length, 8);
+// The four the constant pays for, by name. A rename breaks this loudly, which is
+// the point.
+is("and it still names the collection's four",
+   ["h2.gt-cart-section-head", "div.gt-cart-chips", "div.gt-cart-create", `div#${ids.FOOT_ID}`]
+     .map((one) => fixedParts.includes(`aside#gt-cart-drawer ${one}`)), [true, true, true, true]);
+
+/* The arithmetic behind risk 10's fix, re-derived here so that changing either
+   number without the other fails loudly. All four sub-heights are read off the
+   rules in this same sheet:
+
+     drawer borders          2   1px top + 1px bottom
+     head                   35   6+6 padding, 1px border, 22px icon buttons
+     divider                 5   block-size, flex: none
+     live section heading   26   6+4 padding, 11px text at line-height 1.4
+     collection heading     32   6+4 padding, and its 22px ⌫ and ↻
+     one row of chips        29   6 padding, 12px text at 1.4, 2+2 padding, 2 border
+     the create field        35   6+6 padding, 12px input at 1.4, 4 padding, 2 border
+     the foot                38   1 border, 6+6 padding, 12px buttons at 1.4, 6+2
+     the collection's own top border  1
+
+   So the collection cannot shrink below 32+29+35+38+1 = 135, and with the divider
+   taken out of the reserve the collection is left `reserved - 5`. The live section
+   keeps `body - reserved`, and it must not go below its own heading either -- or
+   the yield has only moved the clipping from one section to the other. */
+const DRAWER_BORDERS = 2, HEAD = 35, DIVIDER = 5, LIVE_HEAD = 26, COLLECTION_FIXED = 135;
+const reserved = Number(css.match(/calc\(100% - (\d+)px\)/)?.[1] ?? 0);
+const minBlock = Number(src.match(/const MIN_BLOCK = (\d+);/)?.[1] ?? 0);
+const bodyAtMin = minBlock - DRAWER_BORDERS - HEAD;
+console.log(`     at the ${minBlock}px minimum the body is ${bodyAtMin}px: the collection keeps ${reserved - DIVIDER}px of the ${COLLECTION_FIXED} it needs, the live list ${bodyAtMin - reserved}px of the ${LIVE_HEAD} its heading needs`);
+is("the reserve covers the collection's fixed parts, divider included",
+   reserved - DIVIDER >= COLLECTION_FIXED, true);
+is("and MIN_BLOCK leaves the live section its own heading, so nothing is clipped either side",
+   bodyAtMin - reserved >= LIVE_HEAD, true);
+// The floor has to be in the SHEET, not only in the grip's clamp: a 70vh cap on a
+// short window went under MIN_BLOCK and brought the clipping back. A
+// min-block-size beats a max-block-size, so this is what makes the guarantee hold
+// at every reachable size rather than only at dragged ones.
+const drawerRule = rules.find((r) => r.sel === "aside#gt-cart-drawer");
+is("the stylesheet enforces the floor too, not just the drag",
+   new RegExp(`min-block-size:\\s*${minBlock}px`).test(drawerRule?.body ?? ""), true);
+// A NON-ZERO width floor, specifically: `min-inline-size: 0` is rule 1's and has to
+// stay.
+is("and no width floor fights max-inline-size, which keeps the grip reachable",
+   /min-inline-size:\s*[1-9]/.test(drawerRule?.body ?? ""), false);
+is("exactly one min-block-size on the drawer, so the floor cannot be shadowed",
+   (drawerRule?.body.match(/min-block-size:/g) ?? []).length, 1);
+
+console.log(fails ? `\n${fails} FAILED` : "\nall passed");
+process.exit(fails ? 1 : 0);

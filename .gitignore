@@ -1,0 +1,9 @@
+# Scratch is scratch. Anything in here is a working file that nobody should have to
+# read, and it is never committed -- so the rule is mechanical rather than
+# remembered.
+#
+# If something in here turns out to be worth keeping, move it out: the harnesses went
+# to `test/`, and the tickets and research passes that back the Jira Cart's ADR went
+# to `docs/`. Both moves happened at version 1.0.0, and both are explained by a
+# README in the directory they landed in.
+.scratch/

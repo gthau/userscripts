@@ -57,15 +57,30 @@ art, and a live DOM survey), `05a` (a storage probe), `09a` (list scope, with fo
 devtools runs), and `10a` (storage options, with five). Every live run was on
 `dalet.atlassian.net`, in August 2026, by the user.
 
-**The tickets and the research passes are not in this repository.** They were the
-working record of the effort, in an untracked directory, and the two prototypes
-behind `07` and `08` were throwaway by design — their mechanisms are in §2.7, §2.9
-and §2.11, and the files themselves are not kept. **So this document is the
-record.** Three things that lived only in that directory are folded into the
-appendices: the measurements with their dates
-(appendix A), the storage design that was measured and rejected
-(appendix B), and the probes that are written but not yet run (appendix C).
-Nothing else in it was load-bearing.
+**The tickets and the research passes were untracked for the whole of the effort,
+and they were committed at 1.0.0 — to [`docs/jira-cart/`](../docs/jira-cart/).**
+This document said they were not in the repository, and that was true until
+2026-08-19. What changed is not the reasoning but the horizon: the Cart may grow
+features or move to a browser extension, and re-deriving those measurements is
+expensive or impossible. Three of them could not be taken from documentation at all
+(risk 3).
+
+**THIS DOCUMENT IS STILL THE DECISION OF RECORD, AND THAT IS UNCHANGED.** What sits
+in `docs/` is dated evidence, it is not maintained, and parts of it are stale on
+purpose — the DOM survey covers seven views where there are eight, and one ticket's
+own filename still says `localstorage`. **Where the two disagree, this document
+wins**: it was written after, and it carries the corrections. The README there says
+so as well, so neither can be read as the authority by accident.
+
+Three things are folded into the appendices here regardless, because a reader of this
+document should not have to open another one: the measurements with their dates
+(appendix A), the storage design that was measured and rejected (appendix B), and the
+probes that are written but not yet run (appendix C). Nothing else in the working
+record was load-bearing.
+
+**The two prototypes behind `07` and `08` were throwaway by design and are not
+kept** — their mechanisms are in §2.7, §2.9 and §2.11. Neither is the 0.1.0 script,
+which was written in six chunks and is superseded by the file in `src/`.
 
 ---
 
@@ -2128,10 +2143,23 @@ the pure helpers, the store, the (row, key) group, the four formats and the API'
 response validation, the whole script against a fake DOM, the generated stylesheet's
 cascade, and the script run twice over one store. They pull the real functions out of
 the file by brace matching, so they cannot drift from it and a rename breaks them
-loudly. **They are not committed and they are not a deliverable** — they were the
-working record of two build sessions, and **this table is what survives them.** Treat
-a row here as the claim; if a harness is gone, the row still says what was
-established and what was not.
+loudly.
+
+**They are committed, since 1.0.0, to [`test/jira-cart/`](../test/jira-cart/):**
+
+```
+node test/jira-cart/run.mjs
+```
+
+No framework, no `package.json`, no dependencies, and the exit code is the number of
+failing files. Each harness also runs on its own, which is the property that matters
+when one fails. [Its README](../test/jira-cart/README.md) says what each one covers,
+what they deliberately do NOT cover, and which single line in each is the seam if the
+Cart ever becomes a browser extension.
+
+**Read the table below as the claim rather than as a pointer to a file.** It says
+what was established and what was not, so it stands even if the harnesses are one day
+replaced by something else.
 
 | Steps | Standing | What answered it |
 | --- | --- | --- |
@@ -2267,6 +2295,18 @@ pass each, and they are cheap.
 - `jira-show-fixversion-dates.user.js` — the source of the method that puts state
   into a stylesheet so that it reaches nodes React has not built yet, which is what
   §2.7 uses for the collected keys.
+
+**And two directories this effort added to the repository, both at 1.0.0.** Neither
+existed before it: the repository was `src/` and nothing else.
+
+- [`test/jira-cart/`](../test/jira-cart/) — the seven harnesses and their runner.
+  **This is the first executable check of any kind in this repository**, and it takes
+  no framework and no dependency to be one, which is the same argument §2.13 makes
+  about the duplicated helpers. If another script ever wants harnesses, `test/<name>/`
+  is the shape.
+- [`docs/jira-cart/`](../docs/jira-cart/) — the working record. Ten tickets, seven
+  research passes, and the prompts that staged the effort. **Evidence, not authority**:
+  see the note in "About this document".
 
 ---
 
