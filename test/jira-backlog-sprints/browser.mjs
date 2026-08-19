@@ -115,6 +115,19 @@ export function runFixture({ chrome, pagePath, html, files = {}, budgetMs }) {
         "--no-sandbox",
         "--disable-gpu",
         "--allow-file-access-from-files",
+        // Chrome reaches for the system keyring on startup to unlock its password
+        // store, and on a desktop that means a gnome-keyring dialog in front of
+        // whoever happens to be sitting there. A harness has no passwords to keep
+        // and no business asking. `basic` keeps the store in the throwaway profile
+        // below, where it is deleted with everything else.
+        "--password-store=basic",
+        "--disable-features=PasswordManager",
+        // A profile of its own, inside the fixture directory, for the same reason:
+        // without one Chrome opens the real profile, which is what the keyring
+        // belongs to -- and a browser the user already has open holds a lock on it.
+        `--user-data-dir=${dir}/chrome-profile`,
+        "--no-first-run",
+        "--no-default-browser-check",
         `--virtual-time-budget=${budgetMs}`,
         "--dump-dom",
         `file://${pageDir}/index.html`,
