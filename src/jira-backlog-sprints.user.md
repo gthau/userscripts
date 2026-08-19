@@ -225,8 +225,17 @@ needs no such list.
 
 ### 2.8 Position
 
-The control is a child of `#jira-frontend`. It is not a child of the board
-header. React controls the header and can delete its children.
+The control is a child of `<body>`. It is not a child of the board header, and
+it is not a child of `#jira-frontend` either.
+
+React controls the header and can delete its children, so the control cannot
+live there. `#jira-frontend` is worse: it is the element React hydrates the
+server-rendered page into. A node put in front of that markup is a hydration
+mismatch. React then throws the whole page away and builds it again on the
+client, which shows as the skeleton returning about a second after the backlog
+was already readable. It happened only on a cold load. A soft navigation to the
+backlog arrives long after hydration, so nothing goes wrong there, which is why
+this took a while to notice. `<body>` is outside everything React owns.
 
 CSS anchor positioning puts the control in the header line. The anchor is the
 last child of the header. This child is the group of action buttons at the right

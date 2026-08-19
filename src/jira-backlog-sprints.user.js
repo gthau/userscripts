@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Backlog Sprints
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.1.1
 // @description  Hide the sprints that belong to other boards on the Jira Backlog, and bring them back one board at a time.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -445,13 +445,20 @@ html[data-gt-backlog-filter="on"] ${SEL.scrollable} li:has(> div${SEL.cardList} 
 
     if (existing?.isConnected) return existing;
 
-    // The control is a child of `#jira-frontend`, not of the header. React
-    // controls the header and can delete its children; a stylesheet reaching in
-    // to anchor against it cannot be deleted. Without the header there is no
-    // anchor, so wait for it rather than mount into the corner -- a later mount
-    // event brings us straight back here.
+    // The control is a child of <body>, not of the header and not of
+    // `#jira-frontend` either. React controls the header and can delete its
+    // children; a stylesheet reaching in to anchor against it cannot be
+    // deleted. `#jira-frontend` is worse than the header: it is the element
+    // React hydrates the server-rendered page into, so a node prepended ahead
+    // of that markup is a hydration mismatch and React answers it by throwing
+    // the whole server tree away and building it again on the client -- the
+    // skeleton returning a second after the backlog was already readable. It
+    // only ever showed on a cold load, because a soft navigation arrives after
+    // hydration is long done, which is why this went unnoticed for so long.
+    // Without the header there is no anchor, so wait for it rather than mount
+    // into the corner -- a later mount event brings us straight back here.
     const header = document.querySelector(SEL.boardHeader);
-    const mount = document.getElementById("jira-frontend") ?? document.body;
+    const mount = document.body;
     if (!header || !mount) return null;
 
     const control = document.createElement("div");
@@ -504,7 +511,7 @@ html[data-gt-backlog-filter="on"] ${SEL.scrollable} li:has(> div${SEL.cardList} 
 
     panel.append(master, boards);
     control.append(toggle, panel);
-    mount.prepend(control);
+    mount.append(control);
     logger.debug(`control built for board ${currentBoard}`);
     return control;
   }
