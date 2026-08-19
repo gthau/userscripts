@@ -225,8 +225,21 @@ Jira supplies the token, the token wins in both themes.
 
 ### 2.11 Position
 
-The toolbar is a child of `#jira-frontend`. It is not a child of the
-breadcrumbs. React controls the breadcrumbs and can delete their children.
+The toolbar is a child of `<body>`. It is not a child of the breadcrumbs, and
+it is not a child of `#jira-frontend` either.
+
+React controls the breadcrumbs and can delete their children, so the toolbar
+cannot live there. `#jira-frontend` is worse: it is the element React hydrates
+the server-rendered page into. A node put in front of that markup is a
+hydration mismatch. React then throws the whole page away and builds it again
+on the client, which is why the skeleton used to come back about a second
+after the issue was already readable. `<body>` is outside everything React
+owns, so nothing there can delete the toolbar and the toolbar cannot disturb
+the page.
+
+Anchor positioning does not care who the parent is. It only needs the
+breadcrumbs to carry the anchor name. The toolbar lands in the same place
+either way.
 
 CSS anchor positioning puts the toolbar at the right side of the breadcrumbs.
 Only Chromium supports this feature today. Therefore:

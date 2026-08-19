@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.3.2
+// @version      0.3.3
 // @description  A toolbar on Jira issues: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -522,7 +522,20 @@
     const breadcrumbs = document
       .getElementById("jira-issue-header")
       ?.querySelector(SEL.breadcrumbs);
-    const mount = document.getElementById("jira-frontend") ?? document.body;
+    // <body>, not `#jira-frontend`. `#jira-frontend` is the container React
+    // hydrates the server-rendered page into, and a node prepended ahead of
+    // that server markup is a hydration mismatch: React throws the whole
+    // server tree away and rebuilds it on the client. That is the skeleton
+    // coming back a second after the issue was already readable, and the two
+    // to three seconds spent filling it in again. The toolbar went with it, so
+    // the backstop rebuilt it and the damage looked like it had come from
+    // somewhere else. Confirmed against React 18 in a headless Chrome:
+    // prepending into the container reports "the entire root will switch to
+    // client rendering" and replaces the server node; appending to <body>
+    // hydrates clean. Anchor positioning does not care who the parent is --
+    // only that the breadcrumbs carry the anchor name -- so the toolbar still
+    // lands in the same place, measured both ways in the same harness.
+    const mount = document.body;
     // Not up yet. A later mount event brings us straight back here, which is
     // exactly what the old one-shot `setTimeout(..., 1000)` could not do: it
     // lost the race on a slow load and never tried again, so a missing toolbar
@@ -540,7 +553,7 @@
       toolbar.append(button);
     }
 
-    mount.prepend(toolbar);
+    mount.append(toolbar);
     logger.debug(`toolbar built for ${currentKey}`);
     return toolbar;
   }
