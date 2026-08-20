@@ -1,8 +1,8 @@
 # ADR: Jira UX Improvements userscript
 
 - **Status:** Accepted
-- **Date:** 2026-08-06. Revised 2026-08-20 for version 0.4.0.
-- **Applies to:** `src/jira-ux-improvements.user.js` (version 0.4.0)
+- **Date:** 2026-08-06. Revised 2026-08-20 for versions 0.4.0 and 0.4.1.
+- **Applies to:** `src/jira-ux-improvements.user.js` (version 0.4.1)
 
 ## About this document
 
@@ -300,8 +300,28 @@ style sheet.
 The script measures one time and keeps the widths. No rung changes width when
 the state changes: each label is a constant string, and a disabled button has
 the size of an enabled button. A resize deletes the widths, because a zoom
-changes them. A resize is also the one event that changes the space with no new
-build and no new URL. Thus the script listens for it.
+changes them.
+
+**A `ResizeObserver` watches the two boxes that the measurement reads.** Version
+0.4.0 listened for the `resize` event of the window and nothing else. That event
+answers a different question. The space after the breadcrumbs also changes when
+the user moves the right sidebar of Jira, when a panel opens, and when the layout
+of Jira occurs some frames after the `resize` event. None of these is a `resize`
+event. Thus the only thing that saw them was the backstop of 5 seconds, and the
+toolbar stayed at the incorrect rung for that time. A user reported it, and a
+harness measured it at the full 5 seconds.
+
+A `ResizeObserver` also reports **after** the layout. The `resize` event occurs
+before it.
+
+The observer cannot cause itself. The toolbar is `position: absolute` in one
+branch and `position: fixed` in the other. It is outside the flow in both.
+Therefore its width cannot change the box of the header or of the breadcrumbs.
+
+React replaces both boxes when it builds the issue view again. An observer on a
+node that is not in the document reports nothing. Thus each redraw compares the
+node it watches with the node in the page, and moves the observer if they are
+different.
 
 Two rules control the ladder:
 
@@ -434,7 +454,7 @@ This is a position, not a height. Two earlier methods were not correct:
 | Icons only, with no labels            | Design B of §2.12. It is the shortest toolbar. But the four copy actions become four similar glyphs, and the user must point at one to know which it is.                                                                                            |
 | A surface only in the fixed corner    | This rule was built and compared: no surface beside the breadcrumbs, a surface in the corner. It gives one tool two appearances. §2.12 selected one appearance.                                                                                     |
 | A media query for the ladder          | The width of the window is not the constraint. A deep parent chain removes the space with no change to the window. Only a measurement sees this.                                                                                                    |
-| A `ResizeObserver` for the ladder     | An observer on a node of React has the cost that the first row of this table gives. The `resize` event of the window answers the same question.                                                                                                     |
+| The `resize` event of the window, alone| Version 0.4.0 used it. It reports that the WINDOW changed, not that the room changed, and it reports before the layout. §2.13 gives the 5 seconds this cost.                                                                                        |
 
 ---
 
@@ -471,10 +491,12 @@ This is a position, not a height. Two earlier methods were not correct:
    assumption about the page of Jira, and no harness can test it, because the
    fixtures supply that element themselves. If Atlassian puts its own controls
    in that space, the toolbar can select a rung that is too wide and cover them.
-8. **A sidebar that opens gives no event.** The space after the breadcrumbs can
-   change with no resize of the window. The mount backstop calculates the space
-   again each 5 seconds, so the rung is correct after 5 seconds and not
-   immediately.
+8. **The observer sees a box, not a boundary.** The `ResizeObserver` reports each
+   change of the two boxes that the measurement reads. If a control of Jira takes
+   space in the line but does not change the width of `#jira-issue-header`, no box
+   changes, the observer reports nothing, and the rung stays the same. This is
+   risk 7 in a different form. The backstop of 5 seconds does not correct it
+   either, because the calculation gives the same answer.
 9. **A folded shortcut is less easy to find.** At a narrow rung the labels and
    the shortcut hints of the folded actions are in a menu. The user must open
    the menu to see them.
@@ -515,12 +537,14 @@ browser too.
 7. Collapse the description. Then expand it. No unwanted scroll bar must stay.
 8. Make the window more narrow, slowly. The toolbar must fold: first the copy
    actions, then the labels of the two move actions, then all six.
-9. Open an issue that has a deep chain of parent issues. The toolbar must fold,
+9. Move the right sidebar of Jira to make it wider and then more narrow. The
+   toolbar must fold immediately, and not after some seconds.
+10. Open an issue that has a deep chain of parent issues. The toolbar must fold,
    with no change to the window.
-10. At a narrow rung, use `Alt+Shift+I`. The key must go to the clipboard, and
+11. At a narrow rung, use `Alt+Shift+I`. The key must go to the clipboard, and
     the fold must show a check icon.
-11. Open a menu. Then click outside it, and press `Escape`. Both must close it.
-12. The console must show no errors.
+12. Open a menu. Then click outside it, and press `Escape`. Both must close it.
+13. The console must show no errors.
 
 ---
 

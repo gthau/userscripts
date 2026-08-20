@@ -36,6 +36,9 @@ const HYDRATE_AT = backstop + 1_000;
 // Straight after hydration, and before the backstop's next tick can rebuild what
 // React deleted. That gap is the whole reason this bug was hard to see from the
 // outside: the toolbar is always back by the time anyone looks.
+// Kept only as the moment the run stops watching; the observation itself is a
+// fact recorded as it happens, not a snapshot taken here. See the note by
+// `__destroyed` in the fixture.
 const INSPECT_AT = HYDRATE_AT + 500;
 const REPORT_AT = HYDRATE_AT + 7_000;
 
@@ -75,13 +78,34 @@ const fixture = (build) => `<!doctype html>
       toolbarBuiltBeforeHydration: !!bar,
       toolbarInsideHydrationContainer: !!bar && container.contains(bar),
     };
+
+    // WHETHER IT WAS DESTROYED IS A FACT, NOT A SNAPSHOT, and it has to be
+    // recorded as it happens. Reading getElementById on a later timer asks a
+    // different question -- "is one there now" -- and the script answers that one
+    // by building a new toolbar the moment any of its own signals fires. It does
+    // exactly that from document.fonts.ready, which lands inside this window
+    // often enough to fail five runs in six.
+    //
+    // (No backticks anywhere in this fixture. It is a template literal, and one
+    // backtick in a comment ends it. That has now cost time twice.)
+    //
+    // A MutationObserver is delivered on the microtask queue rather than in a
+    // frame, which is what makes it usable here: this headless Chrome paints no
+    // frames at all, so nothing that waits for one is ever delivered.
+    window.__destroyed = false;
+    if (bar) {
+      new MutationObserver(function () {
+        if (!bar.isConnected) window.__destroyed = true;
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+
     ReactDOM.hydrateRoot(container, e(App), {
       onRecoverableError: function (err) { recovered.push(String((err && err.message) || err)); },
     });
   }, ${HYDRATE_AT});
 
   setTimeout(function () {
-    window.__after = { toolbarPresentAfterHydration: !!document.getElementById("gt-extra-buttons") };
+    window.__after = { toolbarDestroyedByHydration: window.__destroyed };
   }, ${INSPECT_AT});
 
   setTimeout(function () {
@@ -122,7 +146,7 @@ is("and it is nowhere inside the element React hydrates", real.toolbarInsideHydr
 is("its parent is <body>", real.toolbarParent, "BODY");
 is("hydration reports nothing to recover from", real.recoverableErrors, 0);
 is("the server-rendered page is adopted, not rebuilt", real.serverTreeSurvived, true);
-is("and the toolbar is untouched by it", real.toolbarPresentAfterHydration, true);
+is("and the toolbar is untouched by it", real.toolbarDestroyedByHydration, false);
 
 // ---- 2. THE MOUNT THIS SCRIPT USED TO HAVE, so the fixture above is known to be
 // capable of failing. The two edits are the fix, backwards.
@@ -138,7 +162,7 @@ const control = run(
 is("the old mount really does put the toolbar inside the hydration container", control.toolbarInsideHydrationContainer, true);
 is("React calls it a mismatch and gives up on the server markup", control.clientRenderFallback, true);
 is("the server-rendered page is destroyed and built again -- the skeleton the user saw", control.serverTreeSurvived, false);
-is("the toolbar is destroyed along with it", control.toolbarPresentAfterHydration, false);
+is("the toolbar is destroyed along with it", control.toolbarDestroyedByHydration, true);
 // And this is why the toolbar never looked like the culprit: by the time anyone
 // went looking, the script's own backstop had quietly put it back.
 is("and the backstop has it back moments later, hiding what happened", control.toolbarBackByNow, true);

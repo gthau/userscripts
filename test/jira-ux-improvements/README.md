@@ -5,7 +5,7 @@ node test/jira-ux-improvements/run.mjs           # all of them, one total
 node test/jira-ux-improvements/anchor-smoke.mjs  # or any one, on its own
 ```
 
-**51 checks across three files. No framework, no `package.json`, no dependencies
+**55 checks across three files. No framework, no `package.json`, no dependencies
 to install.** Node 20.11 or later, for `import.meta.dirname`. The exit code of
 `run.mjs` is the number of failing files, so a hook or a CI step needs no output
 parsing.
@@ -41,7 +41,7 @@ backstop rebuilt it**, which is why the toolbar never looked like the culprit.
 | --- | --- | --- |
 | `hydration-smoke.mjs` | 11 | The mount. Runs the real script against a page that hydrates the way Jira's does, and asserts the server-rendered DOM is adopted rather than rebuilt — then runs it again with the mount patched back to `#jira-frontend`, and asserts that one *does* break |
 | `anchor-smoke.mjs` | 21 | The position. Lets the script inject its own stylesheet and build its own toolbar, then measures the two rectangles: the toolbar sits on the breadcrumbs' line, immediately after they end, at the anchored branch's low z-index. Also the route gate from both sides, and the lock: its icon, its pressed state and the description's outline have to swap together |
-| `ladder-smoke.mjs` | 19 | The fold. Runs the script at four header widths and asserts which rung it picks, that the rung fits the room it measured, that less room never buys a wider rung, and that what a fold holds is what its menu lists. Ends on the regression the fold invites: a shortcut for an action with no button |
+| `ladder-smoke.mjs` | 23 | The fold. Runs the script at four header widths and asserts which rung it picks, that the rung fits the room it measured, that less room never buys a wider rung, and that what a fold holds is what its menu lists. Ends on two regressions this feature invited: a shortcut for an action with no button, and a room that shrank with no window resize |
 
 `browser.mjs` is the machinery they share — find a Chrome, run a page, read one
 line of JSON back. It is not named `-smoke.mjs`, so `run.mjs` does not run it.
@@ -116,6 +116,20 @@ Read this before trusting a green run.
   non-Chromium user sees is never measured.
 - **One theme.** The dark-mode block is not exercised, and neither is the card's
   surface, border or shadow — only its width, by way of the rung it produces.
+- **No frames, so no observer and no animation frames.** This headless Chrome
+  paints nothing, and both `ResizeObserver` callbacks and `requestAnimationFrame`
+  are delivered in the rendering steps of a frame. Probed and confirmed: neither
+  ever runs here. `ladder-smoke` therefore installs its own `ResizeObserver`
+  before the script loads, records what the script asks to watch, and reports a
+  change on demand. That covers the script's whole side of the contract and none
+  of Chrome's — if Chrome stopped delivering to a real observer, these files
+  would keep passing. A `MutationObserver` *is* usable, because it is delivered
+  on the microtask queue rather than in a frame, and `hydration-smoke` uses one
+  to record the toolbar's destruction **as it happens**. It used to read
+  `getElementById` on a later timer, which asks "is one there now" — a different
+  question, and one the script answers by rebuilding. The moment 0.4.1 added a
+  deferred redraw on `document.fonts.ready`, that snapshot started failing five
+  runs in six.
 - **No React remount mid-session** — tab switches, saved edits, virtualised
   re-renders. The script is built to survive those; nothing here proves it does.
 

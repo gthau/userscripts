@@ -135,7 +135,109 @@ for (const one of sweep) {
   console.log(`     room ${String(one.room).padStart(4)}px -> ${one.tier.padEnd(8)} ${String(one.width).padStart(4)}px wide  ${one.ids.join(" ")}`);
 }
 
+// ---------------------------------------------------------------- the room
+//
+// THE ROOM CHANGES WITHOUT THE WINDOW CHANGING. Dragging Jira's right sidebar is
+// the case the user reported: the toolbar sat at the wrong rung for several
+// seconds, because 0.4.0 listened for `resize` and nothing else, and the only
+// other thing that re-measured was the five-second backstop. Reproduced here at
+// a full five seconds before this harness existed.
+//
+// THE OBSERVER IS STUBBED, and it has to be: neither ResizeObserver callbacks
+// nor animation frames are ever delivered in this headless Chrome, because both
+// run in the rendering steps of a frame and no frame is ever painted. The stub
+// records what the script asked to watch and hands back a way to report a
+// change, which is exactly the contract the real one has. What that leaves
+// untested is Chrome's own delivery -- see the README.
+const observerFixture = `<!doctype html>
+<html><head><meta charset="utf-8"><title>[ABC-123] Summary - Jira</title>
+<script>
+  // Installed BEFORE the script, so the script takes this one.
+  window.__observed = [];
+  window.__fire = null;
+  window.ResizeObserver = function (callback) {
+    window.__fire = function () { callback([], this); };
+    this.observe = function (node) { window.__observed.push(node.id || node.dataset.componentSelector || node.nodeName); };
+    this.unobserve = function (node) { window.__observed = window.__observed.filter(function (n) { return n !== (node.id || node.dataset.componentSelector || node.nodeName); }); };
+    this.disconnect = function () { window.__observed = []; };
+  };
+</script>
+<script src="script.js"></script>
+<style>
+  body { margin: 0; font: 14px system-ui; }
+  #jira-issue-header { width: 760px; }
+  [data-component-selector="breadcrumbs-wrapper"] { display: inline-flex; height: 24px; align-items: center; }
+</style>
+</head>
+<body><div id="jira-frontend"><div id="jira-issue-header"><div data-component-selector="breadcrumbs-wrapper">Projects / ABC / ABC-123</div></div><h1 data-testid="issue.views.issue-base.foundation.summary.heading">Summary</h1><div data-testid="issue.views.field.rich-text.description"><div class="ak-renderer-document">body</div></div></div>
+<pre id="result">pending</pre>
+<script>
+setTimeout(function () {
+  var bar = document.getElementById("gt-extra-buttons");
+  var out = {
+    watching: window.__observed.slice(),
+    before: bar.dataset.gtTier,
+    afterShrink: null,
+    afterReport: null,
+    rewatched: null,
+  };
+
+  // The sidebar drag: the header loses room, the window does not change, and
+  // nothing has told the script yet.
+  document.getElementById("jira-issue-header").style.width = "330px";
+
+  setTimeout(function () {
+    out.afterShrink = document.getElementById("gt-extra-buttons").dataset.gtTier;
+
+    // What Chrome would have delivered on its own.
+    window.__fire();
+
+    setTimeout(function () {
+      out.afterReport = document.getElementById("gt-extra-buttons").dataset.gtTier;
+
+      // React replaces the header. An observer left on the old node reports
+      // nothing, so the script has to notice and move.
+      var old = document.getElementById("jira-issue-header");
+      var fresh = old.cloneNode(true);
+      old.replaceWith(fresh);
+      window.__observed = [];
+      window.__fire();
+
+      setTimeout(function () {
+        out.rewatched = window.__observed.slice();
+        document.getElementById("result").textContent = "RESULT:" + JSON.stringify(out);
+      }, 30);
+    }, 30);
+  }, 30);
+}, ${REPORT_AT});
+</script>
+</body></html>`;
+
+const room = runFixture({
+  chrome,
+  pagePath: "browse/ABC-123",
+  html: observerFixture,
+  files: { "script.js": script },
+  budgetMs: REPORT_AT + 3_000,
+});
+
+console.log(`     watching ${JSON.stringify(room.watching)}`);
+console.log(`     ${room.before} -> shrink -> ${room.afterShrink} -> observer reports -> ${room.afterReport}`);
+
 const { is, done } = reporter();
+
+is("the script watches the two boxes its measurement reads", room.watching.sort(), [
+  "breadcrumbs-wrapper",
+  "jira-issue-header",
+]);
+is("a room that shrank with no window resize is not noticed on its own", room.afterShrink, "full");
+is("and the observer's report is what folds it, without waiting for the backstop", room.afterReport, "minimal");
+is("a replaced header is watched again, not the detached one", room.rewatched.sort(), [
+  "breadcrumbs-wrapper",
+  "jira-issue-header",
+]);
+
+
 
 // THE PROMISE, at every width: what is drawn fits the room that was measured.
 // The last rung is the floor -- below it there is nothing left to fold -- so it

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira UX Improvements
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.1
 // @description  A toolbar on Jira issues that folds to fit the breadcrumb line: block click-to-edit, collapse the description, copy the key, name or link, and jump around the page. Fork of "Disable Jira Click Edit" by fanuch (https://gist.github.com/fanuch/1511dd5423e0c68bb9d66f63b3a9c875)
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -679,14 +679,22 @@
     return widths;
   }
 
+  // The two boxes the measurement reads. Looked up once per render and passed
+  // along, because the observer below has to watch exactly these and nothing
+  // else.
+  function roomNodes() {
+    const header = document.getElementById("jira-issue-header");
+    return {
+      header,
+      breadcrumbs: header?.querySelector(SEL.breadcrumbs) ?? null,
+    };
+  }
+
   // The room the toolbar has: from where the breadcrumbs end to where their
   // header ends. Not the window -- a deep parent chain eats this space without
   // the window changing at all, and that is the common case rather than the
   // exotic one.
-  function availableWidth() {
-    const header = document.getElementById("jira-issue-header");
-    const breadcrumbs = header?.querySelector(SEL.breadcrumbs);
-
+  function availableWidth({ header, breadcrumbs }) {
     // In the fixed corner the breadcrumbs are not the constraint; the viewport
     // is, and there is plenty of it.
     if (!ANCHORED || !header || !breadcrumbs) {
@@ -700,11 +708,75 @@
     );
   }
 
-  function chooseTier(toolbar) {
+  function chooseTier(toolbar, nodes) {
     tierWidths ??= measureTiers(toolbar);
-    const room = availableWidth();
+    const room = availableWidth(nodes);
     const fits = TIERS.find((tier) => tierWidths[tier.key] <= room);
     return (fits ?? TIERS[TIERS.length - 1]).key;
+  }
+
+  // WATCHING THE ROOM, not the window. 0.4.0 listened for `resize` and nothing
+  // else, which answers a different question than the one the ladder asks: the
+  // space after the breadcrumbs changes when a sidebar opens, when a panel
+  // closes, and when Jira's own layout lands a few frames after a window
+  // resize has already been reported. None of those is a `resize` event, so
+  // the only thing that noticed was the five-second backstop -- measured at a
+  // full five seconds of a toolbar left at the wrong rung.
+  //
+  // A ResizeObserver answers the question that was actually asked, and it
+  // reports AFTER layout rather than before it. It is not the observer §4 of
+  // the document rejects: that one watches a React subtree for mutations. This
+  // one watches two boxes.
+  //
+  // It cannot feed itself. The toolbar is absolutely positioned in the anchored
+  // branch and fixed in the other, so it is out of flow either way and its own
+  // size can never change the box of the header or of the breadcrumbs.
+  const roomObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => scheduleRender())
+      : null;
+
+  let observedHeader = null;
+  let observedBreadcrumbs = null;
+
+  // React replaces both of these on a remount, and an observer left on a
+  // detached node reports nothing, so every render checks whether the node it
+  // is watching is still the node on the page.
+  function watchRoom({ header, breadcrumbs }) {
+    if (!roomObserver) return;
+
+    if (header !== observedHeader) {
+      if (observedHeader) roomObserver.unobserve(observedHeader);
+      observedHeader = header;
+      if (header) roomObserver.observe(header);
+    }
+
+    if (breadcrumbs !== observedBreadcrumbs) {
+      if (observedBreadcrumbs) roomObserver.unobserve(observedBreadcrumbs);
+      observedBreadcrumbs = breadcrumbs;
+      if (breadcrumbs) roomObserver.observe(breadcrumbs);
+    }
+  }
+
+  // One redraw per turn at most, however many signals arrive in it. A zoom
+  // changes what each rung measures, so that path says so; a box that changed
+  // size does not.
+  //
+  // A timeout and not `requestAnimationFrame`, for two reasons pointing the
+  // same way. A hidden tab runs no animation frames, so a sidebar dragged and
+  // the tab switched back would have waited for the backstop anyway. And the
+  // observer above already reports after layout, so there is nothing left to
+  // wait a frame for -- deferring out of the observer's own callback is also
+  // what stops a write from feeding back into it.
+  let renderTimer = null;
+
+  function scheduleRender({ remeasure = false } = {}) {
+    if (remeasure) tierWidths = null;
+    if (renderTimer) return;
+    renderTimer = setTimeout(() => {
+      renderTimer = null;
+      guard(render);
+    }, 0);
   }
 
   // ----------------------------------------------------------------- toolbar
@@ -1005,7 +1077,10 @@
     // Nothing to lock, collapse or scroll past until the description mounts.
     described = !!document.querySelector(SEL.description);
 
-    const tier = chooseTier(toolbar);
+    const nodes = roomNodes();
+    watchRoom(nodes);
+
+    const tier = chooseTier(toolbar, nodes);
     const signature = `${tier}|${menuOpen ?? ""}`;
     if (signature !== builtSignature) {
       fillToolbar(toolbar, tier, menuOpen);
@@ -1291,29 +1366,16 @@ div#${TOOLBAR_ID} .gt-menu hr {
   });
   watchMounts(render);
 
-  // The one signal the ladder needs that nothing else provides: the room after
-  // the breadcrumbs can change with no remount and no navigation at all. Once
-  // per frame at most, and it drops the measured widths because a zoom changes
-  // them along with the window.
-  let resizeFrame = null;
-  window.addEventListener("resize", () => {
-    if (resizeFrame) return;
-    resizeFrame = requestAnimationFrame(() => {
-      resizeFrame = null;
-      tierWidths = null;
-      guard(render);
-    });
-  });
+  // The observer above catches a window resize too, by way of the header it
+  // resizes. This one is still here for the case the observer cannot see: a
+  // zoom, which changes what every rung measures without necessarily changing
+  // any box the observer watches.
+  window.addEventListener("resize", () => scheduleRender({ remeasure: true }));
 
   guard(render);
 
   // The first measurement happens in whatever font is resolved at that moment.
   // If Jira's own face arrives later, every label is a different width and the
   // rung chosen was chosen against the wrong numbers.
-  document.fonts?.ready.then(() =>
-    guard(() => {
-      tierWidths = null;
-      render();
-    }),
-  );
+  document.fonts?.ready.then(() => scheduleRender({ remeasure: true }));
 })();
