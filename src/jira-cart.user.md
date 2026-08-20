@@ -2115,6 +2115,92 @@ differs per instance and is out of scope.
   comes from a category, a colour that applies to two of five priorities, and a
   separator that must not be a box.
 
+### 2.15 📊 Report: grouped by priority, then by team
+
+**Added on 2026-08-20, at the user's request.** The Technology Portfolio Office
+sends these lists to team leads, and they read them **by priority, then by team**.
+That order is the user's, and it was corrected the same day from an earlier note
+that had it the other way round — worth recording, because team-outer is the order
+a *team lead* would want and priority-outer is the order the *sender* wants, and
+only the sender was asked.
+
+**A sixth export, not a setting on 📋 Details.** Grouped headings over grouped rows
+is a different **document** from a flat list, not a rearrangement of one: it
+reorders the items, moves two fields into headings, and cannot be checked by *lines
+equals items*. A switch that silently decided which of those a button produced is
+exactly what §2.8 warns against, and a fixed output is checkable. So the foot holds
+six: the five that copy, then 🔍 Search, which is still the only one that navigates.
+
+**It shares the fetch with 📋 Details, and the reason is worth stating: the held
+result belongs to the collection, not to a button.** One press of either arms both,
+and a copy from either spends it. There is one field list, so there is no way for
+one document to be fetched with fields the other lacks — and one `detailChip`, so
+the five rules of §2.14 cannot hold for one format and drift in the other. Those
+rules are properties of the paste target and not of a format.
+
+```
+**P1**
+
+*MAM Core & Plugins*
+- [RDC-30109](…) [AmberFin] Linux OOM Killer invoked during transcode. — Bug · Dev In progress · Duncan Denning
+
+*Planning*
+- [RDC-28369](…) Full screen mode doesnt show any player controls — Bug · To Do · Rajesh KRISHNAPPA · Flex 2026.6.x (LTS track), Flex 2026.9.0 · 0m left
+
+**P2**
+
+*Planning*
+- [RDC-1513](…) Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts — Story · Dev Resolved · William CHUANG · Pyr 2026.8.0 (Release - Active) · 0m left · ↳ [RDC-26701](…)
+
+*No team*
+- [RDC-1517](…) Markers [4] Dev (front-end) - Story 3 - Select Markers — Story · Done · 0m left · ↳ [RDC-26701](…)
+```
+
+**Two fields become headings and so leave the row.** Priority is the band and team
+is the sub-band, so neither is printed again on the line — the same rule an epic
+follows in a grouped list, and it shortens every row. What the row keeps is type,
+status, assignee, fix version, time remaining and the parent.
+
+**`P0` before `P1` before `P2`, and there is no rank table.** The names already sort
+as strings, so nothing here can fall out of step with Jira's own priority scheme. An
+unset value sorts **last** in both bands, because *not set* is not a peer of a real
+priority or a real team, and it is **named** — `No priority`, `No team` — rather
+than left as a blank heading, because a fact about the issue must not read as a
+failure. Teams sort alphabetically; inside a team the collection's own order
+survives, as it does in every other format.
+
+**Grouped by `teamId`, labelled by `team`.** Two teams can be given the same name,
+and a heading that silently merged them would be a *wrong* report rather than an
+ugly one. The same shape of decision as §2.4's opaque collection id against its
+editable name. The team field is **`customfield_15541`** and it is referenced **by
+id and never by name**, because this instance has more than one field called Team
+and a name match says only that *a* field answered (appendix C.4).
+
+**Headings are tags, not styled spans.** `<p><strong>` for the priority and
+`<p><em>` for the team: §2.14 rule 5 is about what a paste does to a *styled span*,
+and a tag cannot be flattened the same way. `<p>` carries only a margin, which is
+the most ordinary property in email HTML. **And `<p><strong>`, not `<h3>`** — a
+pasted heading joins the host document's outline, and a status mail should not add
+sections to somebody's page.
+
+**Stated limits.**
+
+1. **The team field id is instance-specific.** On another Jira the headings go quiet
+   rather than wrong: an absent value drops out and the group becomes `No team`,
+   which is §2.14's rule applied to a heading. Appendix C.5 is the probe if a
+   collection ever needs to span projects with different Team fields.
+2. **Whether `bulkfetch` returns a custom field asked for by id was expected rather
+   than known** when this was written. The Cart had only ever requested system
+   fields. §2.6's rule that a requested-but-absent field is normal covers it
+   failing, and the failure is visible: every heading becomes `No team`.
+3. **An issue carries at most one team**, because the field is one object and not an
+   array (appendix C.4). So an item appears exactly once and *lines equals items*
+   still holds across the whole document, even though it cannot be checked band by
+   band.
+4. **Nothing sorts by the collection's order across bands.** Reordering the pasted
+   report by hand still works — §2.14 rule 4 is about a *field* whose meaning
+   changes with position, and grouping is an order the user asked for.
+
 ## 3. What the script gives the user
 
 Two things on the page: a badge in a bottom corner, and one floating button that
@@ -2138,6 +2224,7 @@ follows the hovered issue link. Everything else is inside the drawer.
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
 | 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. A copy spends it, and any change to the collection drops it (§2.14) |
+| 📊 Report | drawer, the foot | **Two presses**, sharing 📋 Details' fetch. Copies the collection grouped by priority and then by team, which is the shape the Technology Portfolio Office sends to team leads (§2.15) |
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | Opens the preferences: the right-click switch, the section layout, and which bottom corner the Cart takes |
 | Sections | drawer, the preferences | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
@@ -2433,8 +2520,13 @@ These are not gaps in the design. Each was named, and each was left.
     column set is already decided: the nine fields of §2.14 in the backlog's own
     left-to-right order. Today the route is 🔍 Search plus Jira's own CSV export,
     which is what it always was. §2.14 cites this item by number.
-15. **The report: grouped by team, then by priority.** Opened on 2026-08-20 by the
-    user, and deferred by them in the same breath. The Technology Portfolio Office
+15. **The report: grouped by priority, then by team. BUILT on 2026-08-20 — see
+    §2.15.** The item keeps its number because §2.14 and appendix C cite it. What
+    follows is the record of what was open while it was, and the order in its own
+    title was corrected: the user's note said team-then-priority and their
+    correction said priority-then-team.
+    *Originally:* opened on 2026-08-20 by the user, and deferred by them in the same
+    breath. The Technology Portfolio Office
     sends these reports to team leads, and they want the issues grouped by team and
     then by priority rather than in the collection's insertion order.
     **What is already known.** A grouped report is almost certainly a **sixth

@@ -30,7 +30,7 @@ function slice(head, end) {
 }
 
 const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys","formatJql","searchUrl","format",
-               "detailBits","formatDetails",
+               "detailBits","detailChip","formatDetails","byLabel","reportGroups","formatReport",
                "bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
 // because section 12 below asserts things ABOUT these values -- that no ground is
@@ -44,10 +44,14 @@ const harness = `
   ${names.map(extract).join("\n")}
   ${slice("const EXPORTS = [", "\n  ];")}
   ${slice("const LIST_ITEM_STYLE =", "\n")}
+  ${slice("const NO_PRIORITY =", "\n")}
+  ${slice("const NO_TEAM =", "\n")}
+  ${slice("const TEAM_FIELD =", "\n")}
   ${slice("const SUMMARY_FIELDS =", "\n")}
   ${slice("const DETAIL_FIELDS = [", "\n  ];")}
   return {${names.join(",")}, EXPORTS, SUMMARY_FIELDS, DETAIL_FIELDS,
-          MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE};
+          MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE,
+          NO_PRIORITY, NO_TEAM, TEAM_FIELD};
 `;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const location = { origin: "https://dalet.atlassian.net" };
@@ -134,11 +138,13 @@ is("html escapes the summary", f.format("links", NASTY, "collection").html.inclu
 is("plain text does NOT escape", f.format("links", NASTY, "collection").text.includes(`<script> & "quotes"`), true);
 
 // ---- 7. the dispatch table is a table
-// FIVE since 1.1.0. §2.8's spanning set of four each served ONE destination;
+// SIX since 1.1.0. §2.8's spanning set of four each served ONE destination;
 // 📋 Details is a fifth slot because it has to survive six destinations with
-// different renderers, two of which cannot draw a table at all (§2.14).
-is("five exports, and the five labels", f.EXPORTS.map((one) => one.label),
-  ["🔗 Links", "📃 Names", "🔑 Keys", "📋 Details", "🔍 Search"]);
+// different renderers, two of which cannot draw a table at all (§2.14), and
+// 📊 Report is a sixth because grouped headings are a different DOCUMENT from a
+// flat list rather than a rearrangement of one (§2.15).
+is("six exports, and the six labels", f.EXPORTS.map((one) => one.label),
+  ["🔗 Links", "📃 Names", "🔑 Keys", "📋 Details", "📊 Report", "🔍 Search"]);
 is("only JQL restricts its scopes", f.EXPORTS.filter((one) => one.scopes).map((one) => one.kind), ["jql"]);
 is("exactly one entry navigates instead of copying", f.EXPORTS.filter((one) => one.opens).map((one) => one.kind), ["jql"]);
 is("and the other three still build a clipboard payload", f.EXPORTS.filter((one) => !one.opens).every((one) => !!one.build(THREE, "collection").text), true);
@@ -343,14 +349,23 @@ is("and is left alone on the text side",
 
 // -- the field lists. ALWAYS PASSED EXPLICITLY: omitting `fields` returns ids.
 is("gap-fill and refresh ask for one field", f.SUMMARY_FIELDS, ["summary"]);
-is("details asks for every field it prints", f.DETAIL_FIELDS,
-  ["summary","issuetype","status","priority","assignee","fixVersions","parent","timetracking"]);
+// ONE SHARED LIST, not one per format: the fetch belongs to the collection rather
+// than to a button, so it asks for everything either document prints. The team
+// field is in it for 📊 Report and is never printed by 📋 Details (§2.15).
+is("the shared list covers both documents", f.DETAIL_FIELDS,
+  ["summary","issuetype","status","priority","assignee","fixVersions","parent",
+   "customfield_15541","timetracking"]);
+is("Details never prints the team it fetched",
+  /Planning/.test(f.format("details", [{ key: "RDC-1", summary: "x", team: "Planning", teamId: "t1" }],
+    "collection").text), false);
 is("details is a copy, not a navigation",
   f.EXPORTS.find((one) => one.kind === "details").opens, undefined);
 is("details declares it must fetch first",
   f.EXPORTS.find((one) => one.kind === "details").needsDetails, true);
-is("the four that copy stay together, with Search last",
-  f.EXPORTS.map((one) => one.kind), ["links","names","keys","details","jql"]);
+is("the five that copy stay together, with Search last",
+  f.EXPORTS.map((one) => one.kind), ["links","names","keys","details","report","jql"]);
+is("Search is still the only one that navigates",
+  f.EXPORTS.filter((one) => one.opens).map((one) => one.kind), ["jql"]);
 
 // ---- 13. readIssues carries the new fields, and defaults every absent one
 const answered = f.readIssues([{
@@ -387,6 +402,73 @@ const badparent = f.readIssues([
   { id: "2", key: "RDC-2", fields: { summary: "x", parent: { key: "not a key" } } },
 ]).get("RDC-2");
 is("a parent whose key is malformed is dropped", badparent.parent, null);
+
+// ---- 14. 📊 Report (ADR §2.15): priority band, then team, then insertion order
+//
+// The order is the user's and was corrected on 2026-08-20 from an earlier note that
+// had it the other way round. Two fields become headings and so leave the row.
+const REPORT = [
+  { key: "RDC-1", summary: "b", priority: "P2", team: "Planning", teamId: "t1", type: "Story" },
+  { key: "RDC-2", summary: "a", priority: "P1", team: "Planning", teamId: "t1", type: "Bug" },
+  { key: "RDC-3", summary: "c", priority: "P1", team: "Core", teamId: "t2", type: "Bug" },
+  { key: "RDC-4", summary: "d", priority: "P1", team: "Planning", teamId: "t1", type: "Story" },
+  { key: "RDC-5", summary: "e", priority: "P0", team: "", teamId: "", type: "Bug" },
+  { key: "RDC-6", summary: "f", priority: "", team: "Core", teamId: "t2", type: "Task" },
+];
+const report = f.format("report", REPORT, "collection");
+
+is("P0 sorts first with no rank table, because the names already sort",
+  report.text.split("\n").filter((l) => /^\*\*/.test(l)),
+  ["**P0**", "**P1**", "**P2**", `**${f.NO_PRIORITY}**`]);
+is("an unset priority sorts LAST, not first",
+  report.text.trim().split("\n\n").at(-1).startsWith("*Core*"), true);
+is("teams sort alphabetically inside a band",
+  report.text.split("**P1**")[1].split("**P2**")[0].match(/^\*[^*]+\*$/gm), ["*Core*", "*Planning*"]);
+is("an unset team is named rather than left blank",
+  report.text.includes(`*${f.NO_TEAM}*`), true);
+is("insertion order survives inside a team",
+  report.text.split("*Planning*")[1].split("\n").filter((l) => l.startsWith("- "))
+    .map((l) => l.match(/RDC-\d/)[0]), ["RDC-2", "RDC-4"]);
+is("every item appears exactly once", REPORT.every((i) =>
+  (report.text.match(new RegExp(`\\[${i.key}\\]`, "g")) || []).length === 1), true);
+is("no item is dropped", (report.text.match(/^- /gm) || []).length, 6);
+
+// The two fields that became headings must not also be on the row.
+is("priority is NOT repeated on the line", /· P1/.test(report.text), false);
+is("the type still is", /— Bug/.test(report.text), true);
+is("grouping is by teamId, so two teams with one name cannot merge",
+  f.reportGroups([
+    { key: "A", priority: "P1", team: "Same", teamId: "x" },
+    { key: "B", priority: "P1", team: "Same", teamId: "y" },
+  ])[0].teams.length, 2);
+
+// Rules 1 to 5 are properties of the paste target, so they hold here too -- the
+// chip renderer is shared with 📋 Details for exactly that reason.
+is("the report emits no font-size", /font-size/.test(report.html), false);
+is("nor any opacity", /opacity/.test(report.html), false);
+is("nor an inline border", /border:/.test(report.html), false);
+is("its rows carry the measured spacing",
+  (report.html.match(new RegExp(`<li style="${f.LIST_ITEM_STYLE}">`, "g")) || []).length, 6);
+is("headings are TAGS, not styled spans, so a sanitiser cannot flatten them",
+  /<strong>P0<\/strong>/.test(report.html) && /<em>Planning<\/em>/.test(report.html), true);
+is("and they are <p>, not <h3>: a paste must not join the host document's outline",
+  /<h[1-6]/.test(report.html), false);
+is("a report of zero items writes nothing", f.format("report", [], "collection"), null);
+
+is("Report shares the two-step fetch",
+  f.EXPORTS.find((one) => one.kind === "report").needsDetails, true);
+is("the team field is asked for by id, never by name", f.TEAM_FIELD, "customfield_15541");
+is("and it is in the SHARED field list, so one fetch serves both",
+  f.DETAIL_FIELDS.includes(f.TEAM_FIELD), true);
+
+// readIssues reads the team's NAME, and keeps the id to group by.
+const teamed = f.readIssues([{ id: "1", key: "RDC-9", fields: { summary: "x",
+  [f.TEAM_FIELD]: { id: "077a215a-beb6-4f29-9ae6-6db55ba2dab5", name: "Planning", title: "Planning" } } }]).get("RDC-9");
+is("the team name is read", teamed.team, "Planning");
+is("and its id is kept, because that is what grouping joins on", teamed.teamId,
+  "077a215a-beb6-4f29-9ae6-6db55ba2dab5");
+const noteam = f.readIssues([{ id: "2", key: "RDC-10", fields: { summary: "x" } }]).get("RDC-10");
+is("an absent team is empty, not undefined", [noteam.team, noteam.teamId], ["", ""]);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

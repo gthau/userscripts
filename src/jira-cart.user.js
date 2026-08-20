@@ -1728,9 +1728,10 @@ ${selectors.join(",\n")} {
    * An absent value drops out along with its separator, which is the list's
    * version of §2.8's rule that the separator goes with the summary.
    */
-  function detailBits(item) {
+  function detailBits(item, skip) {
     const bits = [];
     const add = (id, text, html) => {
+      if (skip?.includes(id)) return;
       if (text) bits.push({ id, text, html: html ?? escapeHtml(text) });
     };
 
@@ -1769,6 +1770,35 @@ ${selectors.join(",\n")} {
   }
 
   /**
+   * One field, drawn. SHARED BY 📋 Details AND 📊 Report, because the five rules of
+   * §2.14 are properties of the paste target and not of a format -- two copies of
+   * this would let one drift and the other stay right, and only a real paste would
+   * ever say so.
+   */
+  function detailChip(bit, item) {
+    if (bit.id === "status") {
+      const paint = LOZENGE[item.category] ?? LOZENGE.new;
+      return `<span style="background:${paint.bg};color:${paint.fg};border-radius:3px;padding:0 6px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">${bit.html}</span>`;
+    }
+    if (bit.id === "priority") {
+      const ink = PRIORITY_INK[item.priority] ?? MUTED_INK;
+      return `<span style="color:${ink};font-weight:700">${bit.html}</span>`;
+    }
+    if (bit.id === "type") {
+      // JUST THE WORD, in the same grey as every other field. There was a coloured
+      // ■ in front of it, and a real paste killed it on 2026-08-20: the argument
+      // for it was "a dim square is still a square, where dim text is not still
+      // readable", which holds only where the colour survives. Where it does not --
+      // and that is most places, because Teams re-maps colour and a reader scanning
+      // text sees none of it -- it is a BARE BLACK BOX in front of a word that
+      // already says everything. It read as a broken glyph. The type is emphasised
+      // by weight instead, which every target keeps.
+      return `<span style="color:${MUTED_INK};font-weight:600">${bit.html}</span>`;
+    }
+    return `<span style="color:${MUTED_INK}">${bit.html}</span>`;
+  }
+
+  /**
    * §2.14's format, and the reason it is a fifth slot rather than a sixth column
    * on an existing one: the other four each serve ONE destination, and this one
    * has to survive six with different renderers -- two of which (Teams, Slack)
@@ -1797,35 +1827,11 @@ ${selectors.join(",\n")} {
       })
       .join("\n");
 
-    const chip = (bit, item) => {
-      if (bit.id === "status") {
-        const paint = LOZENGE[item.category] ?? LOZENGE.new;
-        return `<span style="background:${paint.bg};color:${paint.fg};border-radius:3px;padding:0 6px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">${bit.html}</span>`;
-      }
-      if (bit.id === "priority") {
-        const ink = PRIORITY_INK[item.priority] ?? MUTED_INK;
-        return `<span style="color:${ink};font-weight:700">${bit.html}</span>`;
-      }
-      if (bit.id === "type") {
-        // JUST THE WORD, in the same grey as every other field. There was a
-        // coloured ■ in front of it, and a real paste killed it on 2026-08-20:
-        // the argument for it was "a dim square is still a square, where dim text
-        // is not still readable", which holds only where the colour survives.
-        // Where it does not -- and that is most places, because Teams re-maps
-        // colour and a reader scanning text sees none of it -- it is a BARE BLACK
-        // BOX in front of a word that already says everything. It read as a
-        // broken glyph. The type is emphasised by weight instead, which every
-        // target keeps.
-        return `<span style="color:${MUTED_INK};font-weight:600">${bit.html}</span>`;
-      }
-      return `<span style="color:${MUTED_INK}">${bit.html}</span>`;
-    };
-
     const cell = (item) => {
       const bits = detailBits(item);
       const tail = bits.length
         ? `<span style="color:${MUTED_INK}"> — </span>` +
-          bits.map((bit) => chip(bit, item)).join(dot)
+          bits.map((bit) => detailChip(bit, item)).join(dot)
         : "";
       return (
         `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
@@ -1843,6 +1849,133 @@ ${selectors.join(",\n")} {
         : `<ul>${items
             .map((item) => `<li style="${LIST_ITEM_STYLE}">${cell(item)}</li>`)
             .join("")}</ul>`;
+
+    return { text, html };
+  }
+
+  /* ------------------------------------------------------------- 📊 Report
+     §2.15. The same data as 📋 Details, arranged for the audience that asked for
+     it: the Technology Portfolio Office sends these to team leads, grouped BY
+     PRIORITY AND THEN BY TEAM. That order is the user's, corrected on 2026-08-20
+     from an earlier note that had it the other way round.
+
+     WHY A SIXTH BUTTON AND NOT A SETTING ON 📋 Details. Headings over grouped rows
+     is a different DOCUMENT from a flat list, not a different arrangement of one --
+     it reorders the items, drops two fields into headings, and cannot be checked by
+     "lines equals items". A switch that silently changed which of those a button
+     produced is exactly what §2.8 warns against, and a fixed output is checkable.
+
+     It shares the fetch, though: the held result belongs to the collection rather
+     than to a button, so one press of either arms both (§2.14).
+
+     TWO FIELDS BECOME HEADINGS AND SO LEAVE THE ROW. Priority is the band and team
+     is the sub-band, so neither is printed again on the line -- the same rule the
+     epic follows in a grouped list. The row keeps type, status, assignee, fix
+     version, time remaining and the parent. */
+
+  // P0 before P1 before P2: the plain string sort is already right, which is why
+  // there is no rank table here to fall out of step with Jira's own scheme. An
+  // empty value sorts LAST in both bands, because "not set" is not a peer of a
+  // real priority or a real team.
+  function byLabel(a, b) {
+    if (a === b) return 0;
+    if (a === "") return 1;
+    if (b === "") return -1;
+    return a.localeCompare(b);
+  }
+
+  /**
+   * Priority band, then team sub-band, then the collection's own order inside.
+   *
+   * GROUPED BY `teamId`, LABELLED BY `team`. Two teams can be given the same name,
+   * and a heading that silently merged them would be a wrong report rather than an
+   * ugly one (appendix C.4). Items with no team at all share the one empty group.
+   */
+  function reportGroups(items) {
+    const bands = new Map();
+    for (const item of items) {
+      const priority = item.priority ?? "";
+      const key = item.teamId || (item.team ? `name:${item.team}` : "");
+      if (!bands.has(priority)) bands.set(priority, new Map());
+      const teams = bands.get(priority);
+      if (!teams.has(key)) teams.set(key, { team: item.team ?? "", items: [] });
+      teams.get(key).items.push(item);
+    }
+
+    return [...bands.keys()].sort(byLabel).map((priority) => ({
+      priority,
+      teams: [...bands.get(priority).values()].sort((a, b) =>
+        byLabel(a.team, b.team),
+      ),
+    }));
+  }
+
+  // Said once, in a heading, rather than repeated down a column. The wording is the
+  // UI's own vocabulary for an absent value and must not read as an error: a
+  // priority or a team that is not set is a fact about the issue, not a failure.
+  const NO_PRIORITY = "No priority";
+  const NO_TEAM = "No team";
+
+  function formatReport(items) {
+    const groups = reportGroups(items);
+
+    const text = groups
+      .map((band) =>
+        [
+          `**${band.priority || NO_PRIORITY}**`,
+          ...band.teams.map((group) =>
+            [
+              `*${group.team || NO_TEAM}*`,
+              ...group.items.map((item) => {
+                const bits = detailBits(item, ["priority"]).map((bit) => bit.text);
+                const head = `- [${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`;
+                return bits.length ? `${head} — ${bits.join(" · ")}` : head;
+              }),
+            ].join("\n"),
+          ),
+        ].join("\n\n"),
+      )
+      .join("\n\n");
+
+    /* `<strong>` and `<em>` are TAGS rather than styles, deliberately: §2.14 rule 5
+       is what a paste does to a styled span, and a tag cannot be stripped the same
+       way. `<p>` carries only a margin, which is the most ordinary property in
+       email HTML.
+
+       `<p><strong>` and not `<h3>`: a pasted heading joins the host document's
+       outline, and a status mail should not add sections to somebody's page. */
+    const html = groups
+      .map((band) => {
+        const head = `<p style="margin:14px 0 2px"><strong>${escapeHtml(band.priority || NO_PRIORITY)}</strong></p>`;
+        return (
+          head +
+          band.teams
+            .map((group) => {
+              const sub = `<p style="margin:8px 0 2px"><em>${escapeHtml(group.team || NO_TEAM)}</em></p>`;
+              const rows = group.items
+                .map((item) => {
+                  const bits = detailBits(item, ["priority"]);
+                  const tail = bits.length
+                    ? `<span style="color:${MUTED_INK}"> — </span>` +
+                      bits
+                        .map((bit) => detailChip(bit, item))
+                        .join(`<span style="color:${MUTED_INK}"> · </span>`)
+                    : "";
+                  return (
+                    `<li style="${LIST_ITEM_STYLE}">` +
+                    `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
+                    (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : "") +
+                    tail +
+                    "</li>"
+                  );
+                })
+                .join("");
+              return `${sub}<ul>${rows}</ul>`;
+            })
+            .join("")
+        );
+      })
+      .join("");
 
     return { text, html };
   }
@@ -1900,6 +2033,16 @@ ${selectors.join(",\n")} {
       // `renderFoot` reads this to know it owns a label ladder rather than a
       // fixed label, and the foot's builder reads it to give the button its own
       // action instead of the plain `copy` one.
+      needsDetails: true,
+    },
+    {
+      kind: "report",
+      label: "📊 Report",
+      title:
+        "Ask Jira, then copy the collection grouped by priority and then by team — the shape the Technology Portfolio Office sends to team leads. Two presses: the first fetches, the second copies",
+      build: formatReport,
+      // Same fetch as 📋 Details, because the held result belongs to the collection
+      // rather than to a button: one press of either arms both (§2.15).
       needsDetails: true,
     },
     {
@@ -2037,6 +2180,11 @@ ${selectors.join(",\n")} {
      A field that was requested and is absent from the response is NORMAL, not an
      error -- `parent` was requested on an Epic and was simply not there (§2.6) --
      so every reader below defaults rather than complains. */
+  // Atlassian Teams field, `schema.type: "team"`, populated on 16,697 RDC issues.
+  // Its value is ONE OBJECT carrying `id`, `name` and `title` -- not an id alone,
+  // so a heading needs no second call (appendix C.4).
+  const TEAM_FIELD = "customfield_15541";
+
   const SUMMARY_FIELDS = ["summary"];
   const DETAIL_FIELDS = [
     "summary",
@@ -2046,6 +2194,16 @@ ${selectors.join(",\n")} {
     "assignee",
     "fixVersions",
     "parent",
+    // §2.15's grouping key. It is in the SHARED list rather than a list of its own,
+    // so one fetch serves both 📋 Details and 📊 Report -- the fetch belongs to the
+    // collection, not to a button. Details never prints it.
+    //
+    // BY ID AND NEVER BY NAME: this instance has more than one field called Team,
+    // so a name reference says only that A field answered (appendix C.4). The id is
+    // instance-specific, which is a stated limit: on another Jira the report's team
+    // headings go quiet rather than wrong, because §2.14's rule that an absent value
+    // drops out with its separator applies to a heading too.
+    TEAM_FIELD,
     // Asked for by name, and kept even though it is the noisiest field here: it
     // read `0m` on four of the six issues the format was designed against,
     // because a finished issue has nothing remaining. Dropping a field the user
@@ -2172,6 +2330,18 @@ ${selectors.join(",\n")} {
           typeof fields.timetracking?.remainingEstimate === "string"
             ? cleanText(fields.timetracking.remainingEstimate)
             : "",
+        // GROUP BY `teamId`, LABEL BY `team`. The id is a UUID and is exact, where
+        // two teams can be given the same name and a heading that silently merged
+        // them would be a wrong report rather than an ugly one -- the same shape of
+        // decision as §2.4's opaque collection id against its editable name.
+        // `name` and `title` held the same string, so `name` is the one read and
+        // `title` is not a second source to reconcile (appendix C.4).
+        team:
+          typeof fields[TEAM_FIELD]?.name === "string"
+            ? cleanText(fields[TEAM_FIELD].name)
+            : "",
+        teamId:
+          typeof fields[TEAM_FIELD]?.id === "string" ? fields[TEAM_FIELD].id : "",
         // Validated the same way the item's own key is, so a malformed parent
         // cannot put a broken link on the clipboard.
         parent:
@@ -2521,9 +2691,9 @@ ${selectors.join(",\n")} {
   // Looked up fresh rather than captured: the fetch is async, and a React remount
   // can rebuild the whole drawer while it is out, which would leave a captured
   // node detached and the feedback invisible.
-  function detailsButton() {
+  function detailsButton(kind) {
     const foot = document.getElementById(FOOT_ID);
-    return foot ? foot.querySelector('[data-gt-format="details"]') : null;
+    return foot ? foot.querySelector(`[data-gt-format="${kind}"]`) : null;
   }
 
   /**
@@ -2541,7 +2711,7 @@ ${selectors.join(",\n")} {
    * belongs (§2.6). Refusing the whole copy for one unreadable issue would make
    * the format unreachable for as long as that issue is in the collection.
    */
-  async function fetchDetails() {
+  async function fetchDetails(kind) {
     if (fetchingDetails || refreshing) return;
     const state = load();
     const collection = activeCollection(state);
@@ -2600,7 +2770,8 @@ ${selectors.join(",\n")} {
     }
 
     if (failed) {
-      const button = detailsButton();
+      // Looked up by kind, so the ⚠️ lands on the button that was pressed.
+      const button = detailsButton(kind);
       if (button) flash(button, "⚠️");
     }
   }
@@ -2615,12 +2786,12 @@ ${selectors.join(",\n")} {
    * failure the two-step design exists to remove. So every paste was fetched by
    * the press before it.
    */
-  async function copyDetails(button) {
+  async function copyDetails(button, kind) {
     const state = load();
     const held = detailsFor(state);
     if (!held) return;
 
-    const payload = format("details", detailedItems(state, held), "collection");
+    const payload = format(kind, detailedItems(state, held), "collection");
     if (!payload) return;
 
     try {
@@ -2637,7 +2808,11 @@ ${selectors.join(",\n")} {
   // one it is about to do, so there is nothing to remember (§3).
   function onDetails(button) {
     if (fetchingDetails) return undefined;
-    return detailsFor(load()) ? copyDetails(button) : fetchDetails();
+    // The entry that owns the button decides which document comes out; the fetch
+    // behind them is one and the same (§2.15).
+    return detailsFor(load())
+      ? copyDetails(button, button.dataset.gtFormat)
+      : fetchDetails(button.dataset.gtFormat);
   }
 
   // -------------------------------------------------------------- the origins
