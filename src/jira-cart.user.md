@@ -7,9 +7,15 @@
   **1.1.0 added the first new feature since 1.0.0: 📋 Details, a fifth export
   (§2.14).** It is the first section written from *real pastes* rather than from
   argument — into Outlook and into Teams in both skins — and those pastes reversed
-  two of its own decisions before it shipped. It changed nothing that was already
-  there except §2.8's claim to have four formats, and it did **not** touch §2.4:
+  **four** of its own decisions before it shipped — a count that kept rising while
+  the section was being written, which is the whole argument for pasting rather than
+  reasoning. It changed nothing that was already there except §2.8's claim to have
+  four formats and the spacing of Links' HTML twin, and it did **not** touch §2.4:
   nothing it fetches is stored, so there is no schema change and no migration.
+  **1.1.0 was then confirmed working in real use on 2026-08-20**, by the user,
+  pasting into Outlook and into Teams — the same activity that had produced all four
+  reversals a few hours earlier, and the only check that could have confirmed it.
+  §7 steps 15a to 15e are closed by that.
   Version 0.1.1 had built §2.1, §2.2, §2.4, §2.5, §2.7, §2.10, §2.12, §2.13 and
   the badge of §2.9; 0.2.0 added the drawer and everything in it — §2.3, §2.6,
   §2.8, the rest of §2.9, and §2.11; 0.3.0 changed one control, so that 🔍
@@ -2438,13 +2444,14 @@ These are not gaps in the design. Each was named, and each was left.
     strings**, so priority ordering needs no rank table. And because §2.14 stores
     nothing, adding the field costs one id in `DETAIL_FIELDS` and one `add` in
     `detailBits` — no migration.
-    **What is not known, and must not be guessed: which `Team` field.** A JQL probe
-    on 2026-08-20 confirmed that `project = RDC AND "Team" is not EMPTY` returns
-    issues, so *a* team field exists and is queryable. **The user then reported that
-    this instance has SEVERAL fields named Team**, which makes the probe's answer
-    useless on its own: it proves a field answered, not which one. **So the report
-    may never reference the field by name.** It has to carry the field id the user
-    identifies. Appendix C, probe 4 is the one-line snippet that lists them.
+    **The field is known: `customfield_15541`**, an Atlassian Teams field, populated
+    on 16,697 RDC issues — settled on 2026-08-20 from the project's own create-meta,
+    so no browser was needed. **It must be referenced by id and never by name**,
+    because this instance has more than one field called Team and a name match says
+    only that *a* field answered. **One thing is still open**: whether the value
+    carries a team NAME or only an id, because an id-only value means the report
+    needs a second call to print anything a human recognises. Appendix C, probe 4 is
+    the single line that answers it.
     Grouping also sits against §2.14's rule 4 — nothing may depend on a row's
     position — and the resolution is that grouping is an order the *user asked
     for*, while rule 4 forbids a *field* whose meaning changes with position. Worth
@@ -3022,12 +3029,13 @@ appendix, not from code.
 
 ---
 
-## Appendix C — The four probes that are written and not yet run
+## Appendix C — The five probes, of which three are unrun
 
 The first two are blocked items from §6. The third confirms arithmetic that 1.0.0
-acted on without measuring. **The fourth was added on 2026-08-20 and blocks §6 item
-15, the report grouped by team.** All four need a live Jira page and the developer
-tools. None of them blocks a build.
+acted on without measuring. **The fourth was added on 2026-08-20 and is now mostly closed
+without a browser — one line of it remains.** The fifth blocks nothing yet. The
+unrun ones need a live Jira page and the developer tools. None of them blocks a
+build.
 
 ### C.1 Probe 1 — which element holds a backlog section's rows
 
@@ -3132,17 +3140,47 @@ measurement that would say whether 27 is right.
 **Until it runs**, the numbers are reasoning rather than measurement, and they are
 conservative by five pixels in the direction that matters.
 
-### C.4 Probe 4 — WHICH `Team` field, out of the several that exist
+### C.4 Probe 4 — the `Team` field, and the one line still to run
 
-**Blocks §6 item 15.** `bulkfetch` takes field **ids**, and a custom field's id
-differs per instance, so the report cannot be built without this.
+**Mostly closed on 2026-08-20, and no browser was needed for that part.** The field
+is **`customfield_15541`**. Its `schema.type` is `team` and its custom type is
+`com.atlassian.jira.plugin.system.customfieldtypes:atlassian-team`, so it is an
+Atlassian Teams field rather than a select list or a string. **16,697 RDC issues
+have it populated**, so it is the one in use. Read out of the project's own
+create-meta for RDC, with the count from `cf[15541] is not EMPTY`.
 
-**The trap this probe exists for.** A JQL probe on 2026-08-20 confirmed that
-`project = RDC AND "Team" is not EMPTY` returns issues. **That is not the answer**,
-and taking it for one would be the mistake: the user then reported that this
-instance has **several fields named Team**. JQL by name resolves to one of them and
-does not say which, so the probe proves *a* team field answered and nothing more.
-**The report may never reference the field by name.**
+**Reference it by id and never by name.** This instance has more than one field
+called Team, so `"Team" is not EMPTY` proves that *a* field answered and not which
+one — the mistake this probe was opened to prevent, and one an earlier JQL run in
+this effort walked straight into. `cf[15541]` cannot be ambiguous. Only one
+Team-named field appears on RDC's own screens, so the others live elsewhere; see
+C.5.
+
+**What is still open, and it is the part that decides how a report prints:** the
+shape of the value. An `atlassian-team` field may carry an **id alone**. If it does,
+grouping by team needs a second call to turn ids into names, which is a different
+amount of work from reading a string. One line answers it, on any Jira page, with
+the developer tools open:
+
+```js
+fetch('/rest/api/3/issue/RDC-29407?fields=customfield_15541',
+      { headers: { Accept: 'application/json' } })
+  .then((r) => r.json())
+  .then((i) => console.log(JSON.stringify(i.fields, null, 2)));
+```
+
+**Write down whether the value is `{id}`, `{id, name}`, a bare string, an option
+(`{value}`), or an array of any of those** — and, if there is no name in it, that a
+lookup is needed. Nothing else in §6 item 15 is blocked.
+
+---
+
+### C.5 Probe 5 — the OTHER `Team` fields, if a collection ever leaves RDC
+
+**Blocks nothing today**, because the Cart collects from RDC in practice. It matters
+the first time one collection mixes projects: `customfield_15541` is the Team field
+on RDC's screens, and another project may use a different field with the same name,
+which would make a group heading that says nothing on those rows.
 
 ```js
 // Every field on the instance, with its id, narrowed to the ones called Team.
@@ -3151,24 +3189,9 @@ fetch('/rest/api/3/field', { headers: { Accept: 'application/json' } })
   .then((all) => console.table(
     all.filter((f) => /team/i.test(f.name))
        .map((f) => ({ id: f.id, name: f.name, custom: f.custom,
-                      type: f.schema?.type, items: f.schema?.items,
-                      custom_type: f.schema?.custom })),
+                      type: f.schema?.type, custom_type: f.schema?.custom })),
   ));
 ```
 
-Then, with a candidate id, read one issue that has a value and record **the shape**,
-because that decides how the report prints it:
-
-```js
-fetch('/rest/api/3/issue/RDC-29407?fields=customfield_XXXXX',
-      { headers: { Accept: 'application/json' } })
-  .then((r) => r.json())
-  .then((i) => console.log(JSON.stringify(i.fields, null, 2)));
-```
-
-**What to write down:** the id, and whether the value is an Atlassian Teams object
-(`{ id, name }`), a plain string, an option (`{ value }`), or an array of any of
-those. Also whether the field is on every project the Cart collects from — a field
-that only exists on one project makes a group heading that says nothing on the
-others, and §2.14's rule that an absent value drops out with its separator is what
-should then apply.
+If there is more than one, §2.14's rule that an absent value drops out along with
+its separator is what should apply to the rows whose project uses another.
