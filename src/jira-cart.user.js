@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.1.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -38,9 +38,13 @@
  *   page` mirrors the issue links drawn right now, and the whole row is the
  *   button. Below it is the active collection, with its name editable in place,
  *   a ↻ that asks Jira for every summary again, chips for the other
- *   collections, and four buttons at the foot: 🔗 Links, 📃 Names and 🔑 Keys
- *   copy the collection, and 🔍 Search opens the whole of it in Jira's own
- *   issue search, in a new tab.
+ *   collections, and five buttons at the foot: 🔗 Links, 📃 Names and 🔑 Keys
+ *   copy the collection, 📋 Details fetches and then copies a richer list, and
+ *   🔍 Search opens the whole of it in Jira's own issue search, in a new tab.
+ * - 📋 Details takes TWO presses: the first asks Jira for type, status,
+ *   priority, assignee, fix version and parent, and the label changes to say it
+ *   has them; the second copies. Nothing it fetches is ever stored, so a
+ *   detailed list cannot be pasted with last week's status in it.
  * - An item that reached the collection with no summary is filled in from
  *   Jira's API while the drawer is open. An item is valid with a key alone, so
  *   nothing waits for it.
@@ -1516,6 +1520,33 @@ ${selectors.join(",\n")} {
     return `${location.origin}/browse/${key}`;
   }
 
+  /* THE ONE STYLE A COPIED LIST CARRIES, and it was measured rather than chosen.
+     With a bare `<li>` Outlook gives a wrapped list item no leading and no gap
+     after it, so a six-item report arrives as one dense block and the user was
+     selecting 1.5 line spacing by hand every time (2026-08-20).
+
+     TWO PROBLEMS, TWO PROPERTIES, and only one of them is what "tight" usually
+     means. `line-height` fixes the leading INSIDE a line that wraps.
+     `margin-bottom` is what makes one issue read as one block, which
+     `line-height` alone does not do. Both were pasted before either was written
+     down.
+
+     EVERY FORMAT THAT EMITS A LIST GETS IT -- 🔗 Links as well as 📋 Details.
+     Links was excluded for one day on the reasoning that its line is only a key
+     and a summary and so does not wrap. THAT PREMISE WAS WRONG: real summaries on
+     this instance run 60 to 100 characters, which wraps in any email column, so
+     Links had the same fault and the same remedy. Corrected at the user's
+     instruction on 2026-08-20 (§2.8, §2.14).
+
+     `mso-line-height-rule` is deliberately ABSENT. Word sometimes needs it to
+     honour `line-height`, and if this ever stops taking in Outlook that is the
+     next thing to try -- but §2.14 rule 5 is exactly why only one thing changes at
+     a time on this path.
+
+     At single-item scope there is no `<ul>` and no `<li>`, so there is nothing for
+     this to sit on. */
+  const LIST_ITEM_STYLE = "line-height:1.5;margin-bottom:8px";
+
   /**
    * The four formats of §2.8, as four functions with one signature:
    *
@@ -1578,7 +1609,9 @@ ${selectors.join(",\n")} {
     const html =
       scope === "item"
         ? cell(items[0])
-        : `<ul>${items.map((item) => `<li>${cell(item)}</li>`).join("")}</ul>`;
+        : `<ul>${items
+            .map((item) => `<li style="${LIST_ITEM_STYLE}">${cell(item)}</li>`)
+            .join("")}</ul>`;
 
     return { text, html };
   }
@@ -1617,6 +1650,201 @@ ${selectors.join(",\n")} {
   // for it and it is still checkable on its own.
   function formatJql(items) {
     return { text: `key in (${items.map((item) => item.key).join(", ")})` };
+  }
+
+  /* ------------------------------------------------------------ 📋 Details
+     The fifth format, and the only one whose payload is not in storage: it is
+     built from what the fetch step is holding in memory (§2.14).
+
+     EVERY COLOUR HERE WAS MEASURED IN A REAL PASTE, on 2026-08-20, into Outlook
+     with "keep source formatting" and into Teams in both skins. Four rules came
+     out of those pastes, and each one is a change a later session would
+     otherwise make on reasonable-sounding instinct:
+
+       1. A SEPARATOR MUST BE A CHARACTER, NEVER A BOX. Outlook strips an inline
+          `border`. Two bordered fix-version chips divided by a space arrived as
+          `Flex 2026.6.x (LTS track) Flex 2026.9.0` -- one nonsense version. So
+          the versions are joined by a comma, in ONE span.
+       2. NOTHING MAY DEPEND ON `opacity`. Outlook and Teams both strip it, and
+          every muted field came back full-strength black with no hierarchy at
+          all. Hence one named grey.
+       3. A COLOUR MUST BRING ITS OWN BACKGROUND, AND THAT BACKGROUND MUST BE
+          PALE. Teams KEEPS a pale ground and DISCARDS a saturated one, then
+          re-maps the white text to its own skin -- so a bold pill loses its
+          ground AND its colour and lands as bold black. Making the pill bolder
+          so it survives is exactly backwards. The fix for an invisible pill is a
+          stronger tint.
+       4. NOTHING MAY DEPEND ON A ROW'S POSITION. The list is reshuffled by hand
+          after it is pasted, so "print the epic's name only the first time" is
+          wrong the moment somebody moves a line, with nothing to say so.
+       5. NO `font-size`, AND ESPECIALLY NOT A PERCENTAGE. This is the worst of
+          the five and it was found last. Teams DELETED THE CONTENT of every span
+          carrying `font-size:88%` -- type, status, priority, assignee, fix
+          version, time remaining and the parent link all vanished, leaving a row
+          of bare `·` separators. What survived had no `font-size` at all: the
+          separators, the key link, the summary and the em dash. The correlation
+          was exact across seven field types and four rows.
+          **So the hierarchy rests on `color` and `font-weight`, which every
+          target keeps.** The metadata is the same SIZE as the summary now. That
+          is a real loss and it is the right trade: a quieter line is worth less
+          than a line that exists.
+          If a size difference is ever wanted back, `em` is the thing to test --
+          and it must be TESTED, in Teams, not reasoned about.
+
+     Teams also re-maps `color` to whatever skin it is in, so the light/dark
+     question does not arise there; the grey below is for Outlook, and costs
+     nothing in Teams. */
+
+  // 4.1:1 on white and 4.1:1 on charcoal. Deliberately mediocre on both rather
+  // than ideal on one and unreadable on the other -- the export cannot know which
+  // ground it landed on, and rule 2 above took away the adaptive answer.
+  const MUTED_INK = "#737c89";
+
+  // One step up Atlassian's own scale from the 100-level tints. The 100-level
+  // green was the actual fault: #dcfff1 is a near-white mint that could not be
+  // seen on white paper, so `Done` never read as a pill. Each pairing measures
+  // above 4.9:1 text-on-ground, and each ground is opaque, so the pill carries
+  // its own contrast wherever it lands (rule 3).
+  const LOZENGE = {
+    new: { bg: "#dcdfe4", fg: "#44546f" },
+    indeterminate: { bg: "#cce0ff", fg: "#0055cc" },
+    done: { bg: "#baf3db", fg: "#216e4e" },
+  };
+
+  // COLOUR MEANS URGENCY, so only the urgent ones are named and everything else
+  // is muted. That is honest as well as contrast-safe: P2 is this instance's
+  // default, so colouring it said nothing. Atlassian's own #ae2e24 measured
+  // 2.1:1 on a dark ground and could not be kept.
+  const PRIORITY_INK = { P0: "#d94136", P1: "#d94136" };
+
+  /**
+   * The fields after the summary, in reading order: what it is, how it is going,
+   * how urgent, who has it, when it ships, where it belongs.
+   *
+   * Each bit carries BOTH forms, because the parent is a reference rather than a
+   * value -- markdown on the text side, an anchor on the HTML side. One string
+   * could not serve both: escaping the markdown would print the brackets.
+   *
+   * An absent value drops out along with its separator, which is the list's
+   * version of §2.8's rule that the separator goes with the summary.
+   */
+  function detailBits(item) {
+    const bits = [];
+    const add = (id, text, html) => {
+      if (text) bits.push({ id, text, html: html ?? escapeHtml(text) });
+    };
+
+    add("type", item.type);
+    add("status", item.status);
+    add("priority", item.priority);
+    add("assignee", item.assignee);
+    // ONE SPAN AND A COMMA (rule 1). An issue can carry several fix versions and
+    // the box that used to divide them does not exist in Outlook.
+    add("fixv", (item.fixVersions ?? []).join(", "));
+    // `timetracking.remainingEstimate` prints the same string Jira's own backlog
+    // badge shows -- `0m`, `2d`, `1h` -- so the column matches the row it came
+    // from. Blank when the issue has no time tracking, and blank on a board that
+    // estimates in story points, which is a custom field whose id differs per
+    // instance and is out of scope (§2.14).
+    add("remaining", item.remaining ? `${item.remaining} left` : "");
+
+    if (item.parent) {
+      // THE KEY ALONE, AND IT IS A LINK. The epic's name repeats identically down
+      // a list built from one epic -- three identical tails in a six-item sample,
+      // each pushing its row onto a second wrapped line -- and the key being a
+      // link puts the name one click away instead. Rule 4 rules out the clever
+      // alternative of naming it only on its first appearance.
+      //
+      // The anchor's colour is NAMED, because a link does not inherit the colour
+      // of the span around it: the browser's own stylesheet wins, and without
+      // this the parent would arrive as a bright blue link competing with the
+      // issue's own key, which is the one link on the line that matters.
+      add(
+        "parent",
+        `↳ [${item.parent.key}](${issueUrl(item.parent.key)})`,
+        `↳&nbsp;<a href="${escapeHtml(issueUrl(item.parent.key))}" style="color:${MUTED_INK}">${escapeHtml(item.parent.key)}</a>`,
+      );
+    }
+    return bits;
+  }
+
+  /**
+   * §2.14's format, and the reason it is a fifth slot rather than a sixth column
+   * on an existing one: the other four each serve ONE destination, and this one
+   * has to survive six with different renderers -- two of which (Teams, Slack)
+   * cannot draw a table at all.
+   *
+   * ONE ISSUE IS ONE LINE, so it is one thing to drag when the list is reshuffled
+   * in the editor it was pasted into. That is a stated requirement, not a
+   * preference.
+   *
+   * `items` arrive ALREADY CARRYING their fetched fields, so the signature stays
+   * `(items, scope)` and this function is as testable as the other four. The
+   * merge happens in `detailedItems`, which is the only place that knows the
+   * fetch is being held in memory.
+   */
+  function formatDetails(items, scope) {
+    const bullet = scope === "item" ? "" : "- ";
+    const dot = `<span style="color:${MUTED_INK}"> · </span>`;
+
+    const text = items
+      .map((item) => {
+        const head = `${bullet}[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`;
+        const bits = detailBits(item).map((bit) => bit.text);
+        // The em dash earns its place: without it the metadata runs into the
+        // summary with only a `·` between them, and a summary can contain dashes.
+        return bits.length ? `${head} — ${bits.join(" · ")}` : head;
+      })
+      .join("\n");
+
+    const chip = (bit, item) => {
+      if (bit.id === "status") {
+        const paint = LOZENGE[item.category] ?? LOZENGE.new;
+        return `<span style="background:${paint.bg};color:${paint.fg};border-radius:3px;padding:0 6px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">${bit.html}</span>`;
+      }
+      if (bit.id === "priority") {
+        const ink = PRIORITY_INK[item.priority] ?? MUTED_INK;
+        return `<span style="color:${ink};font-weight:700">${bit.html}</span>`;
+      }
+      if (bit.id === "type") {
+        // JUST THE WORD, in the same grey as every other field. There was a
+        // coloured ■ in front of it, and a real paste killed it on 2026-08-20:
+        // the argument for it was "a dim square is still a square, where dim text
+        // is not still readable", which holds only where the colour survives.
+        // Where it does not -- and that is most places, because Teams re-maps
+        // colour and a reader scanning text sees none of it -- it is a BARE BLACK
+        // BOX in front of a word that already says everything. It read as a
+        // broken glyph. The type is emphasised by weight instead, which every
+        // target keeps.
+        return `<span style="color:${MUTED_INK};font-weight:600">${bit.html}</span>`;
+      }
+      return `<span style="color:${MUTED_INK}">${bit.html}</span>`;
+    };
+
+    const cell = (item) => {
+      const bits = detailBits(item);
+      const tail = bits.length
+        ? `<span style="color:${MUTED_INK}"> — </span>` +
+          bits.map((bit) => chip(bit, item)).join(dot)
+        : "";
+      return (
+        `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
+        (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : "") +
+        tail
+      );
+    };
+
+    // The two versions must agree about what the document is, exactly as Links
+    // does: `- ` bullets on the text side, `<ul><li>` on the HTML side, and the
+    // same measured `LIST_ITEM_STYLE` on each item (§2.8).
+    const html =
+      scope === "item"
+        ? cell(items[0])
+        : `<ul>${items
+            .map((item) => `<li style="${LIST_ITEM_STYLE}">${cell(item)}</li>`)
+            .join("")}</ul>`;
+
+    return { text, html };
   }
 
   // Jira's own issue navigator, and the path is the user's, read off their instance
@@ -1659,6 +1887,20 @@ ${selectors.join(",\n")} {
       label: "🔑 Keys",
       title: "Copy KEY, KEY, KEY on one line, for a commit message or a form field",
       build: formatKeys,
+    },
+    {
+      kind: "details",
+      label: "📋 Details",
+      title:
+        "Ask Jira for type, status, priority, assignee, fix version and parent, then copy the collection as a rich list. Two presses: the first fetches, the second copies",
+      build: formatDetails,
+      // The one entry that cannot be served from storage. Its payload is fetched
+      // per press and never written down, so a detailed list cannot carry last
+      // week's status -- which is the whole reason it takes two presses (§2.14).
+      // `renderFoot` reads this to know it owns a label ladder rather than a
+      // fixed label, and the foot's builder reads it to give the button its own
+      // action instead of the plain `copy` one.
+      needsDetails: true,
     },
     {
       kind: "jql",
@@ -1785,6 +2027,33 @@ ${selectors.join(",\n")} {
   // guard 3).
   const GAP_FILL_DEBOUNCE_MS = 400;
 
+  /* ALWAYS PASS `fields` EXPLICITLY: omitting it gives you ids back, which is the
+     most likely way a naive port returns nothing usable (§2.6).
+
+     Two lists, because the two callers want different things and neither should
+     pay for the other. Gap-fill and ↻ need one field; 📋 Details needs seven and
+     runs only when somebody presses it.
+
+     A field that was requested and is absent from the response is NORMAL, not an
+     error -- `parent` was requested on an Epic and was simply not there (§2.6) --
+     so every reader below defaults rather than complains. */
+  const SUMMARY_FIELDS = ["summary"];
+  const DETAIL_FIELDS = [
+    "summary",
+    "issuetype",
+    "status",
+    "priority",
+    "assignee",
+    "fixVersions",
+    "parent",
+    // Asked for by name, and kept even though it is the noisiest field here: it
+    // read `0m` on four of the six issues the format was designed against,
+    // because a finished issue has nothing remaining. Dropping a field the user
+    // requested on our own taste would be the wrong call -- but the cost is
+    // recorded, and removing it is this line plus one `add` below.
+    "timetracking",
+  ];
+
   /* Three per-session sets, and NONE of them is stored.
    *
    * `askedFor` is guard 1: NEVER ASK TWICE FOR THE SAME KEY. An item that came
@@ -1859,20 +2128,70 @@ ${selectors.join(",\n")} {
       // A field that was requested and is absent from the response is NORMAL, not
       // an error: `parent` was requested on an Epic and was simply not there
       // (§2.6). An entry with no summary still counts as an answer, so the row
-      // does not carry the failed note.
+      // does not carry the failed note. Every field below defaults for the same
+      // reason -- and they are all absent, harmlessly, on a summary-only request.
+      const fields = issue?.fields ?? {};
       const summary =
-        typeof issue?.fields?.summary === "string"
-          ? cleanText(issue.fields.summary)
-          : "";
+        typeof fields.summary === "string" ? cleanText(fields.summary) : "";
 
-      const entry = { key, id, summary };
+      // Jira wraps most of these in an object whose display value is `name`.
+      const named = (value) =>
+        typeof value?.name === "string" ? cleanText(value.name) : "";
+
+      const parentKey =
+        typeof fields.parent?.key === "string"
+          ? fields.parent.key.toUpperCase()
+          : null;
+
+      const entry = {
+        key,
+        id,
+        summary,
+        // §2.14's fields. NOTHING BELOW EVER REACHES STORAGE: `applySummaries`
+        // copies `key`, `issueId` and `summary` and nothing else, which is what
+        // keeps a stale status off the clipboard by construction.
+        type: named(fields.issuetype),
+        status: named(fields.status),
+        // The category, not the name: `Dev Resolved` is this instance's wording
+        // and only the category says which of the three colours it takes.
+        category:
+          typeof fields.status?.statusCategory?.key === "string"
+            ? fields.status.statusCategory.key
+            : "",
+        priority: named(fields.priority),
+        assignee:
+          typeof fields.assignee?.displayName === "string"
+            ? cleanText(fields.assignee.displayName)
+            : "",
+        fixVersions: Array.isArray(fields.fixVersions)
+          ? fields.fixVersions.map(named).filter(Boolean)
+          : [],
+        // The formatted string rather than the seconds: Jira returns both, and
+        // the formatted one is what its own badge shows.
+        remaining:
+          typeof fields.timetracking?.remainingEstimate === "string"
+            ? cleanText(fields.timetracking.remainingEstimate)
+            : "",
+        // Validated the same way the item's own key is, so a malformed parent
+        // cannot put a broken link on the clipboard.
+        parent:
+          parentKey && SAFE_KEY_RE.test(parentKey)
+            ? {
+                key: parentKey,
+                summary:
+                  typeof fields.parent?.fields?.summary === "string"
+                    ? cleanText(fields.parent.fields.summary)
+                    : "",
+              }
+            : null,
+      };
       found.set(key, entry);
       if (id) found.set(id, entry);
     }
     return found;
   }
 
-  async function postBulkfetch(idsOrKeys) {
+  async function postBulkfetch(idsOrKeys, fields) {
     // Same-origin, on the session cookie, which is what Jira's own front end
     // does. No token and no `credentials` option -- verified live, and again from
     // inside the sandbox, which is the run that could have killed the grant
@@ -1891,8 +2210,10 @@ ${selectors.join(",\n")} {
         issueIdsOrKeys: idsOrKeys,
         // ALWAYS PASS `fields` EXPLICITLY. On the current API, omitting it gives
         // you ids back, and that is the most likely way a naive port returns
-        // nothing usable (§2.6).
-        fields: ["summary"],
+        // nothing usable (§2.6). The caller chooses which list, and there is no
+        // default here on purpose: a default would let a new caller ask for the
+        // wrong one silently.
+        fields,
         fieldsByKeys: false,
       }),
     });
@@ -1927,7 +2248,7 @@ ${selectors.join(",\n")} {
    * stretched to cover the transport. This is also what §7 step 20 requires:
    * logged out, a summary-less item must simply stay bare.
    */
-  async function askJira(sent) {
+  async function askJira(sent, fields) {
     const found = new Map();
     const decided = new Set();
     let refused = 0;
@@ -1936,7 +2257,7 @@ ${selectors.join(",\n")} {
       const chunk = sent.slice(at, at + BULKFETCH_CHUNK);
       let issues = null;
       try {
-        issues = await postBulkfetch(chunk);
+        issues = await postBulkfetch(chunk, fields);
       } catch (e) {
         // Offline, a dropped connection, a redirect to the login host.
         logger.warn("the bulkfetch request failed", e);
@@ -2051,6 +2372,9 @@ ${selectors.join(",\n")} {
     // refuse to write, the patch would be declined and the request wasted (§2.4).
     if (!state.writable) return;
     if (refreshing) return;
+    // 📋 Details asks for the summary too, so a gap-fill alongside it would be a
+    // second request for the same field and a second write of the same value.
+    if (fetchingDetails) return;
     if (gapFillTimer !== null) return;
     if (!missingSummaries(state).length) return;
 
@@ -2089,7 +2413,7 @@ ${selectors.join(",\n")} {
     scheduleRender();
 
     try {
-      const { found, decided } = await askJira([...new Set(asked.values())]);
+      const { found, decided } = await askJira([...new Set(asked.values())], SUMMARY_FIELDS);
       markUnreadable(asked, found, decided);
       const patched = applySummaries(collection.id, asked, found);
       logger.debug(
@@ -2106,7 +2430,7 @@ ${selectors.join(",\n")} {
   // getting data out (§2.9). It is the user asking again, so it ignores `askedFor`
   // on the way in and refreshes it on the way out.
   async function refreshActive() {
-    if (refreshing) return;
+    if (refreshing || fetchingDetails) return;
     const state = load();
     if (!state.writable) return;
     const collection = activeCollection(state);
@@ -2122,7 +2446,7 @@ ${selectors.join(",\n")} {
     scheduleRender();
 
     try {
-      const { found, decided } = await askJira([...new Set(asked.values())]);
+      const { found, decided } = await askJira([...new Set(asked.values())], SUMMARY_FIELDS);
       markUnreadable(asked, found, decided);
       const patched = applySummaries(collection.id, asked, found);
       logger.log(
@@ -2133,6 +2457,187 @@ ${selectors.join(",\n")} {
       for (const key of asked.keys()) inFlight.delete(key);
       scheduleRender();
     }
+  }
+
+  /* ------------------------------------------------- 📋 Details, the two steps
+
+     WHY TWO PRESSES, AND WHY NOTHING IS STORED (§2.14).
+
+     Copy-out is synchronous and may never await the network (§2.8): a clipboard
+     write after an `await` lands outside its transient user activation, which is
+     intermittent silent failure. So whatever the detailed list prints has to be
+     in hand BEFORE the press that copies it. One press fetches, the next copies,
+     and each press is its own user activation.
+
+     Storing the fields instead would have bought one press and cost the thing
+     that matters: status, assignee and priority change hourly, so a stored
+     detail is a claim about last week that looks like a claim about today. Held
+     in memory and dropped after use, it cannot be stale -- everything pasted was
+     fetched seconds earlier, by construction rather than by discipline.
+
+     Three further things fall out of storing nothing, and they are why this was
+     the cheap choice as well as the honest one: §2.4's schema is untouched, so
+     there is no migration and no version bump; an older build cannot silently
+     drop fields it does not know; and ADDING A FIELD LATER -- Team, for the
+     report grouped by team then priority that is still to come -- is one id in
+     `DETAIL_FIELDS` and one `add` in `detailBits`. */
+
+  // { signature, rows } or null. NOT a "ready" flag beside it: the signature IS
+  // the validity test, so there is no second value that could disagree with the
+  // collection (principle 1).
+  let detailsHeld = null;
+  let fetchingDetails = false;
+
+  /* The collection this fetch describes. THE KEY LIST, NOT THE WHOLE BLOB: the
+     fetch writes summaries back through `applySummaries`, and comparing the blob
+     would make our own write look like a change and cancel the button we just
+     armed. A summary changing is not a different set of issues; a key changing
+     is, and a repaired key lands here correctly for that reason. */
+  function detailSignature(state) {
+    const collection = activeCollection(state);
+    return `${collection.id}|${collection.items.map((item) => item.key).join(",")}`;
+  }
+
+  // Derived, never cached. Add, remove, empty, switch collection, or another tab
+  // writing -- any of them changes the signature and the held fetch stops being
+  // an answer about this collection. Nothing has to notice and invalidate it.
+  function detailsFor(state) {
+    if (detailsHeld === null) return null;
+    return detailsHeld.signature === detailSignature(state) ? detailsHeld : null;
+  }
+
+  // The one place that knows the fetch is in memory, which is what lets
+  // `formatDetails` keep the same `(items, scope)` signature as the other four
+  // and stay as testable as they are. The stored item wins on `key` and
+  // `summary`: storage is the record of what is collected, and §2.6 already says
+  // a summary may be replaced but never deleted.
+  function detailedItems(state, held) {
+    return activeCollection(state).items.map((item) => ({
+      ...(held.rows.get(item.key) ?? {}),
+      ...item,
+    }));
+  }
+
+  // Looked up fresh rather than captured: the fetch is async, and a React remount
+  // can rebuild the whole drawer while it is out, which would leave a captured
+  // node detached and the feedback invisible.
+  function detailsButton() {
+    const foot = document.getElementById(FOOT_ID);
+    return foot ? foot.querySelector('[data-gt-format="details"]') : null;
+  }
+
+  /**
+   * Step one. Asks Jira about the whole active collection, writes the summaries
+   * back through the path that already exists, and holds the rest in memory.
+   *
+   * It is the user asking, so like ↻ it ignores `askedFor` on the way in and
+   * refreshes it on the way out.
+   *
+   * ARMS ONLY IF SOMETHING CAME BACK. Nothing at all -- logged out, offline, a
+   * login page instead of JSON -- means there is nothing to copy, so the button
+   * stays idle and says ⚠️. A partial answer DOES arm: the rows Jira said nothing
+   * about keep their key and their stored summary, and `markUnreadable` has
+   * already put `(cannot read)` on those drawer rows, which is where that news
+   * belongs (§2.6). Refusing the whole copy for one unreadable issue would make
+   * the format unreachable for as long as that issue is in the collection.
+   */
+  async function fetchDetails() {
+    if (fetchingDetails || refreshing) return;
+    const state = load();
+    const collection = activeCollection(state);
+    if (!collection.items.length) return;
+
+    fetchingDetails = true;
+    const asked = new Map();
+    for (const item of collection.items) {
+      askedFor.add(item.key);
+      inFlight.add(item.key);
+      asked.set(item.key, item.issueId ?? item.key);
+    }
+    scheduleRender();
+
+    let failed = false;
+    try {
+      const { found, decided } = await askJira(
+        [...new Set(asked.values())],
+        DETAIL_FIELDS,
+      );
+      markUnreadable(asked, found, decided);
+      // The same write-back ↻ uses, so a press of 📋 also improves the drawer's
+      // rows and what 🔗 Links copies, and repairs a key that changed project.
+      // It patches only `summary`, `issueId` and `key`; the rest is not stored.
+      applySummaries(collection.id, asked, found);
+
+      if (found.size === 0) {
+        failed = true;
+        logger.warn(
+          "Jira answered nothing usable about this collection, so no details are held",
+        );
+      } else {
+        // Keyed by BOTH the answered key and the reference sent, because an item
+        // carrying an `issueId` was asked for by id. The signature is taken from
+        // a FRESH read, after the write-back: `applySummaries` may have repaired
+        // a key, and the signature has to describe the collection as it now is.
+        const rows = new Map();
+        for (const [reference, entry] of found) {
+          rows.set(reference, entry);
+          rows.set(entry.key, entry);
+        }
+        detailsHeld = { signature: detailSignature(load()), rows };
+        logger.log(
+          `details in hand for ${collection.name}: ${asked.size} reference${asked.size === 1 ? "" : "s"} sent, ${found.size} answered`,
+        );
+      }
+    } catch (e) {
+      failed = true;
+      logger.error("the details fetch failed", e);
+    } finally {
+      fetchingDetails = false;
+      for (const key of asked.keys()) inFlight.delete(key);
+      // `render`, not `scheduleRender`: the flash below has to be written AFTER
+      // the labels are rebuilt, or the next frame wipes it (§2.8).
+      render();
+    }
+
+    if (failed) {
+      const button = detailsButton();
+      if (button) flash(button, "⚠️");
+    }
+  }
+
+  /**
+   * Step two, and it is as synchronous as the other three copies: everything it
+   * prints is already in memory, so there is no `await` before the clipboard
+   * write except the write itself (§2.8).
+   *
+   * THE HELD FETCH IS SPENT BY THE COPY. Without that, a button left armed could
+   * be pressed the next morning and paste yesterday's statuses -- the exact
+   * failure the two-step design exists to remove. So every paste was fetched by
+   * the press before it.
+   */
+  async function copyDetails(button) {
+    const state = load();
+    const held = detailsFor(state);
+    if (!held) return;
+
+    const payload = format("details", detailedItems(state, held), "collection");
+    if (!payload) return;
+
+    try {
+      await writeClipboard(payload);
+      detailsHeld = null;
+      flash(button, "✅");
+    } catch (e) {
+      logger.error("clipboard write failed", e);
+      flash(button, "⚠️");
+    }
+  }
+
+  // One control, two steps, and the state decides which -- the label says which
+  // one it is about to do, so there is nothing to remember (§3).
+  function onDetails(button) {
+    if (fetchingDetails) return undefined;
+    return detailsFor(load()) ? copyDetails(button) : fetchDetails();
   }
 
   // -------------------------------------------------------------- the origins
@@ -2574,8 +3079,12 @@ ${selectors.join(",\n")} {
     foot.id = FOOT_ID;
     for (const spec of EXPORTS) {
       // The entry names its own action, so the one that navigates cannot end up on
-      // the clipboard path by accident.
-      const button = actionButton("gt-cart-copy", spec.opens ? "search" : "copy");
+      // the clipboard path by accident, and the one that has to fetch first cannot
+      // reach the plain copy path at all.
+      const button = actionButton(
+        "gt-cart-copy",
+        spec.opens ? "search" : spec.needsDetails ? "details" : "copy",
+      );
       button.dataset.gtFormat = spec.kind;
       // The label and the title are set by `render`, never here: a label written
       // once at construction keeps the ✅ for ever (§2.8).
@@ -2669,6 +3178,9 @@ ${selectors.join(",\n")} {
         return;
       case "copy":
         guard(() => copyActive(node, node.dataset.gtFormat));
+        return;
+      case "details":
+        guard(() => onDetails(node));
         return;
       case "search":
         guard(openSearch);
@@ -3343,7 +3855,10 @@ ${selectors.join(",\n")} {
     const refresh = document.getElementById(REFRESH_ID);
     if (refresh) {
       refresh.disabled =
-        refreshing || !state.writable || collection.items.length === 0;
+        refreshing ||
+        fetchingDetails ||
+        !state.writable ||
+        collection.items.length === 0;
       refresh.title = refreshing
         ? "Asking Jira for every summary in this collection…"
         : "Refresh every summary in this collection from Jira. It can replace a summary and never deletes one.";
@@ -3506,6 +4021,32 @@ ${selectors.join(",\n")} {
       // (§2.8).
       button.textContent = spec.label;
       button.title = spec.title;
+
+      /* 📋 Details is the one control in the foot whose label is a LADDER rather
+         than a name, and the whole ladder is derived from state here, for the same
+         reason the ✅ is: a label written anywhere else would be a value that has
+         to agree with `fetchingDetails` and `detailsHeld`, and could stop
+         agreeing. The convention is the repo's own -- ⌫ becomes `Empty 3?` before
+         it will empty anything (§3). */
+      if (spec.needsDetails) {
+        const held = detailsFor(state);
+        const count = activeCollection(state).items.length;
+        if (fetchingDetails) {
+          button.textContent = "📋 Fetching…";
+          button.title = "Asking Jira about every issue in this collection…";
+        } else if (held) {
+          button.textContent = `📋 Copy ${count} item${count === 1 ? "" : "s"}`;
+          button.title =
+            "Copy the detailed list. The next press fetches again, so nothing you paste is older than the press before it";
+        }
+        // Nothing may fetch what it cannot store: the write-back is declined on
+        // the two migration rows that refuse to write, so the request would be
+        // wasted (§2.4). And ↻ and 📋 each stand down while the other is out --
+        // both write summaries, and one request at a time is enough.
+        button.disabled =
+          empty || refreshing || fetchingDetails || !state.writable;
+        continue;
+      }
       // Disabled and dimmed while the collection is empty, the convention
       // `jira-ux` already uses for the buttons that need a description. A copy of
       // zero items must not write at all, and `key in ()` is not valid JQL, so the

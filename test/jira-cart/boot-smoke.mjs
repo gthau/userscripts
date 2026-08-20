@@ -169,6 +169,8 @@ const navigator = {
 };
 const store = {};
 const calls = { renders: 0, fetches: 0 };
+// `null` makes the fetch stub throw. A body makes it answer with that body.
+const network = { body: null };
 const GM_getValue = (k, d) => (k in store ? store[k] : d);
 let throwOnWrite = false;
 const GM_setValue = (k, v) => {
@@ -231,7 +233,20 @@ try {
     GM_getValue, GM_setValue, GM_addValueChangeListener,
     setTimeout, () => 0, clearTimeout,
     (fn) => { frames.push(fn); return 1; },
-    async () => { calls.fetches += 1; throw new Error("no network in the harness"); },
+    // Throws by default, which is what most of this file wants: a script that
+    // works offline is the point of §2.6's "an item is valid with a key alone".
+    // Set `network.body` to drive the answering path instead -- the two-step
+    // 📋 Details button cannot be exercised without one (§2.14).
+    async () => {
+      calls.fetches += 1;
+      if (network.body === null) throw new Error("no network in the harness");
+      const body = network.body;
+      return {
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => body,
+      };
+    },
   );
   console.log("ok   the script evaluates and starts");
 } catch (e) {
@@ -436,6 +451,105 @@ flush();
 await settle();
 is("and it is never asked a second time", calls.fetches, asked);
 
+// ---- 📋 Details: TWO PRESSES, and nothing is stored between them (§2.14)
+//
+// This is the section §2.14 exists for, and it is drivable here for the same
+// reason the cross-tab step was: the platform surface is `fetch` and the
+// clipboard, and both are already shimmed. What a green run does NOT say is
+// anything about how the pasted HTML renders -- that took real pastes into
+// Outlook and Teams, and their findings are asserted in `format-smoke` instead.
+const details = () => copy("details");
+const collections = () => JSON.parse(store["gt-jira-cart.collections"]).collections;
+// One issue Jira will answer about and one it will not, which is the case that
+// decides whether a partial answer arms the button.
+const ANSWER = {
+  issues: [{
+    id: "573374", key: "RDC-1513",
+    fields: {
+      summary: "Markers [7] Dev (player)", issuetype: { name: "Story" },
+      status: { name: "Dev Resolved", statusCategory: { key: "indeterminate" } },
+      priority: { name: "P2" }, assignee: { displayName: "William CHUANG" },
+      fixVersions: [{ name: "Pyr 2026.8.0" }],
+      timetracking: { remainingEstimate: "0m" },
+      parent: { key: "RDC-26701", fields: { summary: "Markers panel" } },
+    },
+  }],
+  issueErrors: [],
+};
+
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "det", name: "Report", items: [{ key: "RDC-1513" }, { key: "GLX-402" }] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("the label starts as a name, not a ladder", details().textContent, "📋 Details");
+
+// A REFUSED FETCH MUST NOT ARM: nothing came back, so there is nothing to copy.
+network.body = null;
+calls.fetches = 0;
+const beforeRefusal = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("a refused fetch did ask", calls.fetches >= 1, true);
+is("and left the button idle, because there is nothing to copy", details().textContent, "📋 Details");
+is("and wrote nothing to the clipboard", clipboard.length, beforeRefusal);
+is("a refused fetch is a warning, never an error", errors(), []);
+
+// A PARTIAL ANSWER DOES ARM. Refusing the whole copy because one issue is
+// unreadable would make the format unreachable for as long as it is collected.
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("one of two answered, and the button armed", details().textContent, "📋 Copy 2 items");
+is("the fetch also wrote the summary back, through the path ↻ already uses",
+  collections()[0].items[0].summary, "Markers [7] Dev (player)");
+is("and the item it could not read is untouched", collections()[0].items[1], { key: "GLX-402" });
+is("nothing the fetch learned besides the summary was stored",
+  Object.keys(collections()[0].items[0]).sort(), ["issueId", "key", "summary"]);
+
+// The second press copies, synchronously as far as the network is concerned.
+const beforeCopy = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("the second press wrote once", clipboard.length, beforeCopy + 1);
+is("and wrote both flavours", Object.keys(clipboard.at(-1)), ["text/plain", "text/html"]);
+// The stub keeps a Blob, exactly as the real ClipboardItem does, so the payload
+// is read back out of it rather than assumed to be a string.
+const pasted = clipboard.at(-1)["text/plain"].text;
+is("the line carries the fetched fields in reading order",
+  pasted.includes("— Story · Dev Resolved · P2 · William CHUANG · Pyr 2026.8.0 · 0m left · ↳ [RDC-26701]"), true);
+is("NO FORMAT DROPS AN ITEM: the unreadable one still gets a line", pasted.split("\n").length, 2);
+is("and its line is a bare link", pasted.split("\n")[1], "- [GLX-402](https://dalet.atlassian.net/browse/GLX-402)");
+is("the epic's name is not on the line, only its key", /Markers panel/.test(pasted), false);
+is("the copy shows its receipt", details().textContent, "✅");
+await settle();
+await settle();
+is("THE HELD FETCH IS SPENT BY THE COPY, so no paste is older than the press before it",
+  details().textContent, "📋 Details");
+
+// A CHANGE TO THE KEY LIST DISARMS IT, through a real gesture rather than a poke.
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("armed again", details().textContent, "📋 Copy 2 items");
+dispatch(items()[1].children.find((k) => k.classList.includes("gt-cart-x")), "click");
+flush();
+is("removing an item dropped the held fetch", details().textContent, "📋 Details");
+is("and the collection is down to one", collections()[0].items.length, 1);
+
+// ↻ and 📋 each stand down while the other is out: both write summaries.
+is("an empty collection cannot be asked about either", (() => {
+  store["gt-jira-cart.collections"] = JSON.stringify({
+    v: 1, collections: [{ id: "det", name: "Report", items: [] }],
+  });
+  dispatch(byId.get("gt-cart-name"), "click");
+  dispatch(byId.get("gt-cart-rename"), "keydown", { key: "Escape" });
+  flush();
+  return details().disabled;
+})(), true);
+network.body = null;
+
 // ---- emptying and deleting, and BOTH ARE ARMED BEFORE THEY FIRE
 const names = () => JSON.parse(store["gt-jira-cart.collections"]).collections.map((c) => c.name);
 const items0 = () => JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.length;
@@ -451,6 +565,10 @@ store["gt-jira-cart.collections"] = JSON.stringify({
     { id: "c3", name: "Scratch", items: [] },
   ],
 });
+// The store was poked directly, so the script has to be told to re-read it. This
+// used to lean on a frame an earlier block happened to leave queued, which made
+// the whole section depend on what ran before it.
+dispatch(document, "visibilitychange");
 flush();
 is("two items to empty", items0(), 2);
 is("⌫ is an icon while it is disarmed", emptyButton().textContent, "⌫");

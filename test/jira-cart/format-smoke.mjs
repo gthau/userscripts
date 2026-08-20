@@ -30,12 +30,24 @@ function slice(head, end) {
 }
 
 const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys","formatJql","searchUrl","format",
+               "detailBits","formatDetails",
                "bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine"];
+// The palette 📋 Details emits. Sliced in from the real file rather than copied,
+// because section 12 below asserts things ABOUT these values -- that no ground is
+// saturated, that no colour appears without one -- and a copy would let the file
+// and the assertions drift apart silently.
 const harness = `
   ${slice("const HTML_ESCAPES = {", "\n  };")}
+  ${slice("const MUTED_INK =", "\n")}
+  ${slice("const LOZENGE = {", "\n  };")}
+  ${slice("const PRIORITY_INK =", "\n")}
   ${names.map(extract).join("\n")}
   ${slice("const EXPORTS = [", "\n  ];")}
-  return {${names.join(",")}, EXPORTS};
+  ${slice("const LIST_ITEM_STYLE =", "\n")}
+  ${slice("const SUMMARY_FIELDS =", "\n")}
+  ${slice("const DETAIL_FIELDS = [", "\n  ];")}
+  return {${names.join(",")}, EXPORTS, SUMMARY_FIELDS, DETAIL_FIELDS,
+          MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE};
 `;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const location = { origin: "https://dalet.atlassian.net" };
@@ -63,10 +75,13 @@ is("Links text", f.format("links", THREE, "collection").text, [
   `- [RDC-23716](${URL}/RDC-23716) Rundown grid does not refresh after a move`,
   `- [GLX-402](${URL}/GLX-402)`,
 ].join("\n"));
+// The <li> carries LIST_ITEM_STYLE since 1.1.0: a bare <li> is unreadable in
+// Outlook, and Links' summaries wrap just as Details' do (§2.8, §2.14).
+const LI = `<li style="${f.LIST_ITEM_STYLE}">`;
 is("Links html", f.format("links", THREE, "collection").html,
-  `<ul><li><a href="${URL}/RDC-14817">RDC-14817</a>&nbsp;Outline inside the edited field</li>` +
-  `<li><a href="${URL}/RDC-23716">RDC-23716</a>&nbsp;Rundown grid does not refresh after a move</li>` +
-  `<li><a href="${URL}/GLX-402">GLX-402</a></li></ul>`);
+  `<ul>${LI}<a href="${URL}/RDC-14817">RDC-14817</a>&nbsp;Outline inside the edited field</li>` +
+  `${LI}<a href="${URL}/RDC-23716">RDC-23716</a>&nbsp;Rundown grid does not refresh after a move</li>` +
+  `${LI}<a href="${URL}/GLX-402">GLX-402</a></li></ul>`);
 is("Names text", f.format("names", THREE, "collection").text, [
   "[RDC-14817] Outline inside the edited field",
   "[RDC-23716] Rundown grid does not refresh after a move",
@@ -82,7 +97,7 @@ is("JQL has no html twin", f.format("jql", THREE, "collection").html, undefined)
 const BARE = [{ key: "GLX-402" }];
 is("Links drops the space with the summary", f.format("links", BARE, "collection").text, `- [GLX-402](${URL}/GLX-402)`);
 is("Links drops the &nbsp; with the summary", f.format("links", BARE, "collection").html,
-  `<ul><li><a href="${URL}/GLX-402">GLX-402</a></li></ul>`);
+  `<ul>${LI}<a href="${URL}/GLX-402">GLX-402</a></li></ul>`);
 is("Names drops its brackets", f.format("names", BARE, "collection").text, "GLX-402");
 is("no trailing space anywhere", /[ \t]$/m.test(
   ["links","names","keys","jql"].map((k) => f.format(k, THREE, "collection").text).join("\n")), false);
@@ -94,7 +109,7 @@ for (const kind of ["links", "names", "keys", "jql"]) {
 }
 is("Links lines equal items", f.format("links", THREE, "collection").text.split("\n").length, 3);
 is("Names lines equal items", f.format("names", THREE, "collection").text.split("\n").length, 3);
-is("Links <li> count equals items", (f.format("links", THREE, "collection").html.match(/<li>/g) || []).length, 3);
+is("Links <li> count equals items", (f.format("links", THREE, "collection").html.match(/<li /g) || []).length, 3);
 
 // ---- 4. scope decides the bullet, and nothing else
 is("selection keeps the bullet", f.format("links", THREE, "selection").text.startsWith("- ["), true);
@@ -119,7 +134,11 @@ is("html escapes the summary", f.format("links", NASTY, "collection").html.inclu
 is("plain text does NOT escape", f.format("links", NASTY, "collection").text.includes(`<script> & "quotes"`), true);
 
 // ---- 7. the dispatch table is a table
-is("four exports, and the four labels", f.EXPORTS.map((one) => one.label), ["🔗 Links", "📃 Names", "🔑 Keys", "🔍 Search"]);
+// FIVE since 1.1.0. §2.8's spanning set of four each served ONE destination;
+// 📋 Details is a fifth slot because it has to survive six destinations with
+// different renderers, two of which cannot draw a table at all (§2.14).
+is("five exports, and the five labels", f.EXPORTS.map((one) => one.label),
+  ["🔗 Links", "📃 Names", "🔑 Keys", "📋 Details", "🔍 Search"]);
 is("only JQL restricts its scopes", f.EXPORTS.filter((one) => one.scopes).map((one) => one.kind), ["jql"]);
 is("exactly one entry navigates instead of copying", f.EXPORTS.filter((one) => one.opens).map((one) => one.kind), ["jql"]);
 is("and the other three still build a clipboard payload", f.EXPORTS.filter((one) => !one.opens).every((one) => !!one.build(THREE, "collection").text), true);
@@ -185,6 +204,189 @@ is("whitespace is trimmed", f.uniqueName("  Sprint  ", cols("Other")), "Sprint")
 const own = cols("Sprint", "Other");
 is("a rename does not clash with itself", f.uniqueName("Sprint", own, "i0"), "Sprint");
 is("a rename onto a neighbour still numbers", f.uniqueName("Other", own, "i0"), "Other 2");
+
+// ---- 12. 📋 Details (ADR §2.14)
+//
+// The data is REAL, read from dalet.atlassian.net on 2026-08-20, and chosen for
+// its awkwardness: two issue types, three status categories, two priorities, a
+// missing assignee, a missing fix version, an issue carrying TWO fix versions,
+// two with no parent, and one Jira would say nothing about. `GLX-402` is the only
+// invented row and it stands for that last case.
+const DETAILED = [
+  { key: "RDC-1513", summary: "Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts",
+    type: "Story", status: "Dev Resolved", category: "indeterminate", priority: "P2",
+    assignee: "William CHUANG", fixVersions: ["Pyr 2026.8.0 (Release - Active)"], remaining: "0m",
+    parent: { key: "RDC-26701", summary: "Markers panel in Pyramid Media Player" } },
+  { key: "RDC-28369", summary: "Full screen mode doesnt show any player controls",
+    type: "Bug", status: "To Do", category: "new", priority: "P1",
+    assignee: "Rajesh KRISHNAPPA",
+    fixVersions: ["Flex 2026.6.x (LTS track)", "Flex 2026.9.0"], remaining: "0m", parent: null },
+  { key: "GLX-402" },
+];
+const detailed = f.format("details", DETAILED, "collection");
+
+// -- the plain flavour: ONE ISSUE IS ONE LINE, so it is one thing to drag when
+//    the pasted list is reshuffled by hand.
+is("details emits one line per item", detailed.text.split("\n").length, 3);
+is("the line is the Links line plus a tail after an em dash",
+  detailed.text.split("\n")[0],
+  `- [RDC-1513](${URL}/RDC-1513) Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts` +
+  ` — Story · Dev Resolved · P2 · William CHUANG · Pyr 2026.8.0 (Release - Active) · 0m left` +
+  ` · ↳ [RDC-26701](${URL}/RDC-26701)`);
+is("an item with nothing but a key keeps its link and grows no dash",
+  detailed.text.split("\n")[2], `- [GLX-402](${URL}/GLX-402)`);
+is("no format drops an item", /GLX-402/.test(detailed.text), true);
+is("the parent is a markdown link, and its key alone",
+  /↳ \[RDC-26701\]\(https:\/\/dalet\.atlassian\.net\/browse\/RDC-26701\)$/.test(detailed.text.split("\n")[0]), true);
+is("the epic's summary never reaches the line",
+  /Markers panel in Pyramid/.test(detailed.text), false);
+
+// -- RULE 1: A SEPARATOR MUST BE A CHARACTER, NEVER A BOX. Outlook strips an
+//    inline border, and two bordered chips divided by a space arrived as one
+//    nonsense version (measured 2026-08-20).
+is("two fix versions are joined by a comma in the text",
+  /Flex 2026\.6\.x \(LTS track\), Flex 2026\.9\.0/.test(detailed.text), true);
+is("two fix versions are joined by a comma in the html",
+  /Flex 2026\.6\.x \(LTS track\), Flex 2026\.9\.0/.test(detailed.html), true);
+is("no inline border is emitted", /border:/.test(detailed.html), false);
+
+// -- RULE 2: NOTHING MAY DEPEND ON `opacity`. Outlook and Teams both strip it.
+is("no opacity is emitted", /opacity/.test(detailed.html), false);
+
+// -- RULE 5: NO `font-size`, AND ESPECIALLY NOT A PERCENTAGE. Teams did not merely
+//    ignore it -- it DELETED THE CONTENT of every span that carried one, so type,
+//    status, priority, assignee, fix version, remaining and the parent link all
+//    vanished and left a row of bare `·` separators (measured 2026-08-20).
+is("no font-size is emitted at all", /font-size/.test(detailed.html), false);
+is("and there is no ■: the type is a word", /■/.test(detailed.html), false);
+// What the hierarchy rests on instead, both of which every target keeps.
+is("the type is emphasised by weight", /font-weight:600">Story/.test(detailed.html), true);
+is("an urgent priority is emphasised by weight too", /font-weight:700">P1/.test(detailed.html), true);
+
+// -- RULE 3: A COLOUR MUST BRING ITS OWN BACKGROUND, AND THAT BACKGROUND MUST BE
+//    PALE. Teams keeps a pale ground and DISCARDS a saturated one.
+const grounds = [...detailed.html.matchAll(/background:(#[0-9a-f]{6})/gi)].map((m) => m[1]);
+const pale = Object.values(f.LOZENGE).map((one) => one.bg);
+is("every background emitted is one of the three lozenge grounds",
+  grounds.every((one) => pale.includes(one)), true);
+is("every lozenge ground is pale, not saturated",
+  pale.every((hex) => {
+    const [r, g, b] = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
+    return (r * 0.299 + g * 0.587 + b * 0.114) / 255 > 0.8;
+  }), true);
+is("every lozenge names its text colour as well as its ground",
+  Object.values(f.LOZENGE).every((one) => one.bg && one.fg), true);
+// The only text colour allowed to appear WITHOUT a ground is the urgent priority
+// red. Everything else is the one measured grey. There was a coloured ■ before the
+// type as well; a real paste killed it -- see §2.14.
+const inks = new Set([...detailed.html.matchAll(/color:(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase()));
+const allowed = new Set([
+  f.MUTED_INK, ...Object.values(f.PRIORITY_INK),
+  ...Object.values(f.LOZENGE).map((one) => one.fg),
+].map((hex) => hex.toLowerCase()));
+is("no colour is emitted that the palette does not name",
+  [...inks].every((one) => allowed.has(one)), true);
+
+// -- colour means urgency, and the status colour comes from the CATEGORY
+is("an urgent priority is coloured", detailed.html.includes(`color:${f.PRIORITY_INK.P1}`), true);
+is("P2 is muted rather than coloured", f.PRIORITY_INK.P2, undefined);
+is("a To Do issue takes the `new` ground", detailed.html.includes(`background:${f.LOZENGE.new.bg}`), true);
+is("an In Progress issue takes the `indeterminate` ground",
+  detailed.html.includes(`background:${f.LOZENGE.indeterminate.bg}`), true);
+is("the local status wording is printed, not the category",
+  /Dev Resolved/.test(detailed.html) && !/indeterminate/.test(detailed.html), true);
+
+// -- the parent's anchor must NAME its colour: a link does not inherit the colour
+//    of the span around it, so without this it arrives as a bright blue link
+//    competing with the issue's own key.
+is("the parent is an anchor in the html",
+  detailed.html.includes(`<a href="${URL}/RDC-26701" style="color:${f.MUTED_INK}">RDC-26701</a>`), true);
+
+// -- LINE SPACING. Outlook gives a bare <li> no leading and no gap, so a wrapped
+//    six-item report arrived as one dense block and had to be reformatted by hand
+//    every time (measured 2026-08-20). Two problems, two properties: line-height
+//    for the leading inside a wrapped line, margin-bottom so one issue reads as
+//    one block. Asserted here so a later session cannot quietly strip it back.
+is("every <li> carries the measured spacing",
+  (detailed.html.match(new RegExp(`<li style="${f.LIST_ITEM_STYLE}">`, "g")) || []).length, 3);
+is("and it sets both properties, because they fix different things",
+  [/line-height/.test(f.LIST_ITEM_STYLE), /margin-bottom/.test(f.LIST_ITEM_STYLE)], [true, true]);
+// EVERY format that emits a list carries it. Links was excluded for one day on the
+// reasoning that a key plus a summary does not wrap; real summaries on this
+// instance run 60 to 100 characters, so it wrapped and had the same fault.
+for (const kind of ["links", "details"]) {
+  const html = kind === "links"
+    ? f.format(kind, THREE, "collection").html
+    : detailed.html;
+  is(`${kind} spaces every <li>`,
+    (html.match(new RegExp(`<li style="${f.LIST_ITEM_STYLE}">`, "g")) || []).length, 3);
+}
+is("and the two use the SAME style, so one cannot drift from the other",
+  f.format("links", THREE, "collection").html.includes(`<li style="${f.LIST_ITEM_STYLE}">`) &&
+  detailed.html.includes(`<li style="${f.LIST_ITEM_STYLE}">`), true);
+
+// -- the two flavours must agree about what the document is (§2.8)
+is("the collection scope is a <ul> of items", /^<ul><li style="[^"]+">.*<\/li><\/ul>$/.test(detailed.html), true);
+is("the html has one <li> per item", detailed.html.split("<li ").length - 1, 3);
+const one = f.format("details", [DETAILED[0]], "item");
+is("a single item drops the bullet", one.text.startsWith("["), true);
+is("and drops the <ul> with it", one.html.startsWith("<a "), true);
+is("a single item has no <li>, so no spacing either", /<li/.test(one.html), false);
+is("and Links at item scope has none either", /<li/.test(f.format("links", BARE, "item").html), false);
+
+// -- the rules every other format already obeys
+is("a copy of zero items writes nothing", f.format("details", [], "collection"), null);
+is("an ampersand in a summary is escaped on the html side",
+  f.format("details", [{ key: "RDC-1", summary: "a & b <c>" }], "collection").html.includes("a &amp; b &lt;c&gt;"), true);
+is("and is left alone on the text side",
+  f.format("details", [{ key: "RDC-1", summary: "a & b <c>" }], "collection").text.includes("a & b <c>"), true);
+
+// -- the field lists. ALWAYS PASSED EXPLICITLY: omitting `fields` returns ids.
+is("gap-fill and refresh ask for one field", f.SUMMARY_FIELDS, ["summary"]);
+is("details asks for every field it prints", f.DETAIL_FIELDS,
+  ["summary","issuetype","status","priority","assignee","fixVersions","parent","timetracking"]);
+is("details is a copy, not a navigation",
+  f.EXPORTS.find((one) => one.kind === "details").opens, undefined);
+is("details declares it must fetch first",
+  f.EXPORTS.find((one) => one.kind === "details").needsDetails, true);
+is("the four that copy stay together, with Search last",
+  f.EXPORTS.map((one) => one.kind), ["links","names","keys","details","jql"]);
+
+// ---- 13. readIssues carries the new fields, and defaults every absent one
+const answered = f.readIssues([{
+  id: "573374", key: "RDC-1513",
+  fields: {
+    summary: "Markers [7] Dev (player)", issuetype: { name: "Story" },
+    status: { name: "Dev Resolved", statusCategory: { key: "indeterminate" } },
+    priority: { name: "P2" }, assignee: { displayName: "William CHUANG" },
+    fixVersions: [{ name: "Pyr 2026.8.0 (Release - Active)" }],
+    timetracking: { remainingEstimate: "0m", remainingEstimateSeconds: 0 },
+    parent: { key: "RDC-26701", fields: { summary: "Markers panel in Pyramid Media Player" } },
+  },
+}]).get("RDC-1513");
+is("the type is read", answered.type, "Story");
+is("the status name is read", answered.status, "Dev Resolved");
+is("the status CATEGORY is read too", answered.category, "indeterminate");
+is("the priority is read as its name", answered.priority, "P2");
+is("the assignee is a display name", answered.assignee, "William CHUANG");
+is("fix versions are names, in order", answered.fixVersions, ["Pyr 2026.8.0 (Release - Active)"]);
+is("the remaining estimate is the formatted string", answered.remaining, "0m");
+is("the parent carries a key and a summary", answered.parent,
+  { key: "RDC-26701", summary: "Markers panel in Pyramid Media Player" });
+
+// A field that was requested and is absent is NORMAL, not an error (§2.6).
+const bare = f.readIssues([{ id: "1", key: "GLX-402", fields: { summary: "" } }]).get("GLX-402");
+is("an absent type is empty, not undefined", bare.type, "");
+is("an absent category is empty", bare.category, "");
+is("an absent assignee is empty", bare.assignee, "");
+is("absent fix versions are an empty array", bare.fixVersions, []);
+is("an absent parent is null", bare.parent, null);
+is("an absent remaining estimate is empty", bare.remaining, "");
+// A malformed parent key must not put a broken link on the clipboard.
+const badparent = f.readIssues([
+  { id: "2", key: "RDC-2", fields: { summary: "x", parent: { key: "not a key" } } },
+]).get("RDC-2");
+is("a parent whose key is malformed is dropped", badparent.parent, null);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

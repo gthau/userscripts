@@ -1,9 +1,15 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 1.0.0 implements the whole of section 2 and has
-  been checked against it.** 1.0.0 means *the spec is built and checked*, not
-  *nothing is left to want* — §6 will always hold open items, so waiting for an
-  empty §6 would mean never reaching 1.0.0.
+- **Status:** Accepted. **Version 1.1.0 implements the whole of section 2 and has
+  been checked against it.** A version number here means *the spec is built and
+  checked*, not *nothing is left to want* — §6 will always hold open items, so
+  waiting for an empty §6 would mean never reaching any of them.
+  **1.1.0 added the first new feature since 1.0.0: 📋 Details, a fifth export
+  (§2.14).** It is the first section written from *real pastes* rather than from
+  argument — into Outlook and into Teams in both skins — and those pastes reversed
+  two of its own decisions before it shipped. It changed nothing that was already
+  there except §2.8's claim to have four formats, and it did **not** touch §2.4:
+  nothing it fetches is stored, so there is no schema change and no migration.
   Version 0.1.1 had built §2.1, §2.2, §2.4, §2.5, §2.7, §2.10, §2.12, §2.13 and
   the badge of §2.9; 0.2.0 added the drawer and everything in it — §2.3, §2.6,
   §2.8, the rest of §2.9, and §2.11; 0.3.0 changed one control, so that 🔍
@@ -19,10 +25,12 @@
   What is left is the part of §7 that only a browser can answer: a live visit to
   each of the eight views, a store damaged by hand, and a real logout. The two
   probes of appendix C are still not run, and 1.0.0 added a third
-- **Date:** 2026-08-19
-- **Applies to:** `src/jira-cart.user.js` (version 1.0.0)
+- **Date:** 2026-08-19, and §2.14 was added on 2026-08-20
+- **Applies to:** `src/jira-cart.user.js` (version 1.1.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
-  in this repository
+  in this repository. **§2.14 was decided by a grilling session and six real
+  pastes instead**, because the question it answers — what a detailed list looks
+  like where people actually read it — could not be settled by reading anything
 
 ## About this document
 
@@ -50,6 +58,7 @@ a second time. Do not remove a reason because the conclusion looks obvious.
 | `08` | The drawer, and the existing toolbar | §2.9, §2.11 |
 | `09` | What "scan this page" promises | §2.3 |
 | `10` | Where the collections live | §2.4, §2.12 |
+| — | The detailed export | §2.14. **No ticket.** One session, six real pastes, and the prototype named in appendix A.9 |
 
 Behind the tickets were seven research passes, named here because the tickets cite
 them: `01` (the API), `02a`, `02b` and `02c` (this repo's proven selectors, prior
@@ -1002,6 +1011,14 @@ key in (RDC-14817, RDC-23716, GLX-402)
 plain list a person reads, one list of identifiers, one query. Every other
 candidate collapses into one of the four (`06` §1).
 
+> **Amended on 2026-08-20. There are five, and the claim above is narrower than it
+> reads.** §2.14 added 📋 Details. The four here remain a spanning set *of
+> destinations that take one document each*, and that argument is untouched — the
+> fifth is not a fifth kind of document. It exists because a detailed list has to
+> survive **six** destinations with different renderers, two of which cannot draw a
+> table at all. The original sentence stays because its reasoning is still what
+> keeps a sixth format out.
+
 Links takes its exact shape from `jira-ux`'s 🔗 link button, repeated per line
 under a `- ` bullet. This is reuse, not a variation. The shape is `[KEY](url)
 Summary` — the key alone is the link, and the summary sits outside it. The reason
@@ -1109,7 +1126,22 @@ uses them. `text/plain` + `text/html` is the whole surface (`06` §5).
 ```
 
 `<ul>`, not `<ol>`: document order already carries the collection's order, and
-numbering would imply a ranking that does not exist. The `&nbsp;` after `</a>` is
+numbering would imply a ranking that does not exist.
+
+> **Amended on 2026-08-20: every `<li>` now carries
+> `style="line-height:1.5;margin-bottom:8px"`.** A bare `<li>` is unreadable in
+> Outlook — it gives a wrapped list item no leading and no gap after it, so a
+> pasted list arrives as one dense block and has to be reformatted by hand. Two
+> properties because it is two problems: `line-height` for the leading inside a
+> line that wraps, `margin-bottom` so one item reads as one block.
+> **Links was excluded from this for one day, and the premise was wrong.** The
+> reasoning was that a key plus a summary does not wrap, so there is no leading to
+> fix. Real summaries on this instance run 60 to 100 characters — *"Multi Site
+> Rundown - attach a Galaxy TV script in a Dalet Pyramid story using remote
+> rundown explorer"* — which wraps in any email column. Corrected at the user's
+> instruction. **One constant, `LIST_ITEM_STYLE`, serves both formats**, so
+> neither can drift from the other, and a harness check asserts they are the same.
+> At single-item scope there is no `<ul>` and no `<li>`, so nothing carries it. The `&nbsp;` after `</a>` is
 taken verbatim from
 [`jira-ux-improvements.user.js:337-342`](jira-ux-improvements.user.js#L337-L342).
 
@@ -1208,6 +1240,13 @@ names its destination, so the table is not named after copying.
 Adding a fifth format means adding one entry to a list, which is how
 [`jira-ux`'s `BUTTONS` array](jira-ux-improvements.user.js#L404-L463) already
 works.
+
+> **Amended on 2026-08-20: that last sentence was wrong, and §2.14 is the
+> counter-example.** The dispatch table did take exactly one entry. The **two-step
+> fetch behind it did not** — a payload that is not in storage needed a fetch step,
+> a held result, an expiry rule and a label ladder. So the rule to carry forward is
+> narrower: *a format whose payload is already in storage is one entry in a list.*
+> One that needs the network is a section of its own.
 
 ### 2.9 The badge, the drawer, and the two sections
 
@@ -1832,6 +1871,244 @@ in any of the five scripts uses it.
 
 ---
 
+### 2.14 📋 Details: two presses, nothing stored, and six destinations
+
+**Added on 2026-08-20, at the user's request: power users export a collection to
+make a report.** The four formats of §2.8 carry a key and a summary. This one also
+carries **issue type, status, priority, assignee, fix version, time remaining and
+parent** — the fields Jira's own backlog row shows, which is where the user
+pointed when asked what the output should look like.
+
+**This section is the first in this document written from real pastes rather than
+from argument, and the pastes overruled it twice.** Both reversals are kept below
+with their reasons, because the reasoning is the part that transfers. Appendix A.9
+holds the measurements.
+
+#### Why it is a fifth slot and not a sixth column
+
+§2.8 called its four formats a **spanning set** and said every other candidate
+collapses into one of them. **That claim is amended here, not deleted, and the
+amendment is narrow**: the four are still a spanning set *of destinations that take
+one document each*. A rich list a person reads, a plain list a person reads, a list
+of identifiers, a query. What this one adds is not a fifth kind of document. It is
+the requirement that **one document survive six destinations with different
+renderers** — Confluence, Outlook, Word, Teams, Slack and a plain-text field — two
+of which cannot draw a table at all.
+
+§2.8 also says adding a format is *"one entry in a list"*. **For this one that is
+false, and the sentence in §2.8 now says so.** The dispatch table did take one
+entry. The two-step fetch behind it did not.
+
+#### The output is a list, and a table was built and rejected
+
+**A table was the decision for most of a session, and use killed it before a line
+shipped.** The reasoning that chose it was sound and its premise was wrong: seven
+fields per issue *is* tabular, and Confluence, Outlook, Word, Excel and Sheets all
+turn an HTML `<table>` into real cells. What that missed is where these reports
+actually go. **Slack has no tables at all**, Teams handles a pasted one badly, and
+**a pasted table cannot be reordered by hand** — which matters, because the people
+receiving these reports reshuffle them.
+
+So the format is a list, one issue per line:
+
+```
+- [RDC-1513](…/RDC-1513) Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts — Story · Dev Resolved · P2 · William CHUANG · Pyr 2026.8.0 (Release - Active) · 0m left · ↳ [RDC-26701](…/RDC-26701)
+- [RDC-30109](…/RDC-30109) [AmberFin] Linux OOM Killer invoked during transcode. — Bug · Dev In progress · P1 · Duncan Denning
+- [GLX-402](…/GLX-402)
+```
+
+The head of each line **is** §2.8's Links line, unchanged, so the two formats agree
+about what a collected issue looks like. What follows the em dash is the new part.
+The em dash earns its place: without it the fields run into the summary with only a
+`·` between them, and a summary can contain dashes.
+
+**One issue is ONE LINE, and that is a requirement rather than a preference.** The
+recipients reorder the list in the editor they pasted it into — to put the urgent
+thing first, or to group what they are discussing. One line is one thing to drag.
+
+**Rules the list inherits from §2.8 unchanged:** no format ever drops an item, so
+an issue with nothing but a key shrinks to a bare link rather than vanishing; an
+absent value drops out along with its separator; the collection's name is never
+emitted; and a copy of zero items must not write at all.
+
+#### Two presses, and nothing is stored
+
+**Copy-out is synchronous and may never await the network (§2.8).** A clipboard
+write after an `await` lands outside its transient user activation, which is
+intermittent, silent failure. So the fields have to be in hand *before* the press
+that copies them.
+
+| Label | State |
+| --- | --- |
+| `📋 Details` | idle. The press fetches |
+| `📋 Fetching…` | one `bulkfetch` for the whole active collection |
+| `📋 Copy 12 items` | answered, and unspent |
+| `✅` / `⚠️` | 900 ms, then the label is derived again |
+
+The label **is** the state, which is this repository's convention — `⌫` becomes
+`Empty 3?` before it will empty anything (§3). It is derived inside `render` for
+the same reason every other label is: one written anywhere else is a value that has
+to agree with the fetch and could stop agreeing (§2.8).
+
+**NOTHING FETCHED IS EVER STORED.** This is the decision the rest of the section
+rests on, and it was taken against the cheaper option of adding the fields to the
+stored item and refreshing them with the ↻ that already exists.
+
+- **Status, assignee and priority change hourly.** A summary a week old is usually
+  still true. A status a week old is a false statement about the world that looks
+  like a true one. Storing it would put that on the clipboard with nothing to say
+  so.
+- **Held in memory and spent by the copy, it cannot be stale by construction**
+  rather than by discipline. Everything pasted was fetched by the press before it.
+- **§2.4 is untouched.** No new stored field, no migration, no version bump, and no
+  older build silently dropping fields it does not understand.
+- **Adding a field later is one id in `DETAIL_FIELDS` and one `add` in
+  `detailBits`.** This is what makes §6 item 14's report cheap to build.
+
+**What throws the held fetch away:** any change to the active collection's **key
+list** — add, remove, empty, switch collection, another tab writing — and a
+successful copy. The test is a signature, not a "ready" flag beside it, so there is
+no second value that could disagree with the collection (principle 1).
+
+**The signature is the key list, NOT the whole stored blob.** The fetch writes
+summaries back through `applySummaries`, and comparing the blob would make our own
+write look like a change and cancel the button we had just armed. A summary
+changing is not a different set of issues. A key changing is — and a key repaired
+from an `issueId` (§2.4) lands here correctly for that reason.
+
+#### The fetch reuses everything that exists
+
+One `bulkfetch`, `["summary","issuetype","status","priority","assignee","fixVersions","parent","timetracking"]`,
+through the same validation §2.6 already requires: `ok`, a JSON content type, and
+the expected body shape. **`fields` is now a parameter with no default**, because a
+default would let a new caller ask for the wrong list silently.
+
+**It also writes the summaries back, through `applySummaries`.** So a press of 📋
+improves the drawer's rows and what 🔗 Links copies, and repairs a key that changed
+project. It patches `key`, `issueId` and `summary` and nothing else — which is what
+keeps a stale status off the clipboard by construction rather than by care.
+
+Like ↻, it is the user asking, so it ignores `askedFor` on the way in. ↻ and 📋
+each stand down while the other is out, and gap-fill stands down for both: all
+three write summaries, and one request at a time is enough.
+
+**When Jira answers badly** (§2.6's one failed state):
+
+- **Nothing usable came back** — logged out, offline, a login page instead of JSON.
+  There is nothing to copy, so the button **does not arm** and shows ⚠️.
+- **Some came back.** It **arms**. The rows Jira said nothing about keep their key
+  and their stored summary, and `markUnreadable` has already put `(cannot read)` on
+  those drawer rows, which is where that news belongs. **Refusing the whole copy
+  for one unreadable issue would make the format unreachable for as long as that
+  issue is collected**, and §2.6 forbids the UI from claiming it was deleted, so
+  the user could not even be told which item to remove.
+
+#### The rendering, and the four rules the pastes bought
+
+Only the HTML flavour is decorated. The rules below are **measurements, not
+taste**, and each one is a change a later session would otherwise make on
+reasonable-sounding instinct. Appendix A.9 has the runs.
+
+1. **A separator must be a character, never a box.** Outlook strips an inline
+   `border`. Two bordered fix-version chips divided by a space arrived as
+   `Flex 2026.6.x (LTS track) Flex 2026.9.0` — one nonsense version. Fix versions
+   are joined by a **comma**, in one span.
+2. **Nothing may depend on `opacity`.** Outlook and Teams both strip it. The first
+   attempt muted every secondary field with `opacity` and inherited colour, which
+   was elegant and adapted to any ground automatically; it came back
+   full-strength black with no hierarchy at all. **Reversal 1.**
+3. **A colour must bring its own background, and that background must be pale.**
+   Teams **keeps** a pale ground and **discards a saturated one**, then re-maps the
+   white text to its own skin — so a bold pill loses its ground *and* its colour
+   and lands as bold black. **Reversal 2**: `Done` was invisible on white paper, so
+   the lozenges were made saturated, and Teams threw them away. The fix for an
+   invisible pill is a **stronger tint**, never a solid fill.
+4. **Nothing may depend on a row's position.** The list is reshuffled by hand after
+   it is pasted. Printing the epic's name only on its first appearance would kill
+   its repetition neatly and would be wrong the moment somebody moved a line, with
+   nothing to say so.
+
+| Field | How it is drawn | Why |
+| --- | --- | --- |
+| Status | An opaque lozenge, pale ground and dark text, coloured by **status category** | Rule 3. The category, not the name: `Dev Resolved` is this instance's wording, and only the category says which of the three colours it takes |
+| Priority | `#d94136`, **P0 and P1 only**. Everything else is muted | Colour means urgency. Every issue in the real sample was P2 — this instance's default — so colouring it said nothing. Atlassian's own `#ae2e24` measured 2.1:1 on a dark ground |
+| Type | A `■` in the type's colour, then the word in the muted grey | The square carries the colour and the word carries the meaning: a dim square is still a square, where dim text is not still readable. It is a **character**, which is why it survived a paste that stripped every border on the line |
+| Everything else | One named grey, `#737c89` | 4.1:1 on white and 4.1:1 on charcoal. Deliberately mediocre on both rather than ideal on one and unreadable on the other — rule 2 took away the adaptive answer |
+
+**The lozenge grounds are one step up Atlassian's own scale** — `#dcdfe4`,
+`#cce0ff`, `#baf3db` — not the 100-level tints. The 100-level green was the actual
+fault behind reversal 2: `#dcfff1` is a near-white mint that cannot be seen on
+white paper. Each pairing measures above 4.9:1 text-on-ground.
+
+**Teams re-maps `color` to whatever skin it is in.** So the light-versus-dark
+problem does not arise there at all, and the grey chosen for Outlook costs nothing.
+It is Outlook that needs a named colour, and Outlook that renders HTML through
+Word's engine.
+
+**The parent is a linked key alone.** Its name repeats identically down a list
+built from one epic — three identical tails in a six-item sample, each pushing its
+row onto a second wrapped line — and the fault is repetition, not length, so
+truncating it harder does not help. The key being a link puts the name one click
+away. **The key is inside the brackets and anything else outside**, exactly as
+§2.8's Links does, and for the same syntax reason: markdown cannot nest square
+brackets, so an epic called `[Pyramid] something` would break a `[KEY Name](url)`
+label.
+
+**The parent's anchor names its colour.** A link does **not** inherit the colour of
+the span around it — the browser's own stylesheet wins — so without an explicit
+colour the parent arrives as a bright blue link competing with the issue's own key,
+which is the one link on the line that matters.
+
+**The list carries one style of its own: `line-height:1.5;margin-bottom:8px` on
+each `<li>`.** With a bare `<li>` Outlook gives a wrapped list item no leading and
+no gap after it, so a six-item report arrived as one dense block and the user was
+selecting 1.5 line spacing by hand every time.
+
+**Two problems, two properties, and only one of them is what "tight" usually
+means.** `line-height` fixes the leading *inside* a line that wraps — and these
+lines wrap, because they are long. `margin-bottom` is what makes one issue read as
+one block, which `line-height` alone does not do. Both were pasted before either
+was written down.
+
+**`mso-line-height-rule` is deliberately absent.** Word sometimes needs it to
+honour `line-height`, and if this ever stops taking in Outlook that is the next
+thing to try — but rule 5 is exactly why only one thing changes at a time here.
+
+**🔗 Links gets exactly the same style, from the same constant.** It was excluded
+for a day on the reasoning that its line is only a key and a summary and so does
+not wrap — and that premise did not survive contact with real summaries, which run
+60 to 100 characters here. `LIST_ITEM_STYLE` is shared, and a harness check asserts
+both formats use it, so a later session cannot space one and not the other.
+
+**Time remaining is the noisiest field here and ships anyway.** It read `0m` on
+four of the six issues the format was designed against, because a finished issue
+has nothing remaining. It was asked for by name, and dropping a requested field on
+our own taste would be the wrong call. The cost is recorded instead, and removing
+it is one id and one `add`. It is `timetracking.remainingEstimate`, the formatted
+string Jira's own badge shows — blank on an issue with no time tracking, and blank
+on a board that estimates in **story points**, which is a custom field whose id
+differs per instance and is out of scope.
+
+#### What it is not
+
+- **Not a table.** See above. The table is §6 item 14, one entry in the dispatch
+  table away if a spreadsheet is ever wanted; 🔍 Search plus Jira's own CSV export
+  is the route today, and always was.
+- **Not configurable.** There is no column picker and no per-field switch. A
+  setting that silently changes what a button produces is what §2.8 warns about,
+  and a fixed output is checkable.
+- **Not a per-row or per-selection copy.** There is no selection — the collection
+  is the selection (§2.9) — so `collection` is the only scope that exists. The
+  `item` scope is honoured in the code because it is the seam, not because
+  anything reaches it.
+- **Not about the live list.** The user's instruction: the detailed fields are
+  wanted when exporting a collection, so a live-list row shows nothing new and
+  **nothing is fetched for links merely drawn on the page**.
+- **Not a template.** §2.8's finding stands and this format strengthens it: a
+  fill-in-the-blanks model would now also have to express a lozenge whose colour
+  comes from a category, a colour that applies to two of five priorities, and a
+  separator that must not be a box.
+
 ## 3. What the script gives the user
 
 Two things on the page: a badge in a bottom corner, and one floating button that
@@ -1851,9 +2128,10 @@ follows the hovered issue link. Everything else is inside the drawer.
 | A collection chip | drawer, below the collection | Makes that collection active. Each chip carries its own count |
 | ✕ on a chip | drawer, below the collection | Deletes that collection. Armed first: the chip turns red and its tooltip names what goes. On the only collection it empties it instead (§2.4) |
 | `new collection…` + create | drawer, below the chips | Creates a collection and makes it active |
-| 🔗 Links | drawer, the foot | Copies the whole collection as a markdown list, plus a `<ul>` as HTML |
+| 🔗 Links | drawer, the foot | Copies the whole collection as a markdown list, plus a spaced `<ul>` as HTML |
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
+| 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. A copy spends it, and any change to the collection drops it (§2.14) |
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | Opens the preferences: the right-click switch, the section layout, and which bottom corner the Cart takes |
 | Sections | drawer, the preferences | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
@@ -1870,6 +2148,10 @@ Notes on the controls:
   labels its own scope.
 - **The four copy buttons act on the whole collection.** They are disabled and
   dimmed while it is empty, because a copy of zero items must not write.
+- **📋 Details is the only control in the foot that needs the network**, which is
+  why it takes two presses: a clipboard write may never come after an `await`
+  (§2.8). It is also disabled while ↻ is running, and disables ↻ while it runs —
+  both write summaries back, and one request at a time is enough.
 - A copy button shows ✅ or ⚠️ for 900 ms. Then `render` puts the label back. 🔍
   Search shows neither: the tab that opens is the receipt.
 - **The label is the state**, everywhere: the badge, the floating button, and each
@@ -1928,6 +2210,14 @@ Notes on the controls:
 | A shared library with `@require`, or a build step | Tampermonkey and GitHub's raw server both cache the file. A version in the URL needs discipline; a build step means `src/*.user.js` is no longer what you install |
 | Client-side navigation from the drawer's key links | Jira's router is per-element, so our anchor is invisible to it; being seen would mean living inside React's root, where React can delete the drawer. `pushState` needs page context a `@grant` does not have, and a half-honoured push shows a changed URL over a stale view (appendix A.7) |
 | `watchRoute` | A strict mirror has nothing to forget on navigation, and the collections are in storage |
+| **A table for the detailed export** | Built as a decision and killed before a line shipped. Slack has no tables at all, Teams handles a pasted one badly, and a pasted table cannot be reordered by hand — which the recipients of these reports do. It wins in four destinations and loses in the two where people actually chat (§2.14) |
+| **Storing the detailed fields on the item** | It would buy one press and cost the thing that matters: status, assignee and priority change hourly, so a stored detail is a claim about last week that reads like a claim about today. Held in memory it cannot be stale by construction. It also keeps §2.4 untouched, so there is no migration (§2.14) |
+| **Muting a field with `opacity`** | Adapts to any ground automatically, which is exactly what the light-versus-dark problem wants — and Outlook and Teams both strip it, so every muted field came back full-strength black with no hierarchy at all. Measured 2026-08-20 |
+| **A saturated status lozenge** | Tried because the pale `Done` mint was invisible on white paper. Teams **discards** a saturated ground and re-maps the white text to its own skin, so the pill lost its ground *and* its colour and arrived as bold black. Making a pill bolder so it survives is backwards; the fix is a stronger tint (§2.14) |
+| **A bordered chip as a separator** | Outlook strips an inline `border`, and two fix versions divided by a space then read as one nonsense version. A separator must be a character |
+| **Naming the epic only on its first appearance in the list** | It kills the repetition neatly and is wrong the moment somebody reorders the pasted list, with nothing to say so. Nothing may depend on a row's position (§2.14) |
+| **The epic's summary, truncated, on every line** | Asked for, built, and measured: 21 characters a line on average, identical on three of six rows, and it pushed rows onto a second wrapped line. The fault is repetition, not length, so a shorter cut does not help. The key is a link instead |
+| **A column picker for the detailed export** | A setting that silently changes what a button produces is what §2.8 warns about, and a fixed output is checkable. If a second shape is ever wanted it is a second entry, not a switch |
 
 ---
 
@@ -2130,6 +2420,36 @@ These are not gaps in the design. Each was named, and each was left.
     would replace. The measurement is in **appendix A.7** and the verdict is in
     §2.9. The item keeps its number, because §2.9 cites it. **It would reopen only if
     Atlassian moved to a delegated router**, which A.7's probe re-tests in one line.
+14. **A table, or any spreadsheet-shaped export.** §2.14 chose a list and says why.
+    Excel and Sheets take an HTML `<table>` as real cells, and nothing else the Cart
+    emits does — so if a spreadsheet is ever wanted this is the gap. **It is one
+    entry in the dispatch table**, reusing the same two-step fetch, and the
+    column set is already decided: the nine fields of §2.14 in the backlog's own
+    left-to-right order. Today the route is 🔍 Search plus Jira's own CSV export,
+    which is what it always was. §2.14 cites this item by number.
+15. **The report: grouped by team, then by priority.** Opened on 2026-08-20 by the
+    user, and deferred by them in the same breath. The Technology Portfolio Office
+    sends these reports to team leads, and they want the issues grouped by team and
+    then by priority rather than in the collection's insertion order.
+    **What is already known.** A grouped report is almost certainly a **sixth
+    export**, not a setting on 📋 Details: headings over grouped rows is a
+    different document from a flat list, and a switch that silently changes what a
+    button produces is what §2.8 warns against. `P0`–`P4` **sort correctly as plain
+    strings**, so priority ordering needs no rank table. And because §2.14 stores
+    nothing, adding the field costs one id in `DETAIL_FIELDS` and one `add` in
+    `detailBits` — no migration.
+    **What is not known, and must not be guessed: which `Team` field.** A JQL probe
+    on 2026-08-20 confirmed that `project = RDC AND "Team" is not EMPTY` returns
+    issues, so *a* team field exists and is queryable. **The user then reported that
+    this instance has SEVERAL fields named Team**, which makes the probe's answer
+    useless on its own: it proves a field answered, not which one. **So the report
+    may never reference the field by name.** It has to carry the field id the user
+    identifies. Appendix C, probe 4 is the one-line snippet that lists them.
+    Grouping also sits against §2.14's rule 4 — nothing may depend on a row's
+    position — and the resolution is that grouping is an order the *user asked
+    for*, while rule 4 forbids a *field* whose meaning changes with position. Worth
+    stating before somebody reads the rule as forbidding this.
+
 
 ---
 
@@ -2231,8 +2551,37 @@ pass each, and they are cheap.
     Confluence: it must arrive as live links. Then press 🔍 Search: **a new tab
     must open on Jira's issue search showing exactly the collection**, this tab
     must stay where it was, and the drawer must still be open on it.
-15. **Empty means disabled.** Empty the collection. All four buttons must be dimmed
-    and must write nothing.
+15. **Empty means disabled.** Empty the collection. **All five buttons** must be
+    dimmed and must write nothing.
+15a. **📋 Details, both presses.** With three items, one of them summary-less,
+    press 📋 Details once. The label must become `📋 Copy 3 items`. Press again and
+    paste into a **plain** editor: three lines, one per item, each `- [KEY](url)
+    Summary — Type · Status · P… · Assignee · Fix version · …`, and the
+    summary-less one a bare link. The label must go back to `📋 Details`, so the
+    next copy fetches again.
+15b. **📋 Details where it is going to be read.** Paste it into **Confluence**,
+    into **Outlook with *keep source formatting***, and into **Teams in both the
+    light and the dark skin**. Four things must hold in every one of them: the
+    status reads as a pill; the metadata is visibly quieter than the summary; the
+    two fix versions of an issue that has two are separated by a **comma**; and the
+    parent's key is a link that is *not* brighter than the issue's own key. **These
+    four are the whole of §2.14's rendering, and they are the reason it exists** —
+    each was a real defect found by pasting, not by reading (appendix A.9).
+15c. **📋 Details expires.** Press it once so it arms. Now add a link. The label
+    must fall back to `📋 Details` — a held fetch that no longer describes the
+    collection must never be copied. Repeat with a removal, with ⌫, and by
+    switching collection with a chip.
+15d. **📋 Details with no network.** Log out in another tab, or go offline. Press
+    📋 Details. It must show ⚠️, **must not arm**, and must write nothing. Log back
+    in, press it twice: it must work with no reload. Then make one item's key a
+    project you cannot see and press twice — it must still copy, that row must
+    carry only its key and its stored summary, and its drawer row must say
+    `(cannot read)`.
+15e. **📋 Details and ↻ do not overlap.** Press 📋 Details and, while it says
+    `Fetching…`, try ↻. It must be dimmed. Then press ↻ and try 📋 Details while it
+    runs. Also: press 📋 Details on a collection with a summary-less item and check
+    the drawer row **gains its summary**, because the fetch writes summaries back
+    through the same path ↻ uses.
 16. **Two tabs.** Open Jira in two tabs. Add an item in one. The other's badge and
     drawer must catch up, and neither tab may lose an item. Then leave a tab open,
     add five items in the other, return to the first and add one. **All six must be
@@ -2500,6 +2849,97 @@ running the script twice. The defect it found had been shipping since 0.5.0.
 
 ---
 
+### A.9 What a paste actually keeps, 2026-08-20
+
+**Three real pastes, and they reversed two decisions this document had already
+made.** The output of §2.14 was copied out of a prototype with a real
+`ClipboardItem` write and pasted into **Outlook** (*keep source formatting*) and
+into **Teams** in the light skin and the dark skin. Screenshots each time.
+
+| Property | Outlook | Teams |
+| --- | --- | --- |
+| `color` | **kept** | **re-mapped to the skin** |
+| `background` | kept, if not near-white | kept, both skins |
+| `font-weight`, `font-size` | kept | kept |
+| the `■` glyph | kept | kept |
+| `opacity` | **stripped** | **stripped** |
+| inline `border` | **stripped** | **stripped** |
+| a **pale** pill ground | kept | kept |
+| a **saturated** pill ground | kept | **discarded** |
+
+**Four rules came out of it**, and each is in §2.14 with the fault that produced
+it: a separator must be a character and never a box; nothing may depend on
+`opacity`; a colour must bring its own background and that background must be pale;
+nothing may depend on a row's position.
+
+**The two reversals, because the reasoning is what transfers.**
+
+1. **`opacity` with an inherited colour was the elegant answer to the light-versus-
+   dark problem** — it adapts to any ground without the export knowing which ground
+   it landed on, and it degrades to readable full-strength text. It was replaced by
+   one named grey, `#737c89`, only because both targets strip it. **The elegant
+   answer was not wrong in theory. It was dead in practice, and only a paste could
+   say so.**
+2. **A saturated lozenge was chosen to fix an invisible one**, after the pale
+   `Done` mint (`#dcfff1`) could not be seen on white paper. Teams discarded the
+   saturated ground and re-mapped the white text, so the pill lost its ground *and*
+   its colour and arrived as bold black — strictly worse than what it replaced.
+   **The instinct "make it bolder so it survives" is exactly backwards here**, and
+   it is the change the next person will try. The fix was a stronger *tint*.
+
+**Two more faults, found after the script shipped 1.1.0 and fixed in it.**
+
+- **`font-size` in percent does not survive — and it takes the text with it.** Rule
+  5 of §2.14. Pasting the script's own output into Teams left a row of bare `·`
+  separators: every span carrying `font-size:88%` (or `80%` on the lozenge) had its
+  **content deleted**, while everything with no `font-size` — the separators, the
+  key link, the summary, the em dash — came through. The correlation was exact
+  across seven field types and four rows. **This is not the same as a style being
+  ignored, and that is what makes it dangerous.**
+  *Not fully explained, and recorded as such:* an earlier paste from the prototype
+  into Outlook, with *keep source formatting*, kept the same `font-size:88%` spans
+  intact. Identical styling, same target, same paste mode, two results. The script
+  now emits no `font-size` at all, which makes the question moot for it, but the
+  cause is **unknown** and this appendix must not pretend otherwise.
+- **A coloured `■` before the type was decoration that failed where colour did.**
+  The argument for it was that a dim square is still a square where dim text is not
+  still readable — true, and it misses that most readers of a pasted list see no
+  colour at all, so it arrives as a bare black box in front of a word that already
+  says everything. The type is emphasised by `font-weight` instead.
+- **A bare `<li>` is unreadable in Outlook.** No leading inside a wrapped item and
+  no gap after it, so a six-item report arrived as one block and was being
+  reformatted by hand every time. Fixed with `line-height:1.5;margin-bottom:8px` on
+  **every format that emits a list**. 🔗 Links was left out for one day on the
+  reasoning that its lines do not wrap; they do, because the summaries are long,
+  and that is a reminder that "usually does not" is a guess wearing a reason's
+  clothes.
+
+**Two findings that cost nothing and are worth knowing.** Teams re-maps text colour
+to its own skin, so the light-versus-dark question does not arise there at all — the
+grey is for Outlook, which renders HTML through Word's engine. And `font-weight`
+survives everywhere, so type and priority still read even where colour does not.
+
+**What was measured against.** Six real issues from `dalet.atlassian.net`, read the
+same day and chosen for awkwardness: two issue types, three status categories, two
+priorities, a missing assignee, a missing fix version, **one issue carrying two fix
+versions**, and two with no parent. A seventh row was invented — `GLX-402`, a key
+with nothing else — to stand for an issue Jira returns nothing about. The two-fix-
+version issue is what exposed the separator bug; nothing with one version could
+have.
+
+**The prototype is not in this repository.** It was a switchable page — five output
+shapes, the fields individually, the meta on its own line or inline, a light and a
+dark client, and a button that put both flavours on the real clipboard so the paste
+could be done by hand. **That last control is the one that mattered**: no mock can
+tell you what Outlook does. Its findings are all above, and its assertions are in
+`test/jira-cart/format-smoke.mjs` §12, which is where they are maintained.
+
+**What it does not cover, and nothing yet has:** Slack, Word, Gmail, Confluence and
+Excel were all reasoned about and none was pasted into. Confluence is the one most
+likely to differ, because it re-writes pasted HTML into its own storage format.
+
+---
+
 ## Appendix B — The store that was measured and rejected
 
 **The collections could have been mirrored into Jira's own per-user properties.**
@@ -2582,11 +3022,12 @@ appendix, not from code.
 
 ---
 
-## Appendix C — The three probes that are written and not yet run
+## Appendix C — The four probes that are written and not yet run
 
 The first two are blocked items from §6. The third confirms arithmetic that 1.0.0
-acted on without measuring. All three need a live Jira page and the developer tools.
-None of them blocks the build.
+acted on without measuring. **The fourth was added on 2026-08-20 and blocks §6 item
+15, the report grouped by team.** All four need a live Jira page and the developer
+tools. None of them blocks a build.
 
 ### C.1 Probe 1 — which element holds a backlog section's rows
 
@@ -2690,3 +3131,44 @@ measurement that would say whether 27 is right.
 
 **Until it runs**, the numbers are reasoning rather than measurement, and they are
 conservative by five pixels in the direction that matters.
+
+### C.4 Probe 4 — WHICH `Team` field, out of the several that exist
+
+**Blocks §6 item 15.** `bulkfetch` takes field **ids**, and a custom field's id
+differs per instance, so the report cannot be built without this.
+
+**The trap this probe exists for.** A JQL probe on 2026-08-20 confirmed that
+`project = RDC AND "Team" is not EMPTY` returns issues. **That is not the answer**,
+and taking it for one would be the mistake: the user then reported that this
+instance has **several fields named Team**. JQL by name resolves to one of them and
+does not say which, so the probe proves *a* team field answered and nothing more.
+**The report may never reference the field by name.**
+
+```js
+// Every field on the instance, with its id, narrowed to the ones called Team.
+fetch('/rest/api/3/field', { headers: { Accept: 'application/json' } })
+  .then((r) => r.json())
+  .then((all) => console.table(
+    all.filter((f) => /team/i.test(f.name))
+       .map((f) => ({ id: f.id, name: f.name, custom: f.custom,
+                      type: f.schema?.type, items: f.schema?.items,
+                      custom_type: f.schema?.custom })),
+  ));
+```
+
+Then, with a candidate id, read one issue that has a value and record **the shape**,
+because that decides how the report prints it:
+
+```js
+fetch('/rest/api/3/issue/RDC-29407?fields=customfield_XXXXX',
+      { headers: { Accept: 'application/json' } })
+  .then((r) => r.json())
+  .then((i) => console.log(JSON.stringify(i.fields, null, 2)));
+```
+
+**What to write down:** the id, and whether the value is an Atlassian Teams object
+(`{ id, name }`), a plain string, an option (`{ value }`), or an array of any of
+those. Also whether the field is on every project the Cart collects from — a field
+that only exists on one project makes a group heading that says nothing on the
+others, and §2.14's rule that an absent value drops out with its separator is what
+should then apply.
