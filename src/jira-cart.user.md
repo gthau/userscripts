@@ -2448,10 +2448,13 @@ These are not gaps in the design. Each was named, and each was left.
     on 16,697 RDC issues — settled on 2026-08-20 from the project's own create-meta,
     so no browser was needed. **It must be referenced by id and never by name**,
     because this instance has more than one field called Team and a name match says
-    only that *a* field answered. **One thing is still open**: whether the value
-    carries a team NAME or only an id, because an id-only value means the report
-    needs a second call to print anything a human recognises. Appendix C, probe 4 is
-    the single line that answers it.
+    only that *a* field answered. **And the value carries a NAME**, measured the same
+    day: one object with `id`, `name` and `title` — not an id alone and not an array
+    — so an issue has at most one team and a heading needs no second call. **Group by
+    `id` and label by `name`**, because the id is exact where two teams could share a
+    name. Probe C.4 is closed and holds the payload verbatim. **Nothing blocks this
+    item now**, and what is left is the design of the report itself, which is a
+    second effort by the user's own decision.
     Grouping also sits against §2.14's rule 4 — nothing may depend on a row's
     position — and the resolution is that grouping is an order the *user asked
     for*, while rule 4 forbids a *field* whose meaning changes with position. Worth
@@ -3032,10 +3035,10 @@ appendix, not from code.
 ## Appendix C — The five probes, of which three are unrun
 
 The first two are blocked items from §6. The third confirms arithmetic that 1.0.0
-acted on without measuring. **The fourth was added on 2026-08-20 and is now mostly closed
-without a browser — one line of it remains.** The fifth blocks nothing yet. The
-unrun ones need a live Jira page and the developer tools. None of them blocks a
-build.
+acted on without measuring. **The fourth was added and CLOSED on 2026-08-20**, half from
+the project's own metadata and half from one console line. The fifth blocks nothing
+yet. The three unrun ones need a live Jira page and the developer tools. None of
+them blocks a build.
 
 ### C.1 Probe 1 — which element holds a backlog section's rows
 
@@ -3140,10 +3143,10 @@ measurement that would say whether 27 is right.
 **Until it runs**, the numbers are reasoning rather than measurement, and they are
 conservative by five pixels in the direction that matters.
 
-### C.4 Probe 4 — the `Team` field, and the one line still to run
+### C.4 Probe 4 — the `Team` field. CLOSED
 
-**Mostly closed on 2026-08-20, and no browser was needed for that part.** The field
-is **`customfield_15541`**. Its `schema.type` is `team` and its custom type is
+**Closed on 2026-08-20**, half from the project's own metadata and half from one
+console line. The field is **`customfield_15541`**. Its `schema.type` is `team` and its custom type is
 `com.atlassian.jira.plugin.system.customfieldtypes:atlassian-team`, so it is an
 Atlassian Teams field rather than a select list or a string. **16,697 RDC issues
 have it populated**, so it is the one in use. Read out of the project's own
@@ -3156,11 +3159,39 @@ this effort walked straight into. `cf[15541]` cannot be ambiguous. Only one
 Team-named field appears on RDC's own screens, so the others live elsewhere; see
 C.5.
 
-**What is still open, and it is the part that decides how a report prints:** the
-shape of the value. An `atlassian-team` field may carry an **id alone**. If it does,
-grouping by team needs a second call to turn ids into names, which is a different
-amount of work from reading a string. One line answers it, on any Jira page, with
-the developer tools open:
+**The value carries a NAME, so no lookup is needed.** That was the open question
+and the one that decided how much work a grouped report is. Measured on `RDC-29407`
+with the line below, verbatim:
+
+```json
+"customfield_15541": {
+  "id": "077a215a-beb6-4f29-9ae6-6db55ba2dab5",
+  "name": "Planning",
+  "title": "Planning",
+  "avatarUrl": "https://teams-directory-frontend…/orange_no-highlight_3.svg",
+  "isVisible": true, "isVerified": false, "isShared": true
+}
+```
+
+**One object, not an array**, so an issue has at most one team and a report needs no
+join. `name` and `title` held the same string; **`name` is the one to read**, and
+`title` is not a second source to reconcile.
+
+**Group by `id`, label by `name`.** The id is a UUID and is exact; two teams can be
+given the same name, and a heading that silently merged them would be a wrong report
+rather than an ugly one. The same shape of decision as §2.4's opaque collection id
+against its editable name.
+
+**Two guards, neither of them measured, recorded so neither is mistaken for
+settled.** `isVisible` is in the payload, which implies a team the reader may not
+see — so a missing or nameless value must fall out along with its separator, as
+§2.14 already requires of every field, and must never print `undefined` or an empty
+heading. And whether `bulkfetch` returns a **custom** field when asked for it by id
+is *expected* rather than known: the Cart has only ever requested system fields. One
+line confirms it on the first build session, and §2.6's rule that a
+requested-but-absent field is normal already covers it failing.
+
+The line that answered it, for the next instance that needs the same thing:
 
 ```js
 fetch('/rest/api/3/issue/RDC-29407?fields=customfield_15541',
@@ -3169,9 +3200,7 @@ fetch('/rest/api/3/issue/RDC-29407?fields=customfield_15541',
   .then((i) => console.log(JSON.stringify(i.fields, null, 2)));
 ```
 
-**Write down whether the value is `{id}`, `{id, name}`, a bare string, an option
-(`{value}`), or an array of any of those** — and, if there is no name in it, that a
-lookup is needed. Nothing else in §6 item 15 is blocked.
+**Nothing in §6 item 15 is blocked now.**
 
 ---
 
