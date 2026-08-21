@@ -1948,13 +1948,35 @@ that copies them.
 | --- | --- |
 | `📋 Details` | idle. The press fetches |
 | `📋 Fetching…` | one `bulkfetch` for the whole active collection |
-| `📋 Copy 12 items` | answered, and unspent |
+| `📋 Copy` | answered, and unspent. The count is in the tooltip, not the label |
 | `✅` / `⚠️` | 900 ms, then the label is derived again |
 
 The label **is** the state, which is this repository's convention — `⌫` becomes
 `Empty 3?` before it will empty anything (§3). It is derived inside `render` for
 the same reason every other label is: one written anywhere else is a value that has
 to agree with the fetch and could stop agreeing (§2.8).
+
+**The label changes and the BOX DOES NOT, and that is a fix rather than a detail.**
+The armed label was `📋 Copy 12 items`, the widest thing in the foot, and the tick
+is the narrowest — a swing of about 90px on a 360px row, which is exactly where the
+foot's `flex-wrap` flips. So pressing the button rearranged the row and pressing it
+again put it back, which the user reported as the thing it was. Two changes fix it:
+the stepped buttons carry `min-inline-size: 11ch`, enough for the longest of their
+labels plus an emoji; and **the item count leaves the label** for the tooltip,
+because the collection's own heading shows it two lines above (§2.9). Corrected on
+2026-08-21.
+
+**The ladder's icon comes from the entry's own label**, not from a literal. It was
+a literal `📋`, so §2.15's `📊 Report` showed `📋 Fetching…` — a defect that could
+only appear once there were two stepped buttons, and that deriving the icon fixes
+for the third as well.
+
+**A copy re-renders before it flashes.** Both stepped buttons derive their label
+from the one held fetch, and a copy spends it, so without a render the *other*
+button keeps saying `Copy` for 900 ms while a press would in fact fetch. `render`
+first, `flash` second, because `flash` writes over the label `render` just rebuilt
+and a render after it would wipe the tick. **Found by the harness rather than by
+looking**, which is what a second stepped button was always going to expose.
 
 **NOTHING FETCHED IS EVER STORED.** This is the decision the rest of the section
 rests on, and it was taken against the cheaper option of adding the fields to the
@@ -2310,6 +2332,9 @@ Notes on the controls:
 | **A bordered chip as a separator** | Outlook strips an inline `border`, and two fix versions divided by a space then read as one nonsense version. A separator must be a character |
 | **Naming the epic only on its first appearance in the list** | It kills the repetition neatly and is wrong the moment somebody reorders the pasted list, with nothing to say so. Nothing may depend on a row's position (§2.14) |
 | **The epic's summary, truncated, on every line** | Asked for, built, and measured: 21 characters a line on average, identical on three of six rows, and it pushed rows onto a second wrapped line. The fault is repetition, not length, so a shorter cut does not help. The key is a link instead |
+| **Equal-width columns for all six foot buttons** | It would stop the reflow too, and by making every button as wide as the widest -- 🔑 Keys as wide as 📋 Fetching… -- so the row wraps sooner and the foot is permanently taller at the drawer's minimum width. Reserving only the two buttons that need it costs nothing anywhere else |
+| **Carrying the two-step state in the emoji alone** | `📋 Details` → `⏳ Details` → `✅ Details` needs no reserved width and nothing to keep in step, and it is NOT actually constant-width: emoji differ, and ⚠️ carries a variation selector. It would shrink the jump without removing it, and it moves the state from words to an icon, which is weaker than the rest of this UI |
+| **Reserving room for the item count** | Keeps `Copy 12 items` and stays stable, at the price of both buttons sitting about 100px wide for ever, which wraps the foot at almost any drawer width. The count is on the collection's heading two lines above, so the label is not where it has to live |
 | **A column picker for the detailed export** | A setting that silently changes what a button produces is what §2.8 warns about, and a fixed output is checkable. If a second shape is ever wanted it is a second entry, not a switch |
 
 ---

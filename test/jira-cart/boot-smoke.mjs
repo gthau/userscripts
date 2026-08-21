@@ -501,7 +501,16 @@ is("a refused fetch is a warning, never an error", errors(), []);
 network.body = ANSWER;
 dispatch(details(), "click");
 await settle();
-is("one of two answered, and the button armed", details().textContent, "📋 Copy 2 items");
+// The COUNT IS NOT IN THE LABEL: it was the widest label in the foot and the tick
+// the narrowest, so pressing the button rearranged the wrapping row and pressing it
+// again put it back. The count is in the sentence instead, which has no width.
+is("one of two answered, and the button armed", details().textContent, "📋 Copy");
+is("the count moved to the tooltip", /^Copy 2 items\./.test(details().title), true);
+// One fetch, both documents: the held result belongs to the collection, not to a
+// button (§2.15).
+is("the report button armed from the same fetch", copy("report").textContent, "📊 Copy");
+is("and it carries ITS OWN icon, not the other button's",
+  copy("report").textContent.startsWith("📊"), true);
 is("the fetch also wrote the summary back, through the path ↻ already uses",
   collections()[0].items[0].summary, "Markers [7] Dev (player)");
 is("and the item it could not read is untouched", collections()[0].items[1], { key: "GLX-402" });
@@ -513,6 +522,8 @@ const beforeCopy = clipboard.length;
 dispatch(details(), "click");
 await settle();
 is("the second press wrote once", clipboard.length, beforeCopy + 1);
+is("a copy from one button spends the fetch for both",
+  [details().textContent, copy("report").textContent], ["✅", "📊 Report"]);
 is("and wrote both flavours", Object.keys(clipboard.at(-1)), ["text/plain", "text/html"]);
 // The stub keeps a Blob, exactly as the real ClipboardItem does, so the payload
 // is read back out of it rather than assumed to be a string.
@@ -532,7 +543,7 @@ is("THE HELD FETCH IS SPENT BY THE COPY, so no paste is older than the press bef
 network.body = ANSWER;
 dispatch(details(), "click");
 await settle();
-is("armed again", details().textContent, "📋 Copy 2 items");
+is("armed again", details().textContent, "📋 Copy");
 dispatch(items()[1].children.find((k) => k.classList.includes("gt-cart-x")), "click");
 flush();
 is("removing an item dropped the held fetch", details().textContent, "📋 Details");

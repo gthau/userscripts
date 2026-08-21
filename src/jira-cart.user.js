@@ -1547,6 +1547,22 @@ ${selectors.join(",\n")} {
      this to sit on. */
   const LIST_ITEM_STYLE = "line-height:1.5;margin-bottom:8px";
 
+  /* The two-step ladder's words, in one place and deliberately SHORT.
+
+     The button's box is reserved in the stylesheet so that changing its label can
+     never move its neighbours, and the reservation has to fit the longest of these
+     plus an emoji. A longer word here would either overflow the box or reopen the
+     reflow the reservation exists to stop, which is why they live together rather
+     than inline at the point of use.
+
+     THE ITEM COUNT IS DELIBERATELY ABSENT. `Copy 12 items` was the widest label in
+     the foot and `✅` the narrowest, a swing of about 90px on a 360px row, which is
+     exactly where `flex-wrap` flips -- so pressing the button rearranged the row and
+     pressing it again rearranged it back. The count is already on the collection's
+     own heading, two lines above (§2.9), so nothing is lost by taking it out of a
+     label that has to stay a fixed width. */
+  const STEP_LABELS = { busy: "Fetching…", ready: "Copy" };
+
   /**
    * The four formats of §2.8, as four functions with one signature:
    *
@@ -2797,6 +2813,13 @@ ${selectors.join(",\n")} {
     try {
       await writeClipboard(payload);
       detailsHeld = null;
+      /* THE OTHER STEPPED BUTTON HAS TO BE PUT BACK BEFORE THIS ONE FLASHES. Both
+         derive their label from the held fetch, and the copy just spent it -- so
+         without this render the other button says "Copy" for 900ms while a press
+         would in fact fetch. `render` first and `flash` second, because `flash`
+         writes over the label `render` just rebuilt and a render after it would
+         wipe the tick (§2.8). Found by the harness, not by looking. */
+      render();
       flash(button, "✅");
     } catch (e) {
       logger.error("clipboard write failed", e);
@@ -3261,6 +3284,9 @@ ${selectors.join(",\n")} {
         spec.opens ? "search" : spec.needsDetails ? "details" : "copy",
       );
       button.dataset.gtFormat = spec.kind;
+      // The stylesheet reserves the width of a button whose label is a ladder, so
+      // that changing the label cannot move the buttons beside it.
+      if (spec.needsDetails) button.dataset.gtSteps = "true";
       // The label and the title are set by `render`, never here: a label written
       // once at construction keeps the ✅ for ever (§2.8).
       foot.append(button);
@@ -4206,13 +4232,19 @@ ${selectors.join(",\n")} {
       if (spec.needsDetails) {
         const held = detailsFor(state);
         const count = activeCollection(state).items.length;
+        // THE ICON COMES FROM THE ENTRY'S OWN LABEL, not from a literal. It was a
+        // literal 📋, which meant 📊 Report showed 📋 Fetching… -- a defect that
+        // arrived with the sixth export and that only a second stepped button could
+        // expose. Deriving it means the next one is correct without being touched.
+        const icon = spec.label.split(" ")[0];
         if (fetchingDetails) {
-          button.textContent = "📋 Fetching…";
+          button.textContent = `${icon} ${STEP_LABELS.busy}`;
           button.title = "Asking Jira about every issue in this collection…";
         } else if (held) {
-          button.textContent = `📋 Copy ${count} item${count === 1 ? "" : "s"}`;
-          button.title =
-            "Copy the detailed list. The next press fetches again, so nothing you paste is older than the press before it";
+          button.textContent = `${icon} ${STEP_LABELS.ready}`;
+          // The count leaves the LABEL, whose width is fixed, and lands in the
+          // sentence, which has no width to keep.
+          button.title = `Copy ${count} item${count === 1 ? "" : "s"}. The next press fetches again, so nothing you paste is older than the press before it`;
         }
         // Nothing may fetch what it cannot store: the write-back is declined on
         // the two migration rows that refuse to write, so the request would be
@@ -5339,6 +5371,17 @@ ${D} button.gt-cart-copy {
   font-size: 12px;
   line-height: 1.4;
   cursor: pointer;
+}
+/* A LABEL THAT CHANGES MUST NOT CHANGE THE ROW. The two stepped buttons cycle
+   through Details, Fetching..., Copy and a tick, and the foot wraps, so without a
+   reserved box each press rearranged the row and the next press put it back. 11ch
+   fits the longest of those plus its emoji at this font size; the button is
+   content-box, so the 8px padding sits outside it. Centred text, which buttons are
+   by default, is what makes the spare room read as a box rather than a gap.
+   NO BACKTICKS IN THIS SHEET: it is one template literal, and a backtick in a
+   comment ends it. That cost a syntax error once. */
+${D} button.gt-cart-copy[data-gt-steps] {
+  min-inline-size: 11ch;
 }
 ${D} button.gt-cart-copy:hover:not(:disabled) {
   background: var(--gt-cart-hover);
