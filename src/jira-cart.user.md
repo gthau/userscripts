@@ -1971,12 +1971,12 @@ a literal `📋`, so §2.15's `📊 Report` showed `📋 Fetching…` — a defe
 only appear once there were two stepped buttons, and that deriving the icon fixes
 for the third as well.
 
-**A copy re-renders before it flashes.** Both stepped buttons derive their label
-from the one held fetch, and a copy spends it, so without a render the *other*
-button keeps saying `Copy` for 900 ms while a press would in fact fetch. `render`
-first, `flash` second, because `flash` writes over the label `render` just rebuilt
-and a render after it would wipe the tick. **Found by the harness rather than by
-looking**, which is what a second stepped button was always going to expose.
+**A copy used to re-render before it flashed, and no longer needs to.** While both
+buttons read one held fetch, spending it left the other saying `Copy` for 900 ms
+while a press would in fact fetch — found by the harness rather than by looking.
+Arming per button (§2.15) removed the second reader and with it the need. The
+ordering rule it rested on is still worth knowing: `flash` writes over the label
+`render` just rebuilt, so a render *after* a flash wipes the tick.
 
 **NOTHING FETCHED IS EVER STORED.** This is the decision the rest of the section
 rests on, and it was taken against the cheaper option of adding the fields to the
@@ -2153,12 +2153,31 @@ equals items*. A switch that silently decided which of those a button produced i
 exactly what §2.8 warns against, and a fixed output is checkable. So the foot holds
 six: the five that copy, then 🔍 Search, which is still the only one that navigates.
 
-**It shares the fetch with 📋 Details, and the reason is worth stating: the held
-result belongs to the collection, not to a button.** One press of either arms both,
-and a copy from either spends it. There is one field list, so there is no way for
-one document to be fetched with fields the other lacks — and one `detailChip`, so
-the five rules of §2.14 cannot hold for one format and drift in the other. Those
-rules are properties of the paste target and not of a format.
+**THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS — reversed on 2026-08-21, from
+use.** It shipped the other way for a day: one press armed *both* stepped buttons,
+on the reasoning that the held result describes the collection rather than a button.
+**That reasoning is still true of the data and was wrong about the control.** The
+user pressed one button, watched the other one walk through `Fetching…` and `Copy`,
+and reported it as a bug — which is what it is, however good the argument behind it
+was. A control that responds to a press somewhere else is broken even when its state
+is correct.
+
+So `detailsHeld` carries **the kind that produced it**, and a button offers a copy
+only for its own kind. Pressing both in turn costs one extra `bulkfetch`, which is
+one request at the scale §2.6 rule 4 already sizes for, and buys a control that
+behaves the way a control should.
+
+**What stays shared is everything that cannot be seen**, and that part of the
+original reasoning holds: one field list, so neither document can be fetched with
+fields the other lacks; and one `detailChip`, so the five rules of §2.14 cannot hold
+in one format and drift in the other. Those rules are properties of the paste target
+and not of a format, which is why one copy of them is the only safe number.
+
+**The reversal also deleted code.** A copy used to have to re-render before it
+flashed, because both buttons read one held fetch and spending it left the other
+saying `Copy` while a press would fetch. With one reader there is no second label to
+put back. One reversal, two things simpler — and worth recording, because the
+instinct is to expect a correction to cost something.
 
 ```
 **P1**
@@ -2335,6 +2354,7 @@ Notes on the controls:
 | **Equal-width columns for all six foot buttons** | It would stop the reflow too, and by making every button as wide as the widest -- 🔑 Keys as wide as 📋 Fetching… -- so the row wraps sooner and the foot is permanently taller at the drawer's minimum width. Reserving only the two buttons that need it costs nothing anywhere else |
 | **Carrying the two-step state in the emoji alone** | `📋 Details` → `⏳ Details` → `✅ Details` needs no reserved width and nothing to keep in step, and it is NOT actually constant-width: emoji differ, and ⚠️ carries a variation selector. It would shrink the jump without removing it, and it moves the state from words to an icon, which is weaker than the rest of this UI |
 | **Reserving room for the item count** | Keeps `Copy 12 items` and stays stable, at the price of both buttons sitting about 100px wide for ever, which wraps the foot at almost any drawer width. The count is on the collection's heading two lines above, so the label is not where it has to live |
+| **One fetch arming both stepped buttons** | Shipped for a day and reversed from use. The held result really does describe the collection rather than a button, and that argument is still right about the DATA -- it was wrong about the CONTROL, because pressing one button and watching another change state is broken however correct the state is. Per-button arming costs one extra request when both are pressed in turn, and deleted the render-before-flash it had required (§2.15) |
 | **A column picker for the detailed export** | A setting that silently changes what a button produces is what §2.8 warns about, and a fixed output is checkable. If a second shape is ever wanted it is a second entry, not a switch |
 
 ---

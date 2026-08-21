@@ -2668,11 +2668,28 @@ ${selectors.join(",\n")} {
      report grouped by team then priority that is still to come -- is one id in
      `DETAIL_FIELDS` and one `add` in `detailBits`. */
 
-  // { signature, rows } or null. NOT a "ready" flag beside it: the signature IS
-  // the validity test, so there is no second value that could disagree with the
-  // collection (principle 1).
+  /* { signature, rows, kind } or null. NOT a "ready" flag beside it: the signature
+     IS the validity test, so there is no second value that could disagree with the
+     collection (principle 1).
+
+     `kind` is which button's press produced it, and it exists because of a
+     REVERSAL on 2026-08-21. The fetch was shared: one press armed BOTH stepped
+     buttons, on the reasoning that the held result describes the collection rather
+     than a button. That reasoning is still true of the DATA and was wrong about the
+     CONTROL -- the user pressed one button and watched the other one change, and
+     reported it as a bug, which is what it is. THE BUTTON YOU PRESS IS THE BUTTON
+     THAT ANSWERS.
+
+     What stays shared is everything that cannot be seen: one field list, so neither
+     document can be fetched with fields the other lacks, and one `detailChip`, so
+     the five rules of §2.14 cannot hold in one format and drift in the other.
+     What costs a second request is pressing both in turn, which is one extra
+     `bulkfetch` and no more (§2.6 rule 4). */
   let detailsHeld = null;
-  let fetchingDetails = false;
+
+  // The kind being fetched, or null. Holding the KIND rather than a flag is what
+  // lets only the pressed button say `Fetching…` while the other stands down.
+  let fetchingDetails = null;
 
   /* The collection this fetch describes. THE KEY LIST, NOT THE WHOLE BLOB: the
      fetch writes summaries back through `applySummaries`, and comparing the blob
@@ -2687,8 +2704,9 @@ ${selectors.join(",\n")} {
   // Derived, never cached. Add, remove, empty, switch collection, or another tab
   // writing -- any of them changes the signature and the held fetch stops being
   // an answer about this collection. Nothing has to notice and invalidate it.
-  function detailsFor(state) {
+  function detailsFor(state, kind) {
     if (detailsHeld === null) return null;
+    if (detailsHeld.kind !== kind) return null;
     return detailsHeld.signature === detailSignature(state) ? detailsHeld : null;
   }
 
@@ -2733,7 +2751,7 @@ ${selectors.join(",\n")} {
     const collection = activeCollection(state);
     if (!collection.items.length) return;
 
-    fetchingDetails = true;
+    fetchingDetails = kind;
     const asked = new Map();
     for (const item of collection.items) {
       askedFor.add(item.key);
@@ -2769,7 +2787,7 @@ ${selectors.join(",\n")} {
           rows.set(reference, entry);
           rows.set(entry.key, entry);
         }
-        detailsHeld = { signature: detailSignature(load()), rows };
+        detailsHeld = { signature: detailSignature(load()), rows, kind };
         logger.log(
           `details in hand for ${collection.name}: ${asked.size} reference${asked.size === 1 ? "" : "s"} sent, ${found.size} answered`,
         );
@@ -2778,7 +2796,7 @@ ${selectors.join(",\n")} {
       failed = true;
       logger.error("the details fetch failed", e);
     } finally {
-      fetchingDetails = false;
+      fetchingDetails = null;
       for (const key of asked.keys()) inFlight.delete(key);
       // `render`, not `scheduleRender`: the flash below has to be written AFTER
       // the labels are rebuilt, or the next frame wipes it (§2.8).
@@ -2804,7 +2822,7 @@ ${selectors.join(",\n")} {
    */
   async function copyDetails(button, kind) {
     const state = load();
-    const held = detailsFor(state);
+    const held = detailsFor(state, kind);
     if (!held) return;
 
     const payload = format(kind, detailedItems(state, held), "collection");
@@ -2813,13 +2831,11 @@ ${selectors.join(",\n")} {
     try {
       await writeClipboard(payload);
       detailsHeld = null;
-      /* THE OTHER STEPPED BUTTON HAS TO BE PUT BACK BEFORE THIS ONE FLASHES. Both
-         derive their label from the held fetch, and the copy just spent it -- so
-         without this render the other button says "Copy" for 900ms while a press
-         would in fact fetch. `render` first and `flash` second, because `flash`
-         writes over the label `render` just rebuilt and a render after it would
-         wipe the tick (§2.8). Found by the harness, not by looking. */
-      render();
+      /* No render before the flash any more, and the reason is worth keeping: it
+         was here because both buttons derived their label from one held fetch, so
+         spending it left the OTHER one saying "Copy" while a press would fetch.
+         Arming per button removed the second reader, and with it the need. One
+         reversal, two things simpler. */
       flash(button, "✅");
     } catch (e) {
       logger.error("clipboard write failed", e);
@@ -2833,9 +2849,10 @@ ${selectors.join(",\n")} {
     if (fetchingDetails) return undefined;
     // The entry that owns the button decides which document comes out; the fetch
     // behind them is one and the same (§2.15).
-    return detailsFor(load())
-      ? copyDetails(button, button.dataset.gtFormat)
-      : fetchDetails(button.dataset.gtFormat);
+    const kind = button.dataset.gtFormat;
+    return detailsFor(load(), kind)
+      ? copyDetails(button, kind)
+      : fetchDetails(kind);
   }
 
   // -------------------------------------------------------------- the origins
@@ -4230,14 +4247,16 @@ ${selectors.join(",\n")} {
          agreeing. The convention is the repo's own -- ⌫ becomes `Empty 3?` before
          it will empty anything (§3). */
       if (spec.needsDetails) {
-        const held = detailsFor(state);
+        // Asked for THIS button's kind, so a fetch armed by the other one leaves
+        // this label alone (§2.15, reversed 2026-08-21).
+        const held = detailsFor(state, spec.kind);
         const count = activeCollection(state).items.length;
         // THE ICON COMES FROM THE ENTRY'S OWN LABEL, not from a literal. It was a
         // literal 📋, which meant 📊 Report showed 📋 Fetching… -- a defect that
         // arrived with the sixth export and that only a second stepped button could
         // expose. Deriving it means the next one is correct without being touched.
         const icon = spec.label.split(" ")[0];
-        if (fetchingDetails) {
+        if (fetchingDetails === spec.kind) {
           button.textContent = `${icon} ${STEP_LABELS.busy}`;
           button.title = "Asking Jira about every issue in this collection…";
         } else if (held) {

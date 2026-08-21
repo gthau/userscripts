@@ -506,11 +506,13 @@ await settle();
 // again put it back. The count is in the sentence instead, which has no width.
 is("one of two answered, and the button armed", details().textContent, "📋 Copy");
 is("the count moved to the tooltip", /^Copy 2 items\./.test(details().title), true);
-// One fetch, both documents: the held result belongs to the collection, not to a
-// button (§2.15).
-is("the report button armed from the same fetch", copy("report").textContent, "📊 Copy");
-is("and it carries ITS OWN icon, not the other button's",
-  copy("report").textContent.startsWith("📊"), true);
+// THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS. This was the other way round
+// until 2026-08-21 -- one press armed both, on the reasoning that the held result
+// describes the collection rather than a button -- and the user pressed one and
+// watched the other change, which is a bug however good the reasoning was.
+is("the button that was NOT pressed is left alone", copy("report").textContent, "📊 Report");
+is("and it is not offering a copy it cannot make",
+  /Copy/.test(copy("report").title), false);
 is("the fetch also wrote the summary back, through the path ↻ already uses",
   collections()[0].items[0].summary, "Markers [7] Dev (player)");
 is("and the item it could not read is untouched", collections()[0].items[1], { key: "GLX-402" });
@@ -522,7 +524,7 @@ const beforeCopy = clipboard.length;
 dispatch(details(), "click");
 await settle();
 is("the second press wrote once", clipboard.length, beforeCopy + 1);
-is("a copy from one button spends the fetch for both",
+is("a copy flashes on the button that made it, and only there",
   [details().textContent, copy("report").textContent], ["✅", "📊 Report"]);
 is("and wrote both flavours", Object.keys(clipboard.at(-1)), ["text/plain", "text/html"]);
 // The stub keeps a Blob, exactly as the real ClipboardItem does, so the payload
@@ -538,6 +540,24 @@ await settle();
 await settle();
 is("THE HELD FETCH IS SPENT BY THE COPY, so no paste is older than the press before it",
   details().textContent, "📋 Details");
+
+// The other button, pressed on its own. This is the case that exposes a hardcoded
+// icon: the ladder was a literal 📋, so 📊 Report used to say `📋 Fetching…`.
+network.body = ANSWER;
+dispatch(copy("report"), "click");
+await settle();
+is("pressing Report arms Report", copy("report").textContent, "📊 Copy");
+is("with ITS OWN icon, derived from its label rather than hardcoded",
+  copy("report").textContent.startsWith("📊"), true);
+is("and Details stays idle this time", details().textContent, "📋 Details");
+const beforeReport = clipboard.length;
+dispatch(copy("report"), "click");
+await settle();
+is("the report copied", clipboard.length, beforeReport + 1);
+is("and it is grouped: a priority band, then a team", (() => {
+  const text = clipboard.at(-1)["text/plain"].text;
+  return /^\*\*P2\*\*/m.test(text) && /^\*No team\*/m.test(text);
+})(), true);
 
 // A CHANGE TO THE KEY LIST DISARMS IT, through a real gesture rather than a poke.
 network.body = ANSWER;
