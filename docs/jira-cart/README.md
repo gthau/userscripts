@@ -23,6 +23,7 @@ August 2026.
 | `research/` | **The seven research passes.** The measurements, with their dates and their run counts. This is the irreplaceable part |
 | `prompts.md` | The session prompts that drove the map effort |
 | `build-prompts.md` | The session prompts that drove the three build sessions, L1 to L3, with the guards each one carried |
+| `prompts-configurability.md` | **The one LIVE file here.** An unrun prompt for the next effort — configurable export formats — written at the end of the 1.1.0 session by the person who built it, so it names the traps from the inside. Everything else in this directory is history; this one is a plan |
 
 `part1.js` to `part6.js` were left in scratch and not committed: they are version
 0.1.0 written in six chunks, superseded by the 4,826-line file in `src/`.
@@ -66,6 +67,31 @@ end of a sitting. §2.9 keeps both the original reasoning and the reversal for e
 that reason. So: ask, record, and **expect use to overrule you**. An answer given
 before anyone has used the thing is still a guess, however well argued.
 
+
+## The 1.1.0 effort left nothing here, on purpose
+
+**Everything in this directory is the map effort of 10–19 August 2026, which ended at
+1.0.0.** The detailed export and the report — 1.1.0, 20–21 August — produced **no
+ticket and no research file**, and that is not an omission: what it measured went
+straight into the ADR, which is where the rule from this README's own banner points.
+
+If you are looking for that effort's record:
+
+| What | Where |
+| --- | --- |
+| The decisions | **ADR §2.14** (📋 Details) and **§2.15** (📊 Report) |
+| What each paste target keeps and strips | **ADR appendix A.9** — the irreplaceable part, and the only place it exists |
+| The reversals, with the premises that failed | §2.14, §2.15, and eleven new rows in **§4** |
+| The `Team` field, and what is still unknown about it | **appendix C.4** and **C.5** |
+| The rules, in a form that cannot rot | `test/jira-cart/format-smoke.mjs` §12–14, which asserts them on the emitted bytes |
+| The rig that found them | `test/jira-cart/paste-test.html`, and it is the one live thing near this directory |
+
+**The lesson that effort adds to the ones below.** The map settled its questions by
+research and argument, and it was right to. **1.1.0 could not**: four decisions were
+argued through, costed, written into the ADR, and then **reversed by pasting the
+output somewhere real** — and two more were reversed by *using* the buttons. Where
+the output leaves the browser, or the control is pressed by a person, the argument is
+a hypothesis and the paste is the experiment.
 
 ## What to distrust here
 

@@ -1,0 +1,1407 @@
+<!-- THE PASTE RIG. Open it in a browser; it runs on nothing.
+
+     This is not a mock and not a design toy any more. Its "chips" shape emits
+     BYTE-IDENTICAL HTML to `formatDetails` in `src/jira-cart.user.js`, and its
+     "Copy this shape for real" button puts both flavours on the real clipboard --
+     which is the only control here that can answer anything, because no mock can
+     tell you what Outlook or Teams does with a pasted span.
+
+     WHY IT IS COMMITTED. Every rule in ADR §2.14 came from pasting, and four of them
+     reversed a decision that had already been argued through and written down. The
+     next question about a paste target will be answered the same way, and rebuilding
+     this rig is the expensive part.
+
+     KEEP THE CHIPS SHAPE BYTE-IDENTICAL TO THE SCRIPT. If it drifts, the rig starts
+     answering a question about itself. The instruments that deliberately differ are
+     labelled as experiments -- `Metadata size` is the open one, because an earlier
+     Outlook paste kept the `font-size:88%` spans that the script's paste lost, and
+     that contradiction is recorded as UNEXPLAINED in appendix A.9.
+
+     It is not run by `run.mjs`, which globs `*-smoke.mjs`. The rules it found are
+     asserted in `format-smoke.mjs` instead; that is the maintained form. -->
+<title>The Paste Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;600&display=swap">
+
+<style>
+  /* ---------------------------------------------------------------- tokens
+     Neutrals are borrowed from Atlassian's own scale, which is blue-biased
+     rather than pure grey -- the subject's world, not a default. */
+  :root {
+    --ground: #f1f2f4;
+    --surface: #ffffff;
+    --surface-sunk: #f7f8f9;
+    --ink: #172b4d;
+    --ink-quiet: #626f86;
+    --ink-faint: #8590a2;
+    --rule: #dcdfe4;
+    --rule-soft: #ebecf0;
+    --accent: #0c66e4;
+    --accent-quiet: #e9f2ff;
+    --warn-ink: #a54800;
+    --warn-ground: #fff7ee;
+
+    --paper: #ffffff;
+    --paper-ink: #1a1d21;
+    --paper-rule: #d6d9de;
+    --paper-quiet: #5d6470;
+
+    --font-ui: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-doc: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --font-code: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101214;
+      --surface: #1c2024;
+      --surface-sunk: #16191c;
+      --ink: #dee4ea;
+      --ink-quiet: #96a0af;
+      --ink-faint: #7c8797;
+      --rule: #2f3439;
+      --rule-soft: #22262a;
+      --accent: #669df1;
+      --accent-quiet: #1c2b41;
+      --warn-ink: #f0a05a;
+      --warn-ground: #2b2013;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101214;
+    --surface: #1c2024;
+    --surface-sunk: #16191c;
+    --ink: #dee4ea;
+    --ink-quiet: #96a0af;
+    --ink-faint: #7c8797;
+    --rule: #2f3439;
+    --rule-soft: #22262a;
+    --accent: #669df1;
+    --accent-quiet: #1c2b41;
+    --warn-ink: #f0a05a;
+    --warn-ground: #2b2013;
+  }
+
+  /* The mock paste targets carry their own palette, switched by the surface
+     instrument rather than by the viewer's theme -- because the question is
+     what the export looks like in a light or a dark CLIENT. */
+  [data-surface="dark"] {
+    --paper: #1f2124;
+    --paper-ink: #e6e8ea;
+    --paper-rule: #3a3e44;
+    --paper-quiet: #9aa2ad;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  /* ------------------------------------------------------------------ head */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+  h1 {
+    font-family: var(--font-doc);
+    font-weight: 600;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    margin: 6px 0 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    margin: 14px 0 0;
+    max-width: 64ch;
+    font-size: 17px;
+    color: var(--ink-quiet);
+  }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  /* ----------------------------------------------------------- instruments */
+  .instruments {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0;
+    overflow: hidden;
+  }
+  .instruments > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--surface-sunk);
+    border-bottom: 1px solid var(--rule);
+  }
+  .instruments > header h2 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .instruments > header p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--ink-quiet);
+  }
+  .rack {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0;
+  }
+  .bay {
+    padding: 14px 16px 16px;
+    border-right: 1px solid var(--rule-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .bay:last-child { border-right: none; }
+  .bay > h3 {
+    margin: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .bay .note { font-size: 12px; color: var(--ink-quiet); margin: 0; }
+
+  .radios { display: flex; flex-direction: column; gap: 5px; }
+  .chks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+
+  label.opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 13.5px;
+    cursor: pointer;
+    line-height: 1.35;
+  }
+  label.opt input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+  label.opt.off { opacity: 0.42; cursor: not-allowed; }
+  label.opt kbd {
+    font-family: var(--font-code);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+
+  .seg { display: flex; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; width: fit-content; }
+  .seg button {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 4px 12px;
+    border: none;
+    background: var(--surface);
+    color: var(--ink-quiet);
+    cursor: pointer;
+    border-right: 1px solid var(--rule);
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .realcopy {
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    border-radius: 3px;
+    cursor: pointer;
+    width: fit-content;
+  }
+  .realcopy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #copysaid { font-size: 12px; color: var(--ink-quiet); min-height: 1.4em; margin: 0; }
+
+  /* -------------------------------------------------------------- surfaces */
+  .surfaces {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .surfaces { grid-template-columns: minmax(0, 1fr); } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel > figcaption {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-sunk);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+  }
+  .panel > figcaption b {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .panel > figcaption span { font-size: 12px; color: var(--ink-quiet); }
+  .panel > figcaption code {
+    font-family: var(--font-code);
+    font-size: 11.5px;
+    background: var(--accent-quiet);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .panel .stage { padding: 18px; background: var(--surface-sunk); }
+
+  /* the rich-document mock: a page, with a page's typography */
+  .paper {
+    background: var(--paper);
+    color: var(--paper-ink);
+    font-family: var(--font-doc);
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 22px 24px;
+    border: 1px solid var(--paper-rule);
+    box-shadow: 0 1px 2px rgba(9, 30, 66, 0.12);
+    overflow-x: auto;
+  }
+  .paper .subject {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--paper-quiet);
+    border-bottom: 1px solid var(--paper-rule);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  .paper a { color: #0b5cd5; }
+  [data-surface="dark"] .paper a { color: #7fb0f5; }
+
+  /* the chat mock: narrow on purpose, because that is the constraint */
+  .bubble {
+    background: var(--paper);
+    color: var(--paper-ink);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 12px 14px;
+    border: 1px solid var(--paper-rule);
+    border-radius: 8px 8px 8px 2px;
+    max-width: 430px;
+    overflow-x: auto;
+  }
+  .bubble .who {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--paper-quiet);
+    margin-bottom: 6px;
+  }
+  .bubble a { color: #0b5cd5; }
+  [data-surface="dark"] .bubble a { color: #7fb0f5; }
+
+  /* what the export actually emits, byte for byte */
+  .mono {
+    margin: 0;
+    font-family: var(--font-code);
+    font-size: 12.5px;
+    line-height: 1.65;
+    white-space: pre;
+    overflow-x: auto;
+    padding: 16px 18px;
+    background: #10161c;
+    color: #cfd8e3;
+    tab-size: 4;
+  }
+  .mono .ws {
+    color: #4a5a6b;
+    background: #1a2530;
+    border-radius: 2px;
+  }
+  .mono .lnk { color: #8fbcff; }
+
+  /* ------------------------------------------------------------- reference */
+  .grid2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 18px 20px 20px;
+  }
+  .card h3 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .card p { margin: 0 0 10px; font-size: 14px; color: var(--ink-quiet); }
+  .card p:last-child { margin-bottom: 0; }
+  .card strong { color: var(--ink); font-weight: 600; }
+
+  table.ref {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.ref th, table.ref td {
+    text-align: left;
+    padding: 7px 10px 7px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  table.ref th {
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 700;
+  }
+  table.ref td b { font-weight: 600; }
+  .yes { color: #216e4e; font-weight: 600; }
+  [data-theme="dark"] .yes { color: #7ee2b8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .yes { color: #7ee2b8; } }
+  .no { color: #ae2e24; font-weight: 600; }
+  [data-theme="dark"] .no { color: #ff9c8f; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .no { color: #ff9c8f; } }
+
+  .fence {
+    background: var(--warn-ground);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--warn-ink);
+    border-radius: 4px;
+    padding: 18px 22px 20px;
+  }
+  .fence h3 { color: var(--warn-ink); }
+  .fence ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
+  .fence li { font-size: 14px; color: var(--ink-quiet); }
+  .fence li b { color: var(--ink); font-weight: 600; }
+
+  h2.section {
+    font-family: var(--font-doc);
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .sectionhead { display: flex; flex-direction: column; gap: 4px; }
+  .sectionhead p { margin: 0; font-size: 14px; color: var(--ink-quiet); max-width: 70ch; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Jira Cart · detailed export · prototype</p>
+    <h1>The Paste Test</h1>
+    <p class="standfirst">
+      Nine fields per issue have to land somewhere a person will read them. A table wins in
+      Confluence and Outlook and <strong>loses everywhere people actually chat</strong> — Slack has no
+      tables at all, and a pasted list can be reshuffled by hand where a table cannot. So: five
+      shapes, shown in the three places the clipboard really goes. Switch shapes and fields until
+      one of them is obviously right.
+    </p>
+  </header>
+
+  <!-- =============================================================
+       INSTRUMENTS, NOT PROPOSALS. Every switch below exists so this
+       page can answer a question by being looked at. None of them is
+       a proposed preference for the shipped Cart.
+       ============================================================= -->
+  <section class="instruments">
+    <header>
+      <h2>Instruments, not proposals</h2>
+      <p>None of these switches is a proposed setting. They exist so one look answers the question.</p>
+    </header>
+
+    <div class="rack">
+      <div class="bay">
+        <h3>Shape</h3>
+        <div class="radios" id="variants"></div>
+        <h3 style="margin-top:6px">Meta placement</h3>
+        <div class="seg" id="meta">
+          <button type="button" data-inline="false">Own line</button>
+          <button type="button" data-inline="true">Inline</button>
+        </div>
+        <p class="note" id="metanote"></p>
+        <h3 style="margin-top:6px">Muting</h3>
+        <div class="seg" id="mute">
+          <button type="button" data-mute="grey">One grey</button>
+          <button type="button" data-mute="none">Full strength</button>
+        </div>
+        <p class="note" id="mutenote"></p>
+        <h3 style="margin-top:6px">Metadata size</h3>
+        <div class="seg" id="metasize">
+          <button type="button" data-size="none">Same as body</button>
+          <button type="button" data-size="percent">88%</button>
+          <button type="button" data-size="em">.88em</button>
+        </div>
+        <p class="note" id="sizenote"></p>
+        <h3 style="margin-top:6px">Line spacing</h3>
+        <div class="seg" id="leading">
+          <button type="button" data-lead="none">Target's own</button>
+          <button type="button" data-lead="loose">1.5</button>
+          <button type="button" data-lead="loose-spaced">1.5 + gaps</button>
+        </div>
+        <p class="note" id="leadnote"></p>
+        <h3 style="margin-top:6px">Status lozenge</h3>
+        <div class="seg" id="lozenge">
+          <button type="button" data-loz="pale">Pale</button>
+          <button type="button" data-loz="bold">Saturated</button>
+        </div>
+        <p class="note" id="loznote"></p>
+      </div>
+
+      <div class="bay">
+        <h3>Fields</h3>
+        <div class="chks" id="fields"></div>
+        <p class="note" id="fieldnote"></p>
+        <h3 style="margin-top:6px">Parent shows</h3>
+        <div class="seg" id="parentdetail">
+          <button type="button" data-pd="key">Key only</button>
+          <button type="button" data-pd="name">Key + name</button>
+        </div>
+        <p class="note" id="pdnote"></p>
+      </div>
+
+      <div class="bay">
+        <h3>Collection</h3>
+        <div class="seg" id="count">
+          <button type="button" data-n="3">3 items</button>
+          <button type="button" data-n="6">6 items</button>
+        </div>
+        <label class="opt"><input type="checkbox" id="unreadable">
+          <span>Add one Jira won’t talk about <kbd>GLX-402</kbd></span></label>
+        <h3 style="margin-top:6px">Client theme</h3>
+        <div class="seg" id="surface">
+          <button type="button" data-s="light">Light</button>
+          <button type="button" data-s="dark">Dark</button>
+        </div>
+      </div>
+
+      <div class="bay">
+        <h3>The only real test</h3>
+        <p class="note">This puts both flavours on your actual clipboard. Paste it into Teams,
+          Slack, Outlook, Confluence — nothing on this page can tell you what those do.</p>
+        <button type="button" class="realcopy" id="realcopy">Copy this shape for real</button>
+        <p id="copysaid" role="status"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ the three surfaces ============================ -->
+  <section class="surfaces">
+    <figure class="panel" style="margin:0">
+      <figcaption>
+        <b>Rich document</b>
+        <span>Confluence, Outlook, Word, Gmail</span>
+        <code>text/html</code>
+      </figcaption>
+      <div class="stage">
+        <div class="paper" id="paper-surface">
+          <div class="subject">Re: Markers panel — status for Thursday</div>
+          <div id="paper"></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure class="panel" style="margin:0">
+      <figcaption>
+        <b>Chat message</b>
+        <span>Teams, Slack</span>
+        <code>text/html</code>
+      </figcaption>
+      <div class="stage">
+        <div class="bubble" id="bubble-surface">
+          <div class="who">Ghislain Thau</div>
+          <div id="bubble"></div>
+        </div>
+      </div>
+    </figure>
+  </section>
+
+  <figure class="panel" style="margin:0">
+    <figcaption>
+      <b>Plain text, byte for byte</b>
+      <span>a Bitbucket or GitHub description, a commit message, a plain-text mail</span>
+      <code>text/plain</code>
+    </figcaption>
+    <pre class="mono" id="plain"></pre>
+  </figure>
+
+  <!-- ============================== reference =============================== -->
+  <div class="sectionhead">
+    <h2 class="section">What each target can actually take</h2>
+    <p>This is the whole argument against the table, and it is worth reading before choosing.
+      The clipboard carries both flavours at once; each target picks one and keeps what it understands.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Targets</h3>
+      <table class="ref">
+        <thead>
+          <tr><th>Target</th><th>Uses</th><th>Tables</th><th>Bold, links, bullets</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>Confluence</b></td><td>HTML</td><td class="yes">Real table</td><td class="yes">Yes</td></tr>
+          <tr><td><b>Outlook / Word</b><br><span style="font-size:11.5px;color:var(--ink-faint)">measured 2026-08-20</span></td><td>HTML</td><td class="yes">Real table</td><td class="yes">Yes, no opacity</td></tr>
+          <tr><td><b>Excel / Sheets</b></td><td>HTML</td><td class="yes">Real cells</td><td>n/a</td></tr>
+          <tr><td><b>Teams</b></td><td>HTML</td><td class="no">Poor</td><td class="yes">Yes</td></tr>
+          <tr><td><b>Slack</b></td><td>HTML</td><td class="no">None</td><td class="yes">Yes</td></tr>
+          <tr><td><b>Bitbucket / GitHub</b></td><td>plain</td><td class="yes">Renders markdown</td><td class="yes">Yes</td></tr>
+          <tr><td><b>Commit message</b></td><td>plain</td><td class="no">Ragged</td><td class="no">Literal</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>What survives a chat paste</h3>
+      <p><strong>Links, bold and bullet lists survive everywhere.</strong> They are the common
+        denominator across all seven targets above, which is what makes a list the safe shape.</p>
+      <p><strong>A colour is only safe if it brings its own background.</strong> Flipping the client
+        theme to dark found this: the status lozenge sets both background and text, so it survives
+        either ground as a self-contained sticker — the fix-version chip set only text, and its
+        fixed grey went unreadable.</p>
+      <p><strong>Then Outlook killed the elegant fix.</strong> Pasted with <em>keep source
+        formatting</em> on 2026-08-20, Outlook stripped every <code>opacity</code> and every inline
+        <code>border</code> — it renders HTML through Word's engine. So the muting is one fixed grey
+        instead, and the fix versions are joined by a comma rather than divided by boxes that turned
+        out not to exist.</p>
+      <p><strong>And Teams does its own theming.</strong> The same grey span came out dark in the
+        light skin and light in the dark skin — Teams re-maps text colour to whatever skin it is in.
+        So the grey chosen for Outlook costs nothing there, and the light-versus-dark problem simply
+        does not exist in Teams.</p>
+      <table class="ref">
+        <thead><tr><th>Measured 2026-08-20</th><th>Outlook</th><th>Teams</th></tr></thead>
+        <tbody>
+          <tr><td><code>background</code></td><td class="yes">kept</td><td class="yes">kept</td></tr>
+          <tr><td><code>font-weight</code>, <code>font-size</code></td><td class="yes">kept</td><td class="yes">kept</td></tr>
+          <tr><td>the <code>■</code> glyph</td><td class="yes">kept</td><td class="yes">kept</td></tr>
+          <tr><td><code>color</code></td><td class="yes">kept</td><td>re-mapped to the skin</td></tr>
+          <tr><td><code>opacity</code></td><td class="no">stripped</td><td class="no">stripped</td></tr>
+          <tr><td>inline <code>border</code></td><td class="no">stripped</td><td class="no">stripped</td></tr>
+          <tr><td>a <b>pale</b> pill ground</td><td class="yes">kept, if not near-white</td><td class="yes">kept, both skins</td></tr>
+          <tr><td>a <b>saturated</b> pill ground</td><td class="yes">kept</td><td class="no">dropped entirely</td></tr>
+        </tbody>
+      </table>
+      <p><strong>That last row is the counterintuitive one.</strong> Making the pill bolder so it
+        would survive is exactly the wrong move: Teams keeps a pale ground and discards a saturated
+        one, then re-maps the white text to its own skin, so a bold pill loses its ground
+        <em>and</em> its colour and comes back as bold black. The fix for an invisible pill is a
+        slightly stronger tint, not a solid fill.</p>
+      <p><strong>Two trailing spaces are markdown's hard line break.</strong> The two-line shape
+        needs them, they are invisible, and some editors strip them on save. They are marked in the
+        plain-text panel so you can see what you are relying on.</p>
+    </div>
+
+    <div class="card">
+      <h3>Reshuffling it afterwards</h3>
+      <p>The paste is not the end. People reorder the list in the editor they pasted it into — to
+        put the urgent thing first, or to group what they are talking about. <strong>How easily a
+        shape can be reshuffled by hand is a real criterion</strong>, and it is the second argument
+        against the table.</p>
+      <p><strong>It also rules out anything positional.</strong> Printing the epic's name only on
+        its first appearance would kill the repetition neatly — and would then be wrong the moment
+        somebody moved a line, with nothing on the page to say so. A field either says the same
+        thing on every row or it cannot be trusted after a reshuffle.</p>
+      <table class="ref">
+        <thead><tr><th>Shape</th><th>To move one issue</th></tr></thead>
+        <tbody>
+          <tr><td><b>List, meta inline</b></td><td class="yes">One line. Drag it.</td></tr>
+          <tr><td><b>Rich chips, inline</b></td><td class="yes">One bullet. Drag it.</td></tr>
+          <tr><td><b>List, meta on its own line</b></td><td>Two lines, kept together</td></tr>
+          <tr><td><b>Grouped by epic</b></td><td>Easy inside a group; the groups fix the rest</td></tr>
+          <tr><td><b>Labelled bullets</b></td><td class="no">Eight lines to select</td></tr>
+          <tr><td><b>Table</b></td><td class="no">A pipe row by hand, or a rich-table drag</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ================================ fence ================================= -->
+  <div class="fence">
+    <h3>Deliberately absent — do not read as an omission</h3>
+    <ul>
+      <li><b>The two-step button.</b> No fetch, no <kbd>📋 Table</kbd> → <kbd>Copy table 12</kbd>
+        ladder, no ⚠️. That behaviour is already settled; this page is only about the shape of what
+        comes out.</li>
+      <li><b>The Cart itself.</b> No drawer, no live list, no collection chips. The shapes are shown
+        in their destinations, not in the panel they are copied from.</li>
+      <li><b>Teams' and Slack's real renderers.</b> The chat panel is a width and a typeface, not a
+        simulation. It is honest about the 430px constraint and about nothing else — which is exactly
+        why the <em>Copy this shape for real</em> button is there.</li>
+      <li><b>A markdown renderer.</b> Nothing on this page turns markdown into HTML. The two rich
+        panels show what the <code>text/html</code> flavour emits; the mono panel shows the
+        <code>text/plain</code> bytes. They are two independent outputs, not one converted twice.</li>
+      <li><b>Field order.</b> The order fields appear in the meta line is a proposal and nothing
+        more. So is which fields default to on.</li>
+      <li><b>Reordering the collection.</b> Not here, and not proposed. The reshuffling this page
+        cares about happens <em>after</em> the paste, in Teams or Outlook or a text file, by hand.
+        The Cart still emits the collection in insertion order and still has no reorder control.</li>
+      <li><b>Five of the six issues are real</b>, read from <kbd>dalet.atlassian.net</kbd> on
+        2026-08-20 — two types, three status categories, two priorities, a missing assignee, a
+        missing fix version, one issue carrying <em>two</em> fix versions, and two with no parent.
+        <b><kbd>GLX-402</kbd> is invented</b>, and stands for an issue Jira returns nothing about.</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  "use strict";
+
+  const ORIGIN = "https://dalet.atlassian.net";
+  const url = (key) => ORIGIN + "/browse/" + key;
+
+  /* Six real issues, read on 2026-08-20. GLX-402 is invented -- see the fence. */
+  const REAL = [
+    {
+      key: "RDC-1513", type: "Story",
+      summary: "Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts",
+      status: "Dev Resolved", category: "indeterminate", priority: "P2",
+      assignee: "William CHUANG", fixVersions: ["Pyr 2026.8.0 (Release - Active)"],
+      remaining: "0m", parent: { key: "RDC-26701", summary: "Markers panel in Pyramid Media Player" },
+    },
+    {
+      key: "RDC-1515", type: "Story",
+      summary: "Markers [5] Dev (front-end) - refresh button",
+      status: "Dev In progress", category: "indeterminate", priority: "P2",
+      assignee: "Stanislav Karavaev", fixVersions: ["Pyr 2026.8.0 (Release - Active)"],
+      remaining: "2d", parent: { key: "RDC-26701", summary: "Markers panel in Pyramid Media Player" },
+    },
+    {
+      key: "RDC-1517", type: "Story",
+      summary: "Markers [4] Dev (front-end) - Story 3 - Select Markers",
+      status: "Done", category: "done", priority: "P2",
+      assignee: "", fixVersions: [],
+      remaining: "0m", parent: { key: "RDC-26701", summary: "Markers panel in Pyramid Media Player" },
+    },
+    {
+      key: "RDC-30109", type: "Bug",
+      summary: "[AmberFin] Linux OOM Killer invoked during transcode.",
+      status: "Dev In progress", category: "indeterminate", priority: "P1",
+      assignee: "Duncan Denning", fixVersions: [],
+      remaining: "", parent: null,
+    },
+    {
+      key: "RDC-29784", type: "Bug",
+      summary: 'Save metadata having file and image variable values give "invalid csrf token" error',
+      status: "Dev Resolved", category: "indeterminate", priority: "P1",
+      assignee: "Vasimahmed KHATRI", fixVersions: ["Flex 2026.8.0 (active)"],
+      remaining: "1h", parent: { key: "RDC-7008", summary: "Wizard App - replacement for Panel app" },
+    },
+    {
+      key: "RDC-28369", type: "Bug",
+      summary: "Full screen mode doesnt show any player controls",
+      status: "To Do", category: "new", priority: "P1",
+      assignee: "Rajesh KRISHNAPPA",
+      fixVersions: ["Flex 2026.6.x (LTS track)", "Flex 2026.9.0"],
+      remaining: "0m", parent: null,
+    },
+  ];
+
+  /* An issue Jira returned nothing about: the key is all the Cart has. */
+  const THIN = {
+    key: "GLX-402", type: "", summary: "", status: "", category: "", priority: "",
+    assignee: "", fixVersions: [], remaining: "", parent: null,
+  };
+
+  /* Jira's own lozenge colours, by status category. These are the values a chip
+     shape would really emit, which is the point of showing them. */
+  /* PALE GROUND, DARK TEXT -- and this is the set that ships, decided by three
+     real pastes on 2026-08-20 rather than by argument.
+
+     One step up Atlassian's own scale from the 100-level tints: #cce0ff and
+     #baf3db instead of #e9f2ff and #dcfff1. The 100-level greens were the actual
+     fault -- #dcfff1 is a near-white mint that could not be seen on white paper,
+     which is why `Done` never read as a pill in any paste. Each pairing here
+     measures above 4.9:1 text-on-ground, and each is opaque, so the pill carries
+     its own contrast wherever it lands. */
+  const LOZENGE_PALE = {
+    new:           { bg: "#dcdfe4", fg: "#44546f" },   // 5.7:1
+    indeterminate: { bg: "#cce0ff", fg: "#0055cc" },   // 4.9:1
+    done:          { bg: "#baf3db", fg: "#216e4e" },   // 5.0:1
+  };
+
+  /* SATURATED GROUND, WHITE TEXT -- and it is kept only as a thing to look at,
+     because TEAMS DROPS IT. Measured 2026-08-20: the pale pills above survived a
+     Teams paste in both skins, and #0055cc-with-white came back as bold black
+     text with no ground at all -- the background discarded and the white
+     re-mapped to Teams' own skin colour. So a saturated pill is strictly worse
+     than a pale one here: it loses the ground AND the colour. Counterintuitive
+     enough to be worth writing down, since "make it bolder so it survives" is
+     exactly what the next person will try. */
+  const LOZENGE_BOLD = {
+    new:           { bg: "#44546f", fg: "#ffffff" },
+    indeterminate: { bg: "#0055cc", fg: "#ffffff" },
+    done:          { bg: "#216e4e", fg: "#ffffff" },
+  };
+
+  /* Long enough for a real epic name, short enough that it cannot dominate the
+     line. Cut on a word boundary: a mid-word cut reads as a typo. */
+  const PARENT_SUMMARY_MAX = 34;
+
+  function shorten(text, max) {
+    if (!text || text.length <= max) return text || "";
+    const cut = text.slice(0, max);
+    const space = cut.lastIndexOf(" ");
+    return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, "") + "…";
+  }
+  /* Only the urgent priorities are named. #d94136 measures 4.4:1 on white and
+     3.7:1 on charcoal, so one value serves both grounds; Atlassian's own #ae2e24
+     was 2.1:1 on charcoal. P2 and below inherit and are muted -- which is also
+     honest, since P2 is this instance's default and said nothing when coloured. */
+  const PRIORITY_INK = { P0: "#d94136", P1: "#d94136" };
+
+  /* These only ever tint a ■, never text, so they are free to stay recognisable
+     rather than contrast-safe. */
+  const TYPE_INK = { Story: "#57a63a", Bug: "#d94136", Task: "#3f8fdd", Epic: "#8f7ae0" };
+
+  /* ONE GREY FOR BOTH GROUNDS, and it exists because `opacity` was measured dead.
+     Pasting into Outlook with "keep source formatting" on 2026-08-20 stripped
+     every `opacity` -- Outlook renders HTML through Word's engine -- so all the
+     muted fields came out full-strength black and the hierarchy vanished. An
+     inline `border` went with it. What survived: `color`, `font-weight`,
+     `font-size`, `background`, and the ■ glyph.
+     #737c89 measures 4.1:1 on white and 4.1:1 on charcoal: mediocre on both
+     rather than ideal on one and unreadable on the other. That is the trade, and
+     there is no third option once opacity is gone. */
+  const MUTED = "#737c89";
+
+  const FIELDS = [
+    { id: "type",      label: "Type",           text: (i) => i.type },
+    { id: "status",    label: "Status",         text: (i) => i.status },
+    { id: "priority",  label: "Priority",       text: (i) => i.priority },
+    { id: "assignee",  label: "Assignee",       text: (i) => i.assignee },
+    { id: "fixv",      label: "Fix version",    text: (i) => i.fixVersions.join(", ") },
+    { id: "remaining", label: "Time remaining", text: (i) => i.remaining },
+    { id: "parent",    label: "Parent",         text: (i) => (i.parent ? i.parent.key + " " + i.parent.summary : "") },
+  ];
+
+  const SHAPES = [
+    { id: "chips",      name: "Rich chips",       hint: "CHOSEN 2026-08-20 — a list, with Jira's own lozenges in the HTML flavour" },
+    { id: "twoline",    name: "Two-line list",    hint: "the link, then one quiet meta line under it" },
+    { id: "subbullets", name: "Labelled bullets", hint: "one bullet per field — unambiguous, and long" },
+    { id: "grouped",    name: "Grouped by epic",  hint: "the parent becomes a heading instead of a field" },
+    { id: "table",      name: "Table",            hint: "the shape we had settled on, for comparison" },
+  ];
+
+  /* These defaults are DECISIONS, taken on 2026-08-20, not starting positions:
+     the chips shape, the meta inline so one issue is one draggable line, and
+     Time remaining off because it read `0m` on four of the six real issues. */
+  const state = {
+    shape: "chips",
+    metaInline: true,
+    /* "grey" is one fixed value for both grounds; "none" inherits at full
+       strength, which is what Outlook produced by stripping the opacity. */
+    mute: "grey",
+    /* "pale" because Teams drops a saturated ground and keeps a pale one, and the
+       `Done` fault was the tint being too light rather than the approach. */
+    lozenge: "pale",
+    /* THE OPEN QUESTION. Teams deleted the CONTENT of every span carrying
+       `font-size:88%`; the shipped script now emits no font-size at all. Three
+       pastes from the button above settle whether that was the cause. */
+    metaSize: "none",
+    /* CHOSEN 2026-08-20 and now what ships. A bare <li> gave Outlook no leading
+       inside a wrapped item and no gap after it, and it was being reformatted by
+       hand every time. "Target's own" is kept as the thing this replaced. */
+    leading: "loose-spaced",
+    /* "key" because the name repeats identically down a list built from one
+       epic, and the key is a link, so the name is one click away. */
+    parentDetail: "key",
+    fields: new Set(FIELDS.map((f) => f.id).filter((id) => id !== "remaining")),
+    count: 6,
+    thin: false,
+    surface: "light",
+    /* Whether the meta sits under the summary or runs on after it. Inline means
+       one issue is ONE LINE, which is the unit a person drags when they reshuffle
+       the list in Teams or Outlook after pasting it. */
+  };
+
+  const on = (id) => state.fields.has(id);
+  const items = () => {
+    const list = REAL.slice(0, state.count);
+    return state.thin ? list.concat([THIN]) : list;
+  };
+
+  const esc = (s) =>
+    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  /* A pipe in a summary would break every column to its right. */
+  const cell = (s) => String(s).replace(/\|/g, "\\|");
+
+  /* ------------------------------------------------------------- the meta line
+     Reading order: what it is, how it is going, how urgent, who has it, when it
+     ships, what is left, where it belongs. An empty value drops out along with
+     its separator -- the list equivalent of "an empty cell is empty". */
+  const META_ORDER = ["type", "status", "priority", "assignee", "fixv", "remaining", "parent"];
+
+  /* Each bit carries BOTH forms, because the parent is a reference rather than a
+     value: markdown on the text side, an anchor on the HTML side. One string
+     could not serve both -- escaping the markdown would print the brackets. */
+  function metaBits(item, skip) {
+    const bits = [];
+    for (const id of META_ORDER) {
+      if (id === skip || !on(id)) continue;
+      const field = FIELDS.find((f) => f.id === id);
+      const value = field.text(item);
+      if (!value) continue;
+
+      if (id === "remaining") {
+        bits.push({ id, text: value + " left", html: esc(value + " left") });
+      } else if (id === "parent") {
+        /* THE KEY ALONE, AND IT IS A LINK. The epic's summary is the longest
+           thing on the line and repeats identically down the whole list, which
+           buys nothing a click cannot -- so it becomes a click. The grouped shape
+           still spells the summary out, because there it appears once and is the
+           heading. */
+        /* The anchor needs its colour NAMED. A link does not inherit the colour of
+           the span around it -- the browser's own stylesheet wins -- so without
+           this the parent would come out as a bright blue link competing with the
+           issue's own key, which is the one link on the line that matters. */
+        const linkInk = state.mute === "grey" ? ' style="color:' + MUTED + '"' : "";
+        /* THE KEY IS THE LINK AND THE SUMMARY SITS OUTSIDE IT, the same rule the
+           issue's own line follows: markdown cannot nest square brackets, and an
+           epic named "[Pyramid] something" would break a `[KEY Summary](url)`
+           label. So the shape is `↳ [KEY](url) Truncated name…` (§2.8). */
+        /* THE NAME REPEATS, and that is the whole case against carrying it. A
+           collection is built from tickets that belong together, so the parent is
+           nearly constant down the list -- three identical
+           "Markers panel in Pyramid Media…" tails in a six-item sample, each one
+           pushing its row onto a second wrapped line. Truncating it harder does
+           not help: the fault is repetition, not length.
+
+           Rejected on the way here: printing the name only on an epic's FIRST
+           appearance. It reads well until the list is reshuffled in the editor it
+           was pasted into, and then the annotated line is no longer first and the
+           rule breaks with nothing to say so. Reordering after the paste is a
+           requirement, so nothing positional can be trusted. */
+        const short = state.parentDetail === "name"
+          ? shorten(item.parent.summary, PARENT_SUMMARY_MAX)
+          : "";
+        bits.push({
+          id,
+          text: "↳ " + mdLink(item.parent) + (short ? " " + short : ""),
+          html: '↳&nbsp;<a href="' + esc(url(item.parent.key)) + '"' + linkInk + ">" +
+            esc(item.parent.key) + "</a>" + (short ? "&nbsp;" + esc(short) : ""),
+        });
+      } else {
+        bits.push({ id, text: value, html: esc(value) });
+      }
+    }
+    return bits;
+  }
+
+  const HARD_BREAK = "  ";       // markdown's hard line break. Invisible. Load-bearing.
+  const mdLink = (item) => "[" + item.key + "](" + url(item.key) + ")";
+  const htmlLink = (item) =>
+    '<a href="' + esc(url(item.key)) + '">' + esc(item.key) + "</a>";
+  const withSummary = (item, joiner) => (item.summary ? joiner + item.summary : "");
+
+  /* ----------------------------------------------------------------- the table */
+  function tableColumns() {
+    const cols = [];
+    if (on("type")) cols.push({ head: "Type", md: (i) => cell(i.type), html: (i) => esc(i.type) });
+    cols.push({ head: "Key", md: mdLink, html: htmlLink });
+    cols.push({ head: "Summary", md: (i) => cell(i.summary), html: (i) => esc(i.summary) });
+    if (on("fixv")) cols.push({ head: "Fix version", md: (i) => cell(i.fixVersions.join(", ")), html: (i) => esc(i.fixVersions.join(", ")) });
+    if (on("parent")) cols.push({
+      head: "Parent",
+      md: (i) => (i.parent ? mdLink(i.parent) + " " + cell(i.parent.summary) : ""),
+      html: (i) => (i.parent ? htmlLink(i.parent) + "&nbsp;" + esc(i.parent.summary) : ""),
+    });
+    if (on("status")) cols.push({ head: "Status", md: (i) => cell(i.status), html: (i) => esc(i.status) });
+    if (on("remaining")) cols.push({ head: "Time remaining", md: (i) => i.remaining, html: (i) => esc(i.remaining) });
+    if (on("priority")) cols.push({ head: "Priority", md: (i) => i.priority, html: (i) => esc(i.priority) });
+    if (on("assignee")) cols.push({ head: "Assignee", md: (i) => cell(i.assignee), html: (i) => esc(i.assignee) });
+    return cols;
+  }
+
+  function buildTable() {
+    const cols = tableColumns();
+    const rows = items();
+    const text = [
+      "| " + cols.map((c) => c.head).join(" | ") + " |",
+      "| " + cols.map(() => "---").join(" | ") + " |",
+      ...rows.map((i) => "| " + cols.map((c) => c.md(i)).join(" | ") + " |"),
+    ].join("\n");
+
+    const B = "border:1px solid #ccc;padding:2px 6px;";
+    const html =
+      '<table style="border-collapse:collapse">' +
+      "<tr>" + cols.map((c) => '<th style="' + B + 'text-align:left">' + c.head + "</th>").join("") + "</tr>" +
+      rows.map((i) => "<tr>" + cols.map((c) => '<td style="' + B + '">' + (c.html(i) || "") + "</td>").join("") + "</tr>").join("") +
+      "</table>";
+    return { text, html };
+  }
+
+  /* ------------------------------------------------------------- two-line list */
+  /* One plain-text line per issue, or two. Shared by the list shapes, because the
+     choice is about the meta's PLACEMENT and not about the shape. */
+  function listLine(item, skip) {
+    const bits = metaBits(item, skip).map((b) => b.text);
+    const head = "- " + mdLink(item) + withSummary(item, " ");
+    if (!bits.length) return head;
+    return state.metaInline
+      ? head + " — " + bits.join(" · ")
+      : head + HARD_BREAK + "\n  " + bits.join(" · ");
+  }
+
+  /* The same choice on the HTML side. Inline keeps one issue inside one line of
+     one <li>, so a reader reshuffling the pasted list drags one thing. */
+  function metaHtml(bits, joiner) {
+    if (!bits.length) return "";
+    return state.metaInline
+      ? ' <span style="font-size:90%;color:' + MUTED + '">— ' + bits.join(joiner) + "</span>"
+      : '<div style="font-size:90%;color:' + MUTED + ';margin-top:1px">' + bits.join(joiner) + "</div>";
+  }
+
+  function buildTwoLine() {
+    const text = items().map((i) => listLine(i)).join("\n");
+
+    const html =
+      '<ul style="margin:0;padding-left:22px">' +
+      items()
+        .map((i) =>
+          '<li style="margin-bottom:7px">' + htmlLink(i) +
+          (i.summary ? "&nbsp;" + esc(i.summary) : "") +
+          metaHtml(metaBits(i).map((b) => b.html), " · ") + "</li>"
+        )
+        .join("") +
+      "</ul>";
+    return { text, html };
+  }
+
+  /* ----------------------------------------------------------- labelled bullets */
+  function buildSubBullets() {
+    const rows = (item) =>
+      META_ORDER.filter((id) => on(id))
+        .map((id) => {
+          const field = FIELDS.find((f) => f.id === id);
+          const value = field.text(item);
+          return value ? { label: field.label, value } : null;
+        })
+        .filter(Boolean);
+
+    const text = items()
+      .map((i) => {
+        const head = "- " + mdLink(i) + withSummary(i, " ");
+        const kids = rows(i).map((r) => "  - " + r.label + ": " + r.value);
+        return [head, ...kids].join("\n");
+      })
+      .join("\n");
+
+    const html =
+      '<ul style="margin:0;padding-left:22px">' +
+      items()
+        .map((i) => {
+          const kids = rows(i)
+            .map((r) => "<li>" + esc(r.label) + ": " + esc(r.value) + "</li>")
+            .join("");
+          return '<li style="margin-bottom:7px">' + htmlLink(i) +
+            (i.summary ? "&nbsp;" + esc(i.summary) : "") +
+            (kids ? '<ul style="margin:2px 0 0;padding-left:20px;font-size:93%;color:' + MUTED + '">' + kids + "</ul>" : "") +
+            "</li>";
+        })
+        .join("") +
+      "</ul>";
+    return { text, html };
+  }
+
+  /* -------------------------------------------------------------- by the epic
+     The parent stops being a field and becomes the structure, so it is skipped
+     in every meta line. Items with no parent land in a final group. */
+  function groups() {
+    const order = [];
+    const byKey = new Map();
+    for (const item of items()) {
+      const id = item.parent ? item.parent.key : " none";
+      if (!byKey.has(id)) {
+        byKey.set(id, { parent: item.parent, items: [] });
+        order.push(id);
+      }
+      byKey.get(id).items.push(item);
+    }
+    /* The parentless group sorts last: it is the remainder, not a peer. */
+    return order
+      .sort((a, b) => (a === " none" ? 1 : b === " none" ? -1 : 0))
+      .map((id) => byKey.get(id));
+  }
+
+  function buildGrouped() {
+    const text = groups()
+      .map((g) => {
+        const head = g.parent
+          ? "**" + g.parent.summary + "** — " + mdLink(g.parent)
+          : "**No epic**";
+        const lines = g.items.map((i) => listLine(i, "parent"));
+        return [head, ...lines].join("\n");
+      })
+      .join("\n\n");
+
+    /* <p><strong> and not <h4>: a pasted heading joins the host document's
+       outline, and a status mail should not add sections to somebody's page. */
+    const html = groups()
+      .map((g) => {
+        const head = g.parent
+          ? "<p style=\"margin:0 0 4px\"><strong>" + esc(g.parent.summary) + "</strong> — " + htmlLink(g.parent) + "</p>"
+          : '<p style="margin:0 0 4px"><strong>No epic</strong></p>';
+        const lis = g.items
+          .map((i) =>
+            "<li>" + htmlLink(i) + (i.summary ? "&nbsp;" + esc(i.summary) : "") +
+            metaHtml(metaBits(i, "parent").map((b) => b.html), " · ") + "</li>"
+          )
+          .join("");
+        return head + '<ul style="margin:0 0 12px;padding-left:22px">' + lis + "</ul>";
+      })
+      .join("");
+    return { text, html };
+  }
+
+  /* ------------------------------------------------------------------- chips
+     The plain-text flavour is the two-line list: plain text has no chips, and
+     inventing a second plain shape for the same document would be a lie.
+
+     THE RULE THAT KEEPS THIS READABLE ON BOTH GROUNDS: a chip may name a colour
+     only if it names its BACKGROUND too. The status lozenge does, so it is a
+     self-contained sticker and reads on white or on charcoal alike. Everything
+     else INHERITS the document's own text colour and is muted with `opacity`,
+     because the export cannot know which ground it landed on -- found on
+     2026-08-20 by flipping the client theme on this page, where a fixed
+     `color:#44546f` on the fix-version chip was unreadable on dark and its fixed
+     light border was glaring.
+
+     `opacity` is the right tool rather than a dimmer colour: a target that strips
+     it renders the text at FULL strength, which is readable. A target that strips
+     a hardcoded colour leaves it wrong. */
+  /* ------------------------------------------------------------------- chips
+     BYTE-IDENTICAL TO THE SHIPPED SCRIPT at the default settings, on purpose.
+     This stopped being a design toy on 2026-08-20: two real pastes showed the
+     userscript losing content where this page's earlier output had not, so the
+     page now emits exactly what `formatDetails` in `src/jira-cart.user.js`
+     emits. "Copy this shape for real" therefore tests the SHIPPED BYTES.
+
+     If a paste from here is fine and the same paste from the Cart is not, the
+     fault is in how the Cart writes the clipboard, not in this markup. That is
+     the split this page exists to make.
+
+     The one deliberate difference is the `Metadata size` instrument, which is the
+     open question: whether a `font-size` on these spans is what makes a target
+     drop their content. Three pastes answer it. */
+  function buildChips() {
+    const ink = state.mute === "grey" ? "color:" + MUTED + ";" : "";
+    const size = state.metaSize === "percent" ? "font-size:88%;"
+               : state.metaSize === "em" ? "font-size:.88em;"
+               : "";
+    const dot = '<span style="' + ink.replace(/;$/, "") + '"> · </span>';
+    // The trailing `;` is trimmed so this is byte-identical to the shipped script,
+    // which is the whole point of this builder.
+    const field = (weight, body) =>
+      '<span style="' + (ink + size + (weight ? "font-weight:" + weight : "")).replace(/;$/, "") +
+      '">' + body + "</span>";
+
+    const html =
+      "<ul>" +
+      items()
+        .map((i) => {
+          const parts = [];
+          for (const bit of metaBits(i)) {
+            if (bit.id === "status") {
+              const set = state.lozenge === "bold" ? LOZENGE_BOLD : LOZENGE_PALE;
+              const c = set[i.category] || set.new;
+              parts.push(
+                '<span style="background:' + c.bg + ";color:" + c.fg +
+                  ";border-radius:3px;padding:0 6px;" + size +
+                  'font-weight:700;letter-spacing:.04em;text-transform:uppercase">' +
+                  esc(i.status) + "</span>",
+              );
+            } else if (bit.id === "priority") {
+              const urgent = PRIORITY_INK[i.priority];
+              parts.push(urgent
+                ? '<span style="color:' + urgent + ";" + size + 'font-weight:700">' + esc(i.priority) + "</span>"
+                : field(700, esc(i.priority)));
+            } else if (bit.id === "type") {
+              parts.push(field(600, bit.html));
+            } else {
+              parts.push(field(0, bit.html));
+            }
+          }
+          const meta = parts.length
+            ? '<span style="' + ink.replace(/;$/, "") + '"> — </span>' + parts.join(dot)
+            : "";
+          /* LINE SPACING IS NOT SET BY THE SHIPPED SCRIPT. `<li>` goes out bare,
+             so what you get is the target's own list default -- and Outlook's
+             gives a wrapped list item no leading at all, which reads as a block.
+             These are the two candidates, and they are switches rather than a
+             change because a style property on this path has already been
+             measured DELETING content (rule 5). */
+          const li = state.leading === "none"
+            ? "<li>"
+            : state.leading === "loose"
+              ? '<li style="line-height:1.5">'
+              : '<li style="line-height:1.5;margin-bottom:8px">';
+          return li +
+            '<a href="' + esc(url(i.key)) + '" style="font-weight:600">' + esc(i.key) + "</a>" +
+            (i.summary ? "&nbsp;" + esc(i.summary) : "") + meta + "</li>";
+        })
+        .join("") +
+      "</ul>";
+
+    return { text: buildTwoLine().text, html };
+  }
+
+  const BUILDERS = {
+    table: buildTable,
+    twoline: buildTwoLine,
+    subbullets: buildSubBullets,
+    grouped: buildGrouped,
+    chips: buildChips,
+  };
+
+  /* Renders the plain flavour with its invisible parts made visible: the two
+     trailing spaces markdown needs for a line break, and the link URLs dimmed
+     so the shape of the line is readable at a glance. */
+  function monoHtml(text) {
+    return esc(text)
+      .replace(/ {2}$/gm, '<span class="ws">··</span>')
+      .replace(/(\(https:[^)]+\))/g, '<span class="lnk">$1</span>');
+  }
+
+  function render() {
+    const payload = BUILDERS[state.shape]();
+
+    document.getElementById("paper").innerHTML = payload.html;
+    document.getElementById("bubble").innerHTML = payload.html;
+    document.getElementById("plain").innerHTML = monoHtml(payload.text);
+
+    /* The attribute goes on the panel, because the tokens it redefines have to
+       cascade down to `.paper` and `.bubble` rather than onto them. */
+    for (const id of ["paper-surface", "bubble-surface"]) {
+      document.getElementById(id).closest(".panel").dataset.surface = state.surface;
+    }
+
+    for (const b of document.querySelectorAll("#count button")) {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.n) === state.count));
+    }
+    for (const b of document.querySelectorAll("#surface button")) {
+      b.setAttribute("aria-pressed", String(b.dataset.s === state.surface));
+    }
+
+    /* A table's cells and a bullet-per-field list have nowhere to put a meta
+       line, so the switch has nothing to act on in those two shapes. */
+    const listy = state.shape !== "table" && state.shape !== "subbullets";
+    for (const b of document.querySelectorAll("#meta button")) {
+      b.disabled = !listy;
+      b.setAttribute("aria-pressed", String(listy && (b.dataset.inline === "true") === state.metaInline));
+    }
+    document.getElementById("metanote").textContent = !listy
+      ? "This shape has no meta line to place."
+      : state.metaInline
+        ? "One issue is one line, so it is one thing to drag when you reshuffle after pasting."
+        : "Two lines per issue: easier to read, two lines to move together.";
+
+    for (const b of document.querySelectorAll("#mute button")) {
+      b.setAttribute("aria-pressed", String(b.dataset.mute === state.mute));
+    }
+    document.getElementById("mutenote").textContent =
+      state.mute === "grey"
+        ? "#737c89 — 4.1:1 on white, 4.1:1 on charcoal. Confirmed in Outlook; Teams overrides it with its own skin colour."
+        : "What Outlook produced when it stripped the opacity: no hierarchy at all.";
+
+    /* Grouping already spells the epic out in its heading, so the switch has
+       nothing to add there -- and the Parent field itself is off in that shape. */
+    for (const b of document.querySelectorAll("#parentdetail button")) {
+      b.disabled = grouped;
+      b.setAttribute("aria-pressed", String(!grouped && b.dataset.pd === state.parentDetail));
+    }
+    document.getElementById("pdnote").textContent = grouped
+      ? "The heading carries the epic's name in this shape."
+      : state.parentDetail === "key"
+        ? "The key is a link, so the name is one click away and never repeats."
+        : "Cut at 34 characters on a word boundary — and identical on every row of one epic.";
+
+    for (const b of document.querySelectorAll("#metasize button")) {
+      b.setAttribute("aria-pressed", String(b.dataset.size === state.metaSize));
+    }
+    document.getElementById("sizenote").textContent =
+      state.metaSize === "none"
+        ? "What ships. No font-size at all, so nothing can drop the content of a span that carries one."
+        : state.metaSize === "percent"
+          ? "Teams DELETED the content of every span with this, leaving bare · separators (2026-08-20)."
+          : "Untested. Paste it into Teams and Outlook and see whether the fields survive.";
+
+    for (const b of document.querySelectorAll("#leading button")) {
+      b.setAttribute("aria-pressed", String(b.dataset.lead === state.leading));
+    }
+    document.getElementById("leadnote").textContent =
+      state.leading === "none"
+        ? "What this replaced. Bare <li>, so Outlook applies its own default — which is what read as tight."
+        : state.leading === "loose"
+          ? "line-height:1.5 on each <li>. Fixes the leading inside a wrapped line."
+          : "CHOSEN. 1.5 plus 8px between items, so one issue is visibly one block.";
+
+    for (const b of document.querySelectorAll("#lozenge button")) {
+      b.setAttribute("aria-pressed", String(b.dataset.loz === state.lozenge));
+    }
+    document.getElementById("loznote").textContent =
+      state.lozenge === "bold"
+        ? "Teams DROPS this: the ground goes and the white text is re-mapped, leaving bold black. Measured 2026-08-20."
+        : "Pale grounds survived Teams in both skins. One step up Atlassian's scale so Done is visible on paper too.";
+
+    /* Grouping consumes the parent, so the field switch has nothing to do. */
+    const grouped = state.shape === "grouped";
+    const parentBox = document.querySelector('#fields input[value="parent"]');
+    parentBox.disabled = grouped;
+    parentBox.closest("label").classList.toggle("off", grouped);
+    document.getElementById("fieldnote").textContent = grouped
+      ? "Parent is the heading in this shape, so its switch does nothing."
+      : "Key and Summary are always present. The rest are the nine fields under discussion.";
+  }
+
+  /* ------------------------------------------------------------------- wiring */
+  const variants = document.getElementById("variants");
+  for (const shape of SHAPES) {
+    const label = document.createElement("label");
+    label.className = "opt";
+    label.innerHTML =
+      '<input type="radio" name="shape" value="' + shape.id + '"' +
+      (shape.id === state.shape ? " checked" : "") + ">" +
+      "<span><b style=\"font-weight:600\">" + shape.name + "</b><br>" +
+      '<span style="font-size:12px;color:var(--ink-quiet)">' + shape.hint + "</span></span>";
+    label.querySelector("input").addEventListener("change", () => {
+      state.shape = shape.id;
+      render();
+    });
+    variants.append(label);
+  }
+
+  const fieldsBox = document.getElementById("fields");
+  for (const field of FIELDS) {
+    const label = document.createElement("label");
+    label.className = "opt";
+    label.innerHTML =
+      '<input type="checkbox" value="' + field.id + '"' +
+      (state.fields.has(field.id) ? " checked" : "") + "><span>" + field.label + "</span>";
+    label.querySelector("input").addEventListener("change", (event) => {
+      if (event.target.checked) state.fields.add(field.id);
+      else state.fields.delete(field.id);
+      render();
+    });
+    fieldsBox.append(label);
+  }
+
+  for (const button of document.querySelectorAll("#meta button")) {
+    button.addEventListener("click", () => {
+      state.metaInline = button.dataset.inline === "true";
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#mute button")) {
+    button.addEventListener("click", () => {
+      state.mute = button.dataset.mute;
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#lozenge button")) {
+    button.addEventListener("click", () => {
+      state.lozenge = button.dataset.loz;
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#leading button")) {
+    button.addEventListener("click", () => {
+      state.leading = button.dataset.lead;
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#metasize button")) {
+    button.addEventListener("click", () => {
+      state.metaSize = button.dataset.size;
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#parentdetail button")) {
+    button.addEventListener("click", () => {
+      state.parentDetail = button.dataset.pd;
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#count button")) {
+    button.addEventListener("click", () => {
+      state.count = Number(button.dataset.n);
+      render();
+    });
+  }
+  for (const button of document.querySelectorAll("#surface button")) {
+    button.addEventListener("click", () => {
+      state.surface = button.dataset.s;
+      render();
+    });
+  }
+  document.getElementById("unreadable").addEventListener("change", (event) => {
+    state.thin = event.target.checked;
+    render();
+  });
+
+  const said = document.getElementById("copysaid");
+  document.getElementById("realcopy").addEventListener("click", async () => {
+    const payload = BUILDERS[state.shape]();
+    try {
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([payload.text], { type: "text/plain" }),
+            "text/html": new Blob([payload.html], { type: "text/html" }),
+          }),
+        ]);
+        said.textContent = "Both flavours are on the clipboard. Paste it somewhere real.";
+        return;
+      }
+      await navigator.clipboard.writeText(payload.text);
+      said.textContent = "Plain text only — this browser has no ClipboardItem.";
+    } catch (error) {
+      said.textContent = "The clipboard refused (" + error.name +
+        "). Select the plain text below and copy it by hand.";
+    }
+  });
+
+  render();
+</script>

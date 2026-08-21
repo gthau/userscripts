@@ -52,6 +52,18 @@ the `injectStyle` call, resolves the `${...}` names from the real constants, par
 the rules, and computes selector specificity. That is the only way to see the three
 bugs it exists for, because **none of them is visible to JavaScript**.
 
+## `paste-test.html` — the one thing here that is not a harness
+
+Open it in a browser. It emits **byte-identical HTML to `formatDetails`** and has a
+button that puts both flavours on the real clipboard, so a paste into Outlook, Teams,
+Confluence or Slack can be done by hand. That button is the only control on the page
+that can answer anything, and it is why every rule in ADR §2.14 exists.
+
+It is committed because rebuilding it is the expensive part, and because the next
+question about a paste target will be answered the same way. **Keep its chips shape
+byte-identical to the script** — if it drifts it starts answering a question about
+itself. `run.mjs` does not pick it up; it globs `*-smoke.mjs`.
+
 ## What a green run does NOT say
 
 **Nothing here can tell you what a paste looks like.** `format-smoke` asserts the
