@@ -566,6 +566,124 @@
     save({ v: SCHEMA_VERSION, collections: state.collections }, state);
   }
 
+  // --------------------------------------------------- the export vocabulary
+
+  /* WHAT THE EXPORT PREFERENCES ARE ALLOWED TO SAY. Four lists of ids, and they are
+     the whole vocabulary: a stored preference that names something absent from them
+     is not honoured (see `normalisePrefs`).
+
+     ONE CATALOGUE, TWO SELECTIONS -- the answer to the question configurability
+     raises, which is what stops 📋 Details and 📊 Report drifting apart once each
+     has its own field list. The ids and their labels live HERE, once. Every measured
+     style stays in `detailChip`, once. A preference can only say WHICH fields a
+     document uses and IN WHAT ORDER, so nothing a user can click reaches the styling
+     the five paste rules of §2.14 protect.
+
+     WHY THESE LISTS SIT ABOVE THE PREFERENCES AND NOT BESIDE THE RENDERERS THAT DRAW
+     THEM. `DEFAULT_PREFS` is BUILT from the catalogue, and a `const` declared further
+     down the file is in its temporal dead zone at that line -- the script would throw
+     on load. The renderers read these from below, which costs nothing.
+
+     They are also the SINGLE SOURCE for the tickets that fill them in: the shape
+     table, the band accessors and the ⚙ panel each build OVER these ids rather than
+     restating them. A second list of ids beside one of these would be two values that
+     can disagree, which is principle 1 and the reason the store has no active
+     pointer. */
+
+  // The row fields, in the reading order §2.14 chose -- what it is, how it is going,
+  // how urgent, who has it, when it ships, where it belongs -- plus `team`.
+  //
+  // `team` is NEW as a row field. It is fetched today for the report's headings
+  // only, and 📋 Details has no headings, so the field is currently unreachable from
+  // that export. Off by default in both lists, so no output changes.
+  //
+  // The labels are the ⚙ panel's. They are here rather than in the panel because the
+  // panel is the second reader: `detailBits` already owns the id, and a label kept
+  // beside the checkbox instead would be a second place a field is named.
+  const FIELD_CATALOGUE = [
+    { id: "type", label: "Type" },
+    { id: "status", label: "Status" },
+    { id: "priority", label: "Priority" },
+    { id: "assignee", label: "Assignee" },
+    { id: "team", label: "Team" },
+    { id: "fixv", label: "Fix version" },
+    { id: "remaining", label: "Time remaining" },
+    { id: "parent", label: "Parent" },
+  ];
+
+  // A default field list is DERIVED from the catalogue rather than written out, so a
+  // field added to the catalogue later arrives in both defaults automatically, and
+  // arrives OFF unless it is named here. That is the same rule `normaliseFieldList`
+  // applies to a stored list, and having one rule rather than two is the point.
+  function defaultFieldList(on) {
+    return FIELD_CATALOGUE.map((field) => ({
+      id: field.id,
+      on: on.includes(field.id),
+    }));
+  }
+
+  /* The named shapes the issue reference can take. ONE PREFERENCE, SHARED BY ALL
+     THREE EXPORTS, so §2.14's promise that 📋 Details' head is 🔗 Links' line stays
+     true; a per-export override is left in §6 and costs one nullable key each.
+
+     Ids only, here. The bytes each shape emits -- and it must define BOTH FLAVOURS,
+     or it silently does nothing in Outlook, Word, Teams and Confluence, which all
+     take the HTML -- belong beside the formatters that emit them. This list is what
+     a stored value is checked against, and it is the list a shape is added to or
+     dropped from: drop one and every blob naming it falls back to `markdown` on the
+     next read, with nothing else to change. */
+  const LINE_SHAPE_IDS = ["markdown", "key-summary-url", "key-url", "url"];
+
+  /* The fields that may BAND 📊 Report. Seven, where the catalogue above has eight,
+     and both differences carry their reason so that a later session cannot quietly
+     erase them on the reasonable-sounding grounds that a field is a field.
+
+     TIME REMAINING MAY NOT BAND. Its band order would be string order over
+     durations, and "10m" < "2d" < "9h" means nothing -- a report that reads as broken
+     rather than as configured.
+
+     STATUS BANDS BY CATEGORY AND NEVER BY NAME, which is why the id here is
+     `category` where the row field is `status`. The names are this instance's own,
+     and `Dev In progress` < `Dev Resolved` < `To Do` is alphabetical noise dressed as
+     a workflow. The three categories are Atlassian's own fixed vocabulary, which is
+     exactly why they may carry a rank where §2.15 refused priority one: a rank over
+     this instance's priority names could only fall out of step with Jira.
+
+     `fixv` is MULTI-VALUED, and an issue in two releases appears in both bands --
+     the one place a paste has a line per issue-and-band rather than per issue. */
+  const BAND_IDS = [
+    "priority",
+    "team",
+    "category",
+    "assignee",
+    "type",
+    "fixv",
+    "parent",
+  ];
+
+  // Band 2 only. A report with no bands at all IS 📋 Details, so band 1 has no
+  // `none` and `normalisePrefs` sends one back to the default.
+  const NO_BAND = "none";
+
+  /* The ⚙ panel's tabs. THE LAST TAB IS A STORED PREFERENCE, on §2.9's precedent for
+     the drawer's own `open`: a reload is not the end of a sitting, and being thrown
+     to the first tab every time you come back is the same complaint.
+
+     ONE VALUE, RANGE-CHECKED, and an id this build does not recognise falls back to
+     the FIRST tab rather than to a blank screen -- what `layout` and `corner` already
+     do. There is no open/closed set to keep: a tab bar shows every tab whether it has
+     ever been pressed or not, so a tab added later is visible the moment it exists.
+     A NEW TAB THEREFORE ARRIVES VISIBLE WHERE A NEW FIELD ARRIVES OFF, and the
+     asymmetry is deliberate -- see `normaliseFieldList`.
+
+     Three, because `Issue reference` governs all three exports: a tab that owned it
+     would tell a small lie about its scope, so it is pinned above the bar and each
+     export tab stays at about eight rows, which is the only structure that fits the
+     drawer's 215px floor without scrolling. The cost, stated rather than hidden:
+     `appearance` sits as a peer of two export tabs, which is not a clean taxonomy.
+     Changing the structure is changing this list and nothing else. */
+  const SETTINGS_TAB_IDS = ["appearance", "details", "report"];
+
   // ------------------------------------------------------------ preferences
 
   /* The UI's own switches, in their own key. The user's data and the UI's
@@ -586,6 +704,41 @@
     size: null,
     basisStacked: null,
     basisSplit: null,
+    // Six keys for the configurable exports, added in 1.2.0. `v` IS NOT BUMPED and
+    // there is no migration: preferences are not versioned, and nothing about a
+    // stored item changed shape (§2.4).
+    //
+    // EVERY DEFAULT HERE REPRODUCES 1.1.0'S OUTPUT BYTE FOR BYTE. That is the whole
+    // requirement of the defaults: an install that never opens ⚙ must not be able to
+    // tell that any of this exists.
+    //
+    // The literal `markdown` and not `LINE_SHAPE_IDS[0]`: this is the shape 1.1.0
+    // shipped, which is a fact about the output rather than about a list's order.
+    lineShape: "markdown",
+    detailsFields: defaultFieldList([
+      "type",
+      "status",
+      "priority",
+      "assignee",
+      "fixv",
+      "remaining",
+      "parent",
+    ]),
+    // The same list with `priority` off, because priority is the report's first band
+    // and a band leaves the row. `team` is off in both, as the new field.
+    reportFields: defaultFieldList([
+      "type",
+      "status",
+      "assignee",
+      "fixv",
+      "remaining",
+      "parent",
+    ]),
+    reportBand1: "priority",
+    reportBand2: "team",
+    // Whichever tab is first. A default that named a tab would be a second place the
+    // structure is decided.
+    settingsTab: SETTINGS_TAB_IDS[0],
   };
 
   const LAYOUTS = ["auto", "stacked", "split"];
@@ -650,7 +803,100 @@
       size: readStoredSize(source.size),
       basisStacked: readStoredBasis(source.basisStacked),
       basisSplit: readStoredBasis(source.basisSplit),
+      // The six export keys. Each is checked against the vocabulary above, and an id
+      // this build does not know falls back to that key's default -- the same
+      // treatment `layout` and `corner` get, and the OPPOSITE of what a collection
+      // gets, which is the whole reason the two live in different keys.
+      lineShape: LINE_SHAPE_IDS.includes(source.lineShape)
+        ? source.lineShape
+        : DEFAULT_PREFS.lineShape,
+      detailsFields: normaliseFieldList(
+        source.detailsFields,
+        DEFAULT_PREFS.detailsFields,
+      ),
+      reportFields: normaliseFieldList(
+        source.reportFields,
+        DEFAULT_PREFS.reportFields,
+      ),
+      // NEVER `none`. A report with no bands at all is 📋 Details, so a blob asking
+      // for one gets the default band back rather than a second copy of another
+      // export.
+      reportBand1: BAND_IDS.includes(source.reportBand1)
+        ? source.reportBand1
+        : DEFAULT_PREFS.reportBand1,
+      // `none` IS honoured here, and it is the single-level report.
+      reportBand2:
+        source.reportBand2 === NO_BAND
+          ? NO_BAND
+          : BAND_IDS.includes(source.reportBand2)
+            ? source.reportBand2
+            : DEFAULT_PREFS.reportBand2,
+      // The first tab, never blank: an id that is not a tab any more must not leave
+      // the panel with nothing on it.
+      settingsTab: SETTINGS_TAB_IDS.includes(source.settingsTab)
+        ? source.settingsTab
+        : SETTINGS_TAB_IDS[0],
     };
+  }
+
+  /* ONE FUNCTION, BOTH FIELD LISTS. A list is stored as an ORDERED array of
+     `{ id, on }`, and the alternative -- a plain array of the enabled ids, with order
+     carried by the array and "off" meaning absent -- was considered and rejected:
+     unticking a field would lose its position and re-ticking it would send it to the
+     end, so somebody toggling one field to compare two outputs would find their order
+     quietly rearranged.
+
+     A STORED LIST MAY DISAGREE WITH THE CATALOGUE, AND THE CODE WINS. That is the one
+     rule here that is new in kind for this key, and it is applied in this order:
+
+       1. not an array          -> the default for that key, copied
+       2. an id the catalogue does not name -> DROPPED, silently, the way
+          `normalisePrefs` already drops a retired key
+       3. a duplicate id        -> collapsed, the first wins
+       4. `on` is `true` only when it is exactly `true`, so a hand-edited blob cannot
+          produce a state no click made -- `open` and `rightClickMenu` already read
+          this way
+       5. a catalogue field the stored list never mentions -> APPENDED AT THE END,
+          OFF
+
+     STEP 5 IS WHY A NEW FIELD ARRIVES OFF WHERE A NEW TAB ARRIVES VISIBLE. The two
+     differ on purpose: a tab appearing changes nothing about what a button emits,
+     where a field appearing TICKED would change what a button produces without being
+     asked, which is what §2.8 and §2.14 both warn against. It is still in the list,
+     so it is findable, and one click turns it on.
+
+     AN EMPTY SELECTION SURVIVES, AND THE LISTING IS STILL COMPLETED. Zero ticked
+     fields is a real state -- the line is the head alone, which is always there,
+     because the head is the issue reference and not a field -- so nothing here turns
+     an unticked list back on. What step 5 does to a stored `[]` is fill in the
+     catalogue's names, all off, and it is unconditional for a reason: the ⚙ panel
+     draws its rows FROM this list, so a list that mentions nothing would draw a panel
+     with no rows and no click could get back to a field. The export is identical
+     either way, and the tie is broken by which one keeps every field findable --
+     step 5's own argument.
+
+     The catalogue is not a parameter. There is exactly one, and passing it would
+     invite a second. What differs between the two keys is the DEFAULT, so that is
+     what is passed. */
+  function normaliseFieldList(stored, fallback) {
+    // A copy of every ENTRY and not just of the array: `loadPrefs` hands the default
+    // out on every malformed blob, so one entry unticked in place by a caller would
+    // be unticked for every later read in this tab.
+    if (!Array.isArray(stored)) return fallback.map((field) => ({ ...field }));
+
+    const list = [];
+    const seen = new Set();
+    for (const entry of stored) {
+      const id = entry?.id;
+      if (!FIELD_CATALOGUE.some((field) => field.id === id)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      list.push({ id, on: entry.on === true });
+    }
+    for (const field of FIELD_CATALOGUE) {
+      if (!seen.has(field.id)) list.push({ id: field.id, on: false });
+    }
+    return list;
   }
 
   function readStoredBasis(value) {

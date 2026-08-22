@@ -30,7 +30,7 @@ function slice(head, end) {
   if (at < 0) throw new Error(`no ${head}`);
   return src.slice(at, src.indexOf(end, at) + end.length);
 }
-const names = ["readRaw","defaultCollection","normaliseCollections","snapshot","load","activeCollection","save","update","writeFirstRun","loadPrefs","normalisePrefs","readStoredBasis","readStoredSize","savePrefs","clamp"];
+const names = ["readRaw","defaultCollection","normaliseCollections","snapshot","load","activeCollection","save","update","writeFirstRun","loadPrefs","normalisePrefs","normaliseFieldList","defaultFieldList","readStoredBasis","readStoredSize","savePrefs","clamp"];
 const code = names.map(extract).join("\n");
 // Sliced in the file's own order, and `DEFAULT_PREFS` comes LAST: anything it is
 // built from has to be declared before it, here exactly as in the script.
@@ -40,6 +40,11 @@ const constants = `
   ${slice("const BASIS_MIN =", "\n")}
   ${slice("const BASIS_MAX =", "\n")}
   ${slice("const LAYOUTS =", "\n")}
+  ${slice("const FIELD_CATALOGUE = [", "\n  ];")}
+  ${slice("const LINE_SHAPE_IDS =", "\n")}
+  ${slice("const BAND_IDS = [", "\n  ];")}
+  ${slice("const NO_BAND =", "\n")}
+  ${slice("const SETTINGS_TAB_IDS =", "\n")}
   ${slice("const DEFAULT_PREFS = {", "\n  };")}
 `;
 
@@ -55,6 +60,7 @@ const harness = `
   return {
     ${names.join(",")},
     DEFAULT_PREFS, LAYOUTS, MIN_INLINE, MIN_BLOCK, BASIS_MIN, BASIS_MAX,
+    FIELD_CATALOGUE, LINE_SHAPE_IDS, BAND_IDS, NO_BAND, SETTINGS_TAB_IDS,
     state: () => ({ lastRaw, writeFailed, renders }),
     resetSession: () => { lastRaw = null; writeFailed = false; firstRunDefault = null; },
   };
@@ -228,6 +234,142 @@ is("a preference write leaves the collections alone", JSON.parse(store[STORE_KEY
 writesThrow = true;
 tab.savePrefs({ corner: "bottom-right" });
 is("a failed preference write does NOT set the collections' warning", tab.state().writeFailed, false);
+
+// 13. The export preferences of 1.2.0. THE VOCABULARY IS SLICED OUT OF THE SCRIPT,
+// so a shape or a band this file names and the script does not is a loud failure and
+// not a passing check about nothing.
+tab = reset({});
+let prefs = tab.loadPrefs();
+const CATALOGUE_IDS = tab.FIELD_CATALOGUE.map((field) => field.id);
+// Every field, off. The expectation for a list with nothing ticked.
+const ALL_OFF = tab.FIELD_CATALOGUE.map((field) => ({ id: field.id, on: false }));
+// The catalogue's tail after the ids a check names for itself, all off -- which is
+// step 5 of `normaliseFieldList` stated as an expectation rather than as code.
+const tail = (...head) => ALL_OFF.filter((field) => !head.includes(field.id));
+const ticked = (list) => list.filter((field) => field.on).map((field) => field.id);
+
+is("a fresh install references issues the way 1.1.0 did", prefs.lineShape, "markdown");
+is("and bands the report the way 1.1.0 hardcoded it", [prefs.reportBand1, prefs.reportBand2], ["priority", "team"]);
+is("both default lists mention every field in the catalogue, in the catalogue's order",
+   [prefs.detailsFields.map((f) => f.id), prefs.reportFields.map((f) => f.id)],
+   [CATALOGUE_IDS, CATALOGUE_IDS]);
+// The two defaults ARE 1.1.0's output: `detailBits` printed these seven in this
+// order, and the report was `detailBits(item, ["priority"])` because priority is its
+// first band. `team` is new as a row field and so is off in both (decision 21).
+is("📋 Details ticks the seven fields 1.1.0 printed", ticked(prefs.detailsFields),
+   ["type", "status", "priority", "assignee", "fixv", "remaining", "parent"]);
+is("📊 Report ticks the same list without priority, which is its band", ticked(prefs.reportFields),
+   ["type", "status", "assignee", "fixv", "remaining", "parent"]);
+is("the new team field is off in both, so no output changes",
+   [prefs.detailsFields.find((f) => f.id === "team").on, prefs.reportFields.find((f) => f.id === "team").on],
+   [false, false]);
+is("the panel opens on the first tab, and it is a real tab", prefs.settingsTab, tab.SETTINGS_TAB_IDS[0]);
+
+// 14. Every id the script names is honoured, and nothing else is. Written as a sweep
+// over the sliced lists rather than as one check per id, so a shape or a band added
+// to the script is covered the day it is added.
+const storedAs = (patch) => reset({ [PREFS_KEY]: JSON.stringify(patch) }).loadPrefs();
+is("every line shape the script names is honoured",
+   tab.LINE_SHAPE_IDS.map((id) => storedAs({ lineShape: id }).lineShape), tab.LINE_SHAPE_IDS);
+is("every bandable field is honoured in band 1",
+   tab.BAND_IDS.map((id) => storedAs({ reportBand1: id }).reportBand1), tab.BAND_IDS);
+is("and in band 2", tab.BAND_IDS.map((id) => storedAs({ reportBand2: id }).reportBand2), tab.BAND_IDS);
+is("every tab the script names is honoured",
+   tab.SETTINGS_TAB_IDS.map((id) => storedAs({ settingsTab: id }).settingsTab), tab.SETTINGS_TAB_IDS);
+is("an unknown shape falls back to markdown", storedAs({ lineShape: "haiku" }).lineShape, "markdown");
+is("an unknown band falls back to that band's own default",
+   [storedAs({ reportBand1: "haiku" }).reportBand1, storedAs({ reportBand2: "haiku" }).reportBand2],
+   ["priority", "team"]);
+// `remaining` is a real field and deliberately not a band: its order would be string
+// order over durations, where "10m" < "2d" < "9h" (decision 14). `status` is a real
+// field too, and the report bands it as `category` -- by Atlassian's fixed three and
+// never by this instance's status names (decision 13).
+is("time remaining is a field and NOT a band", storedAs({ reportBand1: "remaining" }).reportBand1, "priority");
+is("and status bands as a category or not at all", storedAs({ reportBand1: "status" }).reportBand1, "priority");
+// Band 1 may not be `none`, because a report with no bands is 📋 Details (decision
+// 12). Band 2 may, and that is the single-level report.
+is("band 1 cannot be none", storedAs({ reportBand1: tab.NO_BAND }).reportBand1, "priority");
+is("band 2 can", storedAs({ reportBand2: tab.NO_BAND }).reportBand2, tab.NO_BAND);
+is("an unknown tab lands on the first one", storedAs({ settingsTab: "haiku" }).settingsTab, tab.SETTINGS_TAB_IDS[0]);
+is("and never on a blank screen", typeof storedAs({ settingsTab: "" }).settingsTab === "string" && storedAs({ settingsTab: "" }).settingsTab.length > 0, true);
+
+// 15. The two field lists, and they are ONE FUNCTION, so every check runs against
+// both keys. A STORED LIST MAY DISAGREE WITH THE CATALOGUE AND THE CODE WINS: this
+// is the rule that is new in kind for this key, and every one of its five steps is
+// below.
+for (const key of ["detailsFields", "reportFields"]) {
+  const stored = (value) => storedAs({ [key]: value })[key];
+  const theDefault = tab.DEFAULT_PREFS[key];
+
+  is(`${key}: absent falls back to the default`, storedAs({})[key], theDefault);
+  is(`${key}: null is not a list`, stored(null), theDefault);
+  is(`${key}: a number is not a list`, stored(7), theDefault);
+  is(`${key}: a string is not a list`, stored("type,status"), theDefault);
+  is(`${key}: an object is not a list`, stored({ type: true }), theDefault);
+  // DECISION 23, AND THE DIRECTION IS ASSERTED HERE SO A LATER SESSION CANNOT "FIX"
+  // IT THE OTHER WAY. An empty selection survives -- nothing is ticked, the line is
+  // the head alone -- and the LISTING is still completed, because the ⚙ panel draws
+  // its rows from this list and a list of nothing would draw a panel no click can
+  // get back out of.
+  is(`${key}: an empty list keeps nothing ticked, and still names every field`, stored([]), ALL_OFF);
+  // Step 2. Dropped silently, the way `normalisePrefs` drops a retired key.
+  is(`${key}: an id the catalogue does not name is dropped, and the rest keep their order`,
+     stored([{ id: "parent", on: true }, { id: "epic", on: true }, { id: "type", on: true }]).map((f) => f.id),
+     ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]);
+  is(`${key}: and the dropped id is not ticked into anything`,
+     ticked(stored([{ id: "epic", on: true }])), []);
+  // Step 3. First wins, so the one the user can see in the panel is the one that
+  // counts.
+  is(`${key}: a duplicate id collapses, and the first one wins`,
+     stored([{ id: "type", on: true }, { id: "type", on: false }]),
+     [{ id: "type", on: true }, ...tail("type")]);
+  // Step 4. `on` is a fact, not a truthy value: a hand-edited blob cannot produce a
+  // state no click made -- the same reading `open` and `rightClickMenu` already get.
+  is(`${key}: on is true only when it is exactly true`,
+     ticked(stored([{ id: "type", on: "yes" }, { id: "status", on: 1 }, { id: "priority" }, { id: "assignee", on: true }])),
+     ["assignee"]);
+  // Step 5, which is decision 21: A NEW FIELD ARRIVES OFF. A tab arriving VISIBLE is
+  // the deliberate asymmetry -- a tab changes nothing about what a button emits.
+  is(`${key}: a field the stored list never mentions is appended last, off`,
+     stored([{ id: "type", on: true }]), [{ id: "type", on: true }, ...tail("type")]);
+  is(`${key}: a stored order that differs from the catalogue is preserved, not re-sorted`,
+     stored([...tab.FIELD_CATALOGUE].reverse().map((f) => ({ id: f.id, on: true }))).map((f) => f.id),
+     [...CATALOGUE_IDS].reverse());
+}
+
+// 16. The defaults are handed out as COPIES. A caller that reorders or unticks the
+// list it was given must not rewrite the default underneath every later read in this
+// tab -- `loadPrefs` returns the defaults on every malformed blob, so one mutated
+// entry would be permanent for the sitting.
+tab = reset({});
+const handed = tab.loadPrefs();
+handed.detailsFields[0].on = false;
+handed.detailsFields.reverse();
+is("a hand on the returned list cannot rewrite the default underneath it",
+   ticked(tab.loadPrefs().detailsFields),
+   ["type", "status", "priority", "assignee", "fixv", "remaining", "parent"]);
+
+// 17. A preference write is still a read-modify-write, and the new keys are the case
+// that makes it matter (§2.5): a tab open since this morning must not write a stale
+// FIELD LIST over a band changed since.
+tab = reset({});
+const morning = load();                                   // opened, and left open
+tab.savePrefs({ detailsFields: [{ id: "type", on: true }] });   // another tab unticks all but Type
+morning.savePrefs({ reportBand1: "assignee" });            // this tab changes a band
+prefs = tab.loadPrefs();
+is("a band changed in a stale tab does not carry a stale field list with it",
+   ticked(prefs.detailsFields), ["type"]);
+is("and the band the stale tab did change landed", prefs.reportBand1, "assignee");
+// What is written is the NORMALISED list, not the patch: the range check is on the
+// write path as well as the read path, so no code can put a state in storage that a
+// read would have to repair.
+is("a write stores the whole list, not the two fields the caller passed",
+   JSON.parse(store[PREFS_KEY]).detailsFields, [{ id: "type", on: true }, ...tail("type")]);
+tab.savePrefs({ reportBand2: tab.NO_BAND, lineShape: "haiku" });
+is("and a write cannot store a shape the script does not know",
+   JSON.parse(store[PREFS_KEY]).lineShape, "markdown");
+is("while none IS a band 2, on the write path too",
+   JSON.parse(store[PREFS_KEY]).reportBand2, tab.NO_BAND);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
