@@ -47,6 +47,17 @@ reaches the clipboard which the palette does not name. A copy would let the file
 the assertions drift apart in silence, which is the one thing these harnesses exist
 to prevent.
 
+`store-smoke` does the same to the constants it asserts about — `MIN_INLINE`,
+`MIN_BLOCK`, `BASIS_MIN`, `BASIS_MAX`, `LAYOUTS` and `DEFAULT_PREFS` — and **it is
+the file that proves why the rule matters**, because it had already drifted. It
+copied `MIN_BLOCK` as `160`; the script has said `215` since 1.0.0, when the floor
+was re-derived from the stylesheet. So *"a size below the minimum is clamped"* was
+green while measuring this harness's own number, and a stored height of 180 was
+accepted here and clamped by the real script. Fixed in 1.2.0 by slicing them. The
+value of the floor is still asserted, in `css-smoke`, where it can be derived from
+the sheet's own arithmetic rather than copied — set `MIN_BLOCK` back to 160 and that
+harness goes red.
+
 `css-smoke` does the same to the stylesheet: it slices the template literal out of
 the `injectStyle` call, resolves the `${...}` names from the real constants, parses
 the rules, and computes selector specificity. That is the only way to see the three

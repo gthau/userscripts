@@ -19,8 +19,29 @@ function extract(name) {
   }
   throw new Error(`unbalanced ${name}`);
 }
+// `format-smoke`'s slicer, for the things that are not functions. A CONSTANT THIS
+// HARNESS ASSERTS ABOUT MUST BE SLICED AND NEVER COPIED, and this file is the
+// reason the rule is worth stating twice: `MIN_BLOCK` was copied here as 160 and
+// has been 215 in the script since 1.0.0, so "a size below the minimum is clamped"
+// was green while measuring this file's own constant -- a stored height of 180 was
+// accepted here and clamped by the real script. The copy was the whole defect.
+function slice(head, end) {
+  const at = src.indexOf(head);
+  if (at < 0) throw new Error(`no ${head}`);
+  return src.slice(at, src.indexOf(end, at) + end.length);
+}
 const names = ["readRaw","defaultCollection","normaliseCollections","snapshot","load","activeCollection","save","update","writeFirstRun","loadPrefs","normalisePrefs","readStoredBasis","readStoredSize","savePrefs","clamp"];
 const code = names.map(extract).join("\n");
+// Sliced in the file's own order, and `DEFAULT_PREFS` comes LAST: anything it is
+// built from has to be declared before it, here exactly as in the script.
+const constants = `
+  ${slice("const MIN_INLINE =", "\n")}
+  ${slice("const MIN_BLOCK =", "\n")}
+  ${slice("const BASIS_MIN =", "\n")}
+  ${slice("const BASIS_MAX =", "\n")}
+  ${slice("const LAYOUTS =", "\n")}
+  ${slice("const DEFAULT_PREFS = {", "\n  };")}
+`;
 
 // The harness stands in for the parts of the script that are not the store.
 const harness = `
@@ -29,9 +50,11 @@ const harness = `
   let firstRunDefault = null;
   let renders = 0;
   function scheduleRender() { renders += 1; }
+  ${constants}
   ${code}
   return {
     ${names.join(",")},
+    DEFAULT_PREFS, LAYOUTS, MIN_INLINE, MIN_BLOCK, BASIS_MIN, BASIS_MAX,
     state: () => ({ lastRaw, writeFailed, renders }),
     resetSession: () => { lastRaw = null; writeFailed = false; firstRunDefault = null; },
   };
@@ -43,11 +66,9 @@ const PREFS_KEY = "gt-jira-cart.prefs";
 const SCHEMA_VERSION = 1;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const DEFAULT_COLLECTION_NAME = "Scratch";
-const DEFAULT_PREFS = { open: false, corner: "bottom-right", layout: "auto", rightClickMenu: false, size: null, basisStacked: null, basisSplit: null };
-const LAYOUTS = ["auto", "stacked", "split"];
-const MIN_INLINE = 300, MIN_BLOCK = 160, BASIS_MIN = 20, BASIS_MAX = 85;
+// The window is the harness's own and belongs here: it stands in for the browser,
+// which is what a stand-in is for. Every constant the script owns is sliced above.
 const window = { innerWidth: 1600, innerHeight: 900 };
-const DEFAULTS = { open: false, corner: "bottom-right", layout: "auto", rightClickMenu: false, size: null, basisStacked: null, basisSplit: null };
 const quiet = { log(){}, debug(){}, warn(){}, error(){} };
 let uuid = 0;
 const crypto = { randomUUID: () => `uuid-${++uuid}` };
@@ -60,9 +81,9 @@ const GM_setValue = (key, value) => {
   store[key] = value;
 };
 
-const ARGS = ["STORE_KEY","BACKUP_KEY","PREFS_KEY","SCHEMA_VERSION","SAFE_KEY_RE","DEFAULT_COLLECTION_NAME","DEFAULT_PREFS","LAYOUTS","MIN_INLINE","MIN_BLOCK","BASIS_MIN","BASIS_MAX","window","logger","crypto","GM_getValue","GM_setValue"];
+const ARGS = ["STORE_KEY","BACKUP_KEY","PREFS_KEY","SCHEMA_VERSION","SAFE_KEY_RE","DEFAULT_COLLECTION_NAME","window","logger","crypto","GM_getValue","GM_setValue"];
 const build = new Function(...ARGS, harness);
-const load = () => build(STORE_KEY,BACKUP_KEY,PREFS_KEY,SCHEMA_VERSION,SAFE_KEY_RE,DEFAULT_COLLECTION_NAME,DEFAULT_PREFS,LAYOUTS,MIN_INLINE,MIN_BLOCK,BASIS_MIN,BASIS_MAX,window,quiet,crypto,GM_getValue,GM_setValue);
+const load = () => build(STORE_KEY,BACKUP_KEY,PREFS_KEY,SCHEMA_VERSION,SAFE_KEY_RE,DEFAULT_COLLECTION_NAME,window,quiet,crypto,GM_getValue,GM_setValue);
 
 let fails = 0;
 const is = (label, got, want) => {
@@ -159,11 +180,11 @@ is("empty collections not rewritten on read", JSON.parse(store[STORE_KEY]).colle
 // 10. Preferences. Everything here is the OPPOSITE of the store above, and that
 // is the point: a preference falls back to the defaults, a collection never does.
 tab = reset({ [PREFS_KEY]: JSON.stringify({ corner: "bottom-left", retired: 1 }) });
-is("known prefs only", tab.loadPrefs(), { ...DEFAULTS, corner: "bottom-left" });
+is("known prefs only", tab.loadPrefs(), { ...tab.DEFAULT_PREFS, corner: "bottom-left" });
 tab = reset({ [PREFS_KEY]: "not json" });
-is("bad prefs fall back to defaults", tab.loadPrefs(), DEFAULTS);
+is("bad prefs fall back to defaults", tab.loadPrefs(), tab.DEFAULT_PREFS);
 tab = reset({});
-is("absent prefs default", tab.loadPrefs(), DEFAULTS);
+is("absent prefs default", tab.loadPrefs(), tab.DEFAULT_PREFS);
 
 // 11. The new preferences, and their ranges
 tab = reset({ [PREFS_KEY]: JSON.stringify({ layout: "sideways", rightClickMenu: "yes" }) });
@@ -172,10 +193,16 @@ is("right-click is off unless it is exactly true", tab.loadPrefs().rightClickMen
 tab = reset({ [PREFS_KEY]: JSON.stringify({ rightClickMenu: true, layout: "split" }) });
 is("right-click on", tab.loadPrefs().rightClickMenu, true);
 is("layout pinned", tab.loadPrefs().layout, "split");
-is("a divider below the floor is clamped", tab.readStoredBasis(2), 20);
-is("a divider above the ceiling is clamped", tab.readStoredBasis(99), 85);
+is("a divider below the floor is clamped", tab.readStoredBasis(2), tab.BASIS_MIN);
+is("a divider above the ceiling is clamped", tab.readStoredBasis(99), tab.BASIS_MAX);
 is("a divider that is not a number is forgotten", tab.readStoredBasis("62"), null);
-is("a size below the minimum is clamped", tab.readStoredSize({ inline: 10, block: 10 }), { inline: 300, block: 160 });
+// The floors are the SCRIPT'S, sliced above. This check read `{300, 160}` until
+// 1.2.0 and passed against a `MIN_BLOCK` this file invented; the script's has been
+// 215 since 1.0.0. Whether 215 is the RIGHT floor is `css-smoke`'s question -- it
+// derives it from the stylesheet's own arithmetic -- and this one only says that a
+// height below the floor comes back at it.
+is("a size below the minimum is clamped", tab.readStoredSize({ inline: 10, block: 10 }), { inline: tab.MIN_INLINE, block: tab.MIN_BLOCK });
+// 1600x900 minus the 32px margin, and both numbers are the harness's own window.
 is("a size wider than this window is clamped", tab.readStoredSize({ inline: 9000, block: 9000 }), { inline: 1568, block: 868 });
 is("a size that is not a size is forgotten", tab.readStoredSize({ inline: "wide" }), null);
 
