@@ -23,7 +23,8 @@ August 2026.
 | `research/` | **The seven research passes.** The measurements, with their dates and their run counts. This is the irreplaceable part |
 | `prompts.md` | The session prompts that drove the map effort |
 | `build-prompts.md` | The session prompts that drove the three build sessions, L1 to L3, with the guards each one carried |
-| `prompts-configurability.md` | **The one LIVE file here.** An unrun prompt for the next effort — configurable export formats — written at the end of the 1.1.0 session by the person who built it, so it names the traps from the inside. Everything else in this directory is history; this one is a plan |
+| `prompts-configurability.md` | The prompt for the configurability effort, written at the end of the 1.1.0 session by the person who built it, so it names the traps from the inside. **Run on 2026-08-21/22**, and left exactly as written, with a note on what it predicted and what it did not |
+| `configurability/` | **The LIVE part of this directory.** The decisions that prompt produced, and **six implementation tickets** to be taken one per session. Start at its README |
 
 `part1.js` to `part6.js` were left in scratch and not committed: they are version
 0.1.0 written in six chunks, superseded by the 4,826-line file in `src/`.
