@@ -293,6 +293,13 @@ for the words they used will not find them.
 correction below. The `bold` flag is the whole of the difference and it is a
 one-argument change in either direction if a paste ever says otherwise.
 
+**CONFIRMED IN A BROWSER the same day, in real Jira.** The `Issue reference` row is
+pinned above the tab bar with its five options; all five were pressed on all three
+exports and every head took the shape chosen; and the row **fits and reads at the
+drawer's 300px floor**, which no harness in this repo can see. ADR §7 step 30 carries
+it. **One half is deliberately left unrun and is recorded as such:** whether
+`Restore export defaults` puts the dropdown back.
+
 ---
 
 **Nothing is open. Tickets 02, 03, 04 and 05 can each be run from their own file, and
