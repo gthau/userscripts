@@ -297,8 +297,8 @@ one-argument change in either direction if a paste ever says otherwise.
 pinned above the tab bar with its five options; all five were pressed on all three
 exports and every head took the shape chosen; and the row **fits and reads at the
 drawer's 300px floor**, which no harness in this repo can see. ADR §7 step 30 carries
-it. **One half is deliberately left unrun and is recorded as such:** whether
-`Restore export defaults` puts the dropdown back.
+it. **`Restore export defaults` puts the dropdown back**, pressed the same day, which
+closes the one half that had been left standing.
 
 ---
 
