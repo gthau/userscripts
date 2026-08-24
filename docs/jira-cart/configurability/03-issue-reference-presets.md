@@ -1,4 +1,4 @@
-# 03 — One head, four shapes, both flavours
+# 03 — One head, five shapes, both flavours
 
 **Lands the shared line-shape preset.** One setting decides how an issue is
 referenced in 🔗 Links, 📋 Details and 📊 Report. Named presets whose bytes live in
@@ -14,7 +14,26 @@ two amendments, **§4**'s rows for *"Bare URLs, one per line"* and
 
 ---
 
-## THIS TICKET IS BLOCKED UNTIL YOU HAVE PASTED
+## THE PASTE HAS BEEN DONE — 2026-08-24. This ticket is unblocked
+
+**All three questions below are answered, and the answers are in appendix A.9.1.**
+Read that subsection before this section; what follows is kept because the questions
+are what the answers mean.
+
+- **A visible URL survives, and arrives clickable.** So the URL-bearing shapes are
+  available on **all three** exports, not on 🔗 Links alone.
+- **The em dash collision is ACCEPTED**, on the user's ground that these documents
+  are *read and never parsed* — nothing regex-parses a pasted report, so a separator
+  that repeats a character the summary may contain costs a machine's ambiguity and
+  not a reader's. The two alternatives are DECLINED rather than untried: a different
+  separator before the URL, and withholding the plain shapes from the two exports
+  that carry a field tail.
+- **FIVE shapes ship, not four.** The paste asked for one the prototype did not
+  offer: `[KEY](url)`, the markdown link with no summary. Ticket 01 has already put
+  `markdown-key` in `LINE_SHAPE_IDS`; this ticket owns its bytes in both flavours.
+  The id is named for what the reader sees, which is the key — the user called the
+  shape *"markdown url"*, so **the label is theirs to confirm** and the prototype has
+  no row for it.
 
 **Do not start from the argument. The argument is a hypothesis and the paste is the
 experiment** — 1.1.0 had four decisions written into the ADR and reversed by
@@ -63,9 +82,15 @@ and an `html(item, bold)`.
 ```js
 const SHAPES = [
   { id: "markdown", label: "Markdown link on the key", text: …, html: … },
+  { id: "markdown-key", label: "Markdown link, no summary", text: …, html: … },
   …
 ];
 ```
+
+**Five entries, and their ids are `LINE_SHAPE_IDS` from ticket 01** — that list is
+what a stored preference is range-checked against, so a table that disagrees with it
+is either an unreachable shape or a preference that renders nothing. Assert that the
+two name the same ids, in the same order.
 
 **Every shape defines both flavours** (decision 6). A shape that changed only
 `text/plain` would silently do nothing in Outlook, Word, Teams and Confluence,

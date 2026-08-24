@@ -631,8 +631,31 @@
      take the HTML -- belong beside the formatters that emit them. This list is what
      a stored value is checked against, and it is the list a shape is added to or
      dropped from: drop one and every blob naming it falls back to `markdown` on the
-     next read, with nothing else to change. */
-  const LINE_SHAPE_IDS = ["markdown", "key-summary-url", "key-url", "url"];
+     next read, with nothing else to change.
+
+     FIVE, AND ALL FIVE SURVIVED A REAL PASTE (appendix A.9.1, 2026-08-24). Every
+     shape read correctly in the paste targets and a visible URL arrived clickable,
+     which is what makes the three URL-bearing ones available on all three exports
+     rather than on 🔗 Links alone.
+
+       markdown          [KEY](url) Summary -- what 1.1.0 shipped
+       markdown-key      [KEY](url) -- the link with no summary. ASKED FOR BY THE
+                         PASTE rather than offered by the prototype, which had no
+                         such row
+       key-summary-url   KEY: Summary - url
+       key-url           KEY - url
+       url               url
+
+     Ticket 03 owns the bytes. It must assert that its shape table and this list name
+     the same ids, because a table with an id this list lacks is unreachable and an id
+     with no table is a preference that renders nothing. */
+  const LINE_SHAPE_IDS = [
+    "markdown",
+    "markdown-key",
+    "key-summary-url",
+    "key-url",
+    "url",
+  ];
 
   /* The fields that may BAND 📊 Report. Seven, where the catalogue above has eight,
      and both differences carry their reason so that a later session cannot quietly

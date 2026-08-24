@@ -3137,6 +3137,46 @@ tell you what Outlook does. Its findings are all above, and its assertions are i
 Excel were all reasoned about and none was pasted into. Confluence is the one most
 likely to differ, because it re-writes pasted HTML into its own storage format.
 
+#### A.9.1 The line shapes, 2026-08-24
+
+**A VISIBLE URL SURVIVES, AND THE EM DASH COLLISION IS ACCEPTED.** The four line
+shapes of the configurability prototype were put on the real clipboard with its own
+button and pasted by the user. Reported back: **every shape read correctly, and the
+URLs arrived displayed and clickable.** So the question the configurability effort
+could not answer by argument — whether making the URL the anchor's own visible label
+survives a paste — is answered yes, and the plain shapes are available on **all
+three** exports rather than on 🔗 Links alone.
+
+**The em dash collision is accepted, and the ground is what makes it transferable.**
+`RDC-1513`'s real summary contains ` - `, so a plain shape's URL separator is a
+character the summary itself uses, and the em dash then lands after 45 characters of
+link:
+
+```
+- RDC-1513: Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts - https://dalet.atlassian.net/browse/RDC-1513 — Story · Dev Resolved
+```
+
+The user's reason for accepting it: **these documents are read, never parsed.**
+Nothing regex-parses a pasted report; it is displayed to a person. So a separator
+that repeats a character the summary may contain costs nothing an ambiguity would
+cost a machine, and the em dash still does the job §2.8 gave it — marking where the
+metadata starts. The two alternatives are therefore not needed and are recorded as
+declined rather than untried: a different separator before the URL, and the plain
+shapes withheld from the two exports that carry a field tail.
+
+**A FIFTH SHAPE WAS ASKED FOR BY THE PASTE:** `[KEY](url)` — the markdown link on
+the key, with no summary. It is the markdown counterpart of `Key and URL, no
+summary`, and the prototype had no such row, so this one comes from use rather than
+from the table. Ticket 03 owns its bytes in both flavours.
+
+**What this run does NOT say, recorded so the entry is not read as more than it
+is.** It is the user's report of their own pastes rather than a screenshot matrix
+like the run above: the per-target breakdown was not itemised, so this appendix does
+**not** record which shape was pasted into which of Outlook, Teams light and Teams
+dark, nor which of the three exports carried it. What it establishes is the yes/no
+that was blocking — a visible URL survives and stays clickable — and not a property
+table. If a later question needs the table, it needs new pastes.
+
 ---
 
 ## Appendix B — The store that was measured and rejected

@@ -129,9 +129,10 @@ overflows is silently gone.
 | Open question | Gates | How it gets answered |
 | --- | --- | --- |
 | Two, three or four tabs | 02 | Press the prototype. Recommendation in the ticket |
-| Which line shapes ship | 03 | Paste into Outlook and Teams |
-| Does a visible URL survive Outlook and Teams | 03 | Paste. Never reason about it (A.9) |
-| The em dash collision | 03 | Paste. See the warning below |
+| How the ⚙ button gets noticed | 02 | A beta tester missed it. See below |
+| ~~Which line shapes ship~~ | 03 | **Closed 2026-08-24.** Five, one of them new |
+| ~~Does a visible URL survive Outlook and Teams~~ | 03 | **Closed 2026-08-24.** It does, clickable |
+| ~~The em dash collision~~ | 03 | **Closed 2026-08-24.** Accepted |
 | ~~Is the drag usable at 300px~~ | 04 | **Closed 2026-08-24.** Drag ships; see below |
 | ~~Does the head read `⚙ Settings` while the panel is up~~ | 02 | **Closed 2026-08-24.** It does; see below |
 
@@ -177,7 +178,39 @@ report's whole team band rests on this, and it was *expected rather than known* 
 now. **C.5 is untouched** — the other `Team` fields are still unprobed, and limit 1
 still says the id is instance-specific.
 
-**Still open: the tab count (02), and the three paste questions (03).**
+### Answered on 2026-08-24 by the paste, and one new finding
+
+**27. FIVE line shapes ship, and every one of them survived a real paste.** A.9.1
+has the run. Every shape read correctly and a visible URL arrived **clickable**, so
+the URL-bearing shapes are available on **all three** exports rather than on 🔗 Links
+alone. The paste also asked for a shape the prototype did not offer — `[KEY](url)`,
+the markdown link with no summary — which is now `markdown-key` in
+`LINE_SHAPE_IDS`. The user called it *"markdown url"*; the id is named for what the
+reader sees, and the label is still theirs to confirm in ticket 03.
+
+**28. THE EM DASH COLLISION IS ACCEPTED, because these documents are read and never
+parsed.** That is the user's ground and it is worth keeping in those words: nothing
+regex-parses a pasted report, so a URL separator that repeats a character the summary
+may contain costs a machine's ambiguity rather than a reader's, and the em dash still
+marks where the metadata starts. The warning below is left standing because it is
+what the decision answers. Both alternatives — a different separator before the URL,
+and withholding the plain shapes from the exports that carry a field tail — are
+**declined rather than untried**.
+
+**NEW, AND FROM A THIRD PARTY: THE ⚙ BUTTON IS NOT NOTICED.** A beta tester using
+1.1.0 did not find the settings at all, which the user confirmed. Measured against
+the code: it is a 13px grey glyph in a 22px box with a transparent background and a
+transparent border, so it has **no resting affordance** — it looks like chrome until
+you hover it, and it sits beside a ✕, which is the one glyph everybody already
+recognises. This repo has met the same failure once before and recorded it in A.9: a
+dim `■` before the type "read as a broken glyph", and the fix was a word rather than
+a bolder pictograph. **The fix belongs to ticket 02**, which rebuilds this button as
+a state button anyway; the option chosen goes here when it is chosen. Note the
+constraint that rules one option out: the head's height feeds the drawer's 215px
+floor (`css-smoke` derives it with `HEAD = 35`), so a **taller** button re-derives
+`MIN_BLOCK`, while a **wider** one costs only the collection name's ellipsis.
+
+**Still open: the tab count and the ⚙ affordance, both in 02.**
 
 **The em dash collision, because it is the sharpest thing the prototype found.**
 §2.8 invented the em dash because *"a summary can contain dashes"*. `RDC-1513`'s
@@ -221,7 +254,7 @@ be fixed by whichever ticket touches that section.
 | --- | --- | --- |
 | [01](01-preferences.md) | The preferences exist before anything reads them | New keys, range-checked, `store-smoke`. No visible change |
 | [02](02-settings-screen.md) | ⚙ is a screen, not a strip | The mode, the state button, the tabs, the restore |
-| [03](03-issue-reference-presets.md) | One head, four shapes, both flavours | The shared line-shape preset |
+| [03](03-issue-reference-presets.md) | One head, five shapes, both flavours | The shared line-shape preset |
 | [04](04-field-lists.md) | Two selections over one catalogue | The two field lists and the drag |
 | [05](05-report-bands.md) | Seven bands, and one of them repeats an issue | Generalised grouping |
 | [06](06-record-and-ship.md) | The version, the rig and the record | 1.2.0, the rig, the docs |
