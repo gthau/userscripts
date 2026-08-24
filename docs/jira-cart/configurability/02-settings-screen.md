@@ -37,11 +37,14 @@ which is the only one of the three that fits the minimum drawer height without
 scrolling. The cost is real and worth stating in the ADR: *Appearance* sits as a
 peer of two export tabs, which is not a clean taxonomy.
 
-**Second question, one line either way:** while the panel is up, does the head keep
-reading `🛒 Sprint review 2608-01 7`, or become `⚙ Settings`? The repo's convention
-is that the label IS the state (§2.14, §3), which argues for changing it. Against:
-the head is the drawer's identity, and `jira-ux`'s toolbar does not rename itself
-when the padlock is on. **The prototype leaves it unchanged. Decide and record it.**
+**Second question — ANSWERED on 2026-08-24, by the user: the head reads
+`⚙ Settings`.** The original question and both sides are kept because the reasoning
+is still what records the cost: the repo's convention is that the label IS the state
+(§2.14, §3), which is what won; against it was that the head is the drawer's
+identity, and `jira-ux`'s toolbar does not rename itself when the padlock is on. So
+while the panel is up the drawer stops naming the collection you are collecting into
+— **the badge still does**, which is what makes the cost acceptable. The prototype
+leaves the head unchanged and is now wrong about this; say so if you touch it.
 
 ---
 
@@ -56,6 +59,26 @@ with what is on screen.
 Why the foot goes too: six buttons and a border is about 40px, a fifth of the
 drawer at `MIN_BLOCK`, and none of them can act on anything while ⚙ is up. The
 cost is that checking a setting means one press to go back — accepted for the room.
+
+**COLLECTING FROM THE PAGE KEEPS WORKING WHILE ⚙ IS UP.** Decision 25, added by the
+user on 2026-08-24, and it is a constraint rather than a question: ⚙ replaces the
+inside of the DRAWER, and the floating `+` beside a hovered issue link is a different
+element on the page. `renderToggle` reads only the hovered anchor and the active
+collection, so the gesture, the badge count, the right-click entry and the page
+decoration all keep working with nothing added. Two consequences, both of which need
+a check rather than a reading:
+
+1. **An add while ⚙ is up must not close the panel.** Every add calls `render`, so
+   the panel has to be a pure function of the in-memory `prefsOpen` flag — exactly
+   as below. That is what the check proves.
+2. **An add re-renders the drawer under whatever is on screen**, in this tab or
+   another. Harmless for a tab bar and a row of checkboxes; not harmless for ticket
+   04's drag, which is why it is written down here as well as there.
+
+What is NOT available while ⚙ is up, stated so it reads as the accepted cost of
+decision 17 rather than as a defect: the live list, the collection list and all six
+foot buttons. An item added from the page while the panel is up lands, and you see
+it in the badge rather than in the drawer.
 
 **`prefsOpen` stays in memory.** It is not a stored preference, and that is
 deliberate against §2.9's precedent for the drawer's own `open`: a reload landing
@@ -126,6 +149,13 @@ drawer; reproduce it once by hand so you have seen it.
 - pressing ⚙ hides the sections **and** the foot, and `aria-pressed` becomes `true`
 - pressing it again brings both back
 - ✕ closes the drawer from either screen
+- the head reads `⚙ Settings` while the panel is up, and the collection's name and
+  count again once it is down
+- **an add from the page while ⚙ is up lands in the active collection, updates the
+  badge, and leaves the panel open on the same tab** (decision 25). `boot-smoke`
+  already drives the floating toggle through its real listeners, so this is a click
+  it can make
+- a value-change event from another tab while ⚙ is up does the same
 - switching tab writes `settingsTab` and a fresh boot lands on it
 - a stored `settingsTab` this build does not know → the first tab, and the panel is
   not empty

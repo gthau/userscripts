@@ -132,8 +132,52 @@ overflows is silently gone.
 | Which line shapes ship | 03 | Paste into Outlook and Teams |
 | Does a visible URL survive Outlook and Teams | 03 | Paste. Never reason about it (A.9) |
 | The em dash collision | 03 | Paste. See the warning below |
-| Is the drag usable at 300px | 04 | Press the prototype at `Width → 300 min` |
-| Does the head read `⚙ Settings` while the panel is up | 02 | One line either way. Your call |
+| ~~Is the drag usable at 300px~~ | 04 | **Closed 2026-08-24.** Drag ships; see below |
+| ~~Does the head read `⚙ Settings` while the panel is up~~ | 02 | **Closed 2026-08-24.** It does; see below |
+
+### Answered on 2026-08-24, by the user
+
+Two rows above are closed, one limit is confirmed, and **one new constraint arrived
+with them**. The 23 decisions are untouched; these sit beside them.
+
+**24. The head reads `⚙ Settings` while the panel is up.** The repo's convention
+wins over the argument for identity: the label IS the state (§2.14, §3). Ticket 02
+records it in §2.9 with the cost — the drawer stops naming the collection you are
+collecting into for as long as the panel is up, and the badge still does.
+
+**25. COLLECTING FROM THE PAGE KEEPS WORKING WHILE ⚙ IS UP.** New, and a constraint
+on ticket 02 rather than a question for it. What ⚙ replaces is the *inside of the
+drawer*; the floating `+` beside a hovered issue link is a different element on the
+page, and `renderToggle` reads only the hovered anchor and the active collection —
+nothing about the drawer's body. So the gesture, the badge count, the right-click
+entry and the page decoration all keep working, and **this costs nothing to
+honour**. Two consequences to write down rather than discover:
+
+- An add while ⚙ is up **must not close the panel**. Every add calls `render`, so
+  the panel has to be a function of the in-memory `prefsOpen` flag — which is what
+  ticket 02 already specifies. It is the check that proves it.
+- An add in **this** tab or another one re-renders the drawer, so it can land in the
+  middle of a field-list drag. §2.11 already carries two defects from the drawer's
+  existing drags; ticket 04's drag inherits the problem and must survive a re-render
+  it did not ask for.
+
+**26. The drag ships, and the 300px press was NOT run.** Decided on the ground that
+a user who finds it fiddly at the minimum width will make the drawer wider — the
+drawer is resizable and the grip is right there. Recorded as *decided* rather than
+*measured*, so a later session does not read it as a press that happened. The costs
+of decision 11 stand unchanged and are now unmitigated by a press: no harness in
+this repo can drive a drag, so `moveField(list, from, to)` must be pure and covered,
+and §7 gains a browser step. ↑↓ buttons are off the table.
+
+**§2.15 limit 2 is CONFIRMED — `bulkfetch` does return a custom field asked for by
+id.** This was ticket 05's confirm-early, and it is now done: 📊 Report was pressed
+on a collection whose issues carry a team, and the sub-band headings read the real
+team names. Recorded in the ADR at §2.15 limit 2 and appendix C.4, both dated. The
+report's whole team band rests on this, and it was *expected rather than known* until
+now. **C.5 is untouched** — the other `Team` fields are still unprobed, and limit 1
+still says the id is instance-specific.
+
+**Still open: the tab count (02), and the three paste questions (03).**
 
 **The em dash collision, because it is the sharpest thing the prototype found.**
 §2.8 invented the em dash because *"a summary can contain dashes"*. `RDC-1513`'s

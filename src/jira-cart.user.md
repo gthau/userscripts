@@ -2280,6 +2280,12 @@ sections to somebody's page.
    than known** when this was written. The Cart had only ever requested system
    fields. §2.6's rule that a requested-but-absent field is normal covers it
    failing, and the failure is visible: every heading becomes `No team`.
+   > **CONFIRMED on 2026-08-24. It does.** 📊 Report was pressed on a real
+   > collection whose issues carry a team, and the sub-band headings read the real
+   > team names rather than `No team`. So `customfield_15541` comes back from
+   > `bulkfetch` when it is asked for by id, and this limit is closed. The
+   > paragraph above stays because its failure mode is still the one to look for
+   > on another instance, where limit 1 applies. Appendix C.4 carries the run.
 3. **An issue carries at most one team**, because the field is one object and not an
    array (appendix C.4). So an item appears exactly once and *lines equals items*
    still holds across the whole document, even though it cannot be checked band by
@@ -3373,6 +3379,23 @@ heading. And whether `bulkfetch` returns a **custom** field when asked for it by
 is *expected* rather than known: the Cart has only ever requested system fields. One
 line confirms it on the first build session, and §2.6's rule that a
 requested-but-absent field is normal already covers it failing.
+
+> **The second guard is MEASURED as of 2026-08-24, and it holds.** `bulkfetch`
+> returns `customfield_15541` when it is asked for by id. Run by the user, in the
+> shipped 1.1.0 script rather than in a console line: 📊 Report was pressed on a
+> collection whose issues carry a team, and the pasted sub-band headings read the
+> **real team names**. That is the whole of the check, because the failure mode is
+> visible and total — every heading would have read `No team` (§2.15 limit 2, now
+> closed).
+>
+> Two things this run does NOT say, so that neither is mistaken for settled. It was
+> one instance and one project's field, so **limit 1 stands**: on another Jira the
+> id is different and the headings go quiet rather than wrong. And it says nothing
+> about C.5 below — the other fields named `Team` are still unprobed, and a
+> collection that leaves this project is still the case that needs them.
+>
+> The first guard is still unmeasured: nothing here has yet met a team the reader
+> cannot see.
 
 The line that answered it, for the next instance that needs the same thing:
 

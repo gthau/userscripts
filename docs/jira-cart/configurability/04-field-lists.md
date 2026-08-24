@@ -14,16 +14,22 @@ and **§4**'s row *"A column picker for the detailed export"*. Then
 
 ---
 
-## Answer this before you write the drag
+## ANSWERED on 2026-08-24 — the drag ships, and it was NOT pressed
 
-**Is the drag usable at 300px?** Open the prototype at
-<https://claude.ai/code/artifact/bd8a1916-a814-472d-9a06-f801c0ba144e>, set
-`Width → 300 min`, and reorder a field list by hand.
+The question was *is the drag usable at 300px*, to be answered by pressing the
+prototype at `Width → 300 min`. **The user answered it by decision instead: a user
+who finds it fiddly at the minimum width will make the drawer wider.** The drawer is
+resizable and the grip is right there. ↑↓ buttons are off the table.
 
-Drag was chosen over ↑↓ buttons after the cost was stated: **no harness in this
-repo can drive a drag**, because `boot-smoke` has no layout and no paint. If the
-drag turns out to be fiddly at the drawer's minimum width, ↑↓ is still on the
-table and it is cheaper in every dimension. Press it before you commit to it.
+Recorded as **decided rather than measured**, so no later session reads it as a press
+that happened. Two things follow, and neither is softened by the decision:
+
+- **No harness in this repo can drive a drag**, because `boot-smoke` has no layout
+  and no paint. So `moveField` below is mandatory, not stylistic, and §7 gains the
+  browser step.
+- **A re-render can land in the middle of a drag.** An add from the page — in this
+  tab or another — calls `render`, and decision 25 says that gesture keeps working
+  while ⚙ is up. §2.11's two existing drag defects are the reading to do first.
 
 ---
 
@@ -146,4 +152,6 @@ nothing here can cover it.
   checkable — what changed is that there are more of them.
 - **§4's *"A column picker for the detailed export"* row overturned**, dated, in place.
 - **The one-catalogue-two-selections sentence is in §2.14.**
-- The drag decision recorded, including whether you kept it after pressing it.
+- **The drag recorded as DECIDED and not measured**, with the user's ground for it —
+  a fiddly drag at 300px is answered by widening the drawer — and with the browser
+  step that stands in for the harness that cannot drive it.
