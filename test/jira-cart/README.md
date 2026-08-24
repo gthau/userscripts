@@ -5,7 +5,7 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**716 checks across seven files. No framework, no `package.json`, no dependencies.**
+**840 checks across seven files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
@@ -22,9 +22,9 @@ answer.
 | `smoke.mjs` | 32 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` |
 | `store-smoke.mjs` | 110 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of all eight views, and `groupFor`'s **two** answers — place beside the key, read from the widest |
-| `format-smoke.mjs` | 257 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order |
-| `boot-smoke.mjs` | 218 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable |
-| `css-smoke.mjs` | 43 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it |
+| `format-smoke.mjs` | 346 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It also holds **`moveField` directly** — the middle, both ends, an out-of-range index, a string index, and both no-ops — because no harness here can drive the drag itself |
+| `boot-smoke.mjs` | 250 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one |
+| `css-smoke.mjs` | 46 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
 
 ## Why they cannot drift from the code
@@ -158,6 +158,13 @@ test step.
 - **No layout and no paint.** Nothing here computes a box. §2.11 rule 7's numbers are
   derived by reading the stylesheet, and appendix C.3 is the probe that would measure
   them for real.
+- **NO DRAG, OF ANY OF THE THREE.** It follows from the line above: with no layout
+  there is no top half of a row to put a pointer in, and no grip to pull. The grip
+  and the divider have always been in this bullet; the field lists' reorder joined
+  them at 1.2.0, and it is the one place where the cost was named *before* the
+  feature was chosen (§4, decision 11). What stands in for it is `moveField` being a
+  pure function `format-smoke` drives directly, plus §7 step 31 in a browser. **A
+  green run says nothing about whether a row can be dragged at all.**
 - **No network.** `fetch` throws, which is a case the ADR requires to be survivable
   (§7 step 20: a summary-less item must simply stay bare).
 - **No React, and no real virtualisation.** Rows do not unmount under the pointer.

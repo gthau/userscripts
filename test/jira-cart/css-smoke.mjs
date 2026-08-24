@@ -226,6 +226,28 @@ const tabOnHover = tabOn?.sel.split(",").map((x) => x.trim()).find((x) => x.incl
 is("and keeps them under the pointer, so the tab you are on does not go quiet",
    beats(spec(tabOnHover ?? ""), spec(tabHover?.sel ?? "")), true);
 
+// THE SAME TRAP A THIRD TIME, on the field lists' drag (§2.14, 1.2.0). The row being
+// dragged is BY DEFINITION the row under the pointer, so an equal-specificity hover
+// rule would decide it on source order alone -- which is a paint that works until
+// somebody moves a rule. The drop indicator needs no such pair: it sets a border
+// colour where hover sets a background, so the two never contend.
+const fieldHover = rules.find((r) => r.sel === "aside#gt-cart-drawer div.gt-cart-field:hover");
+const fieldDragging = rules.find((r) => /div\.gt-cart-field\[data-gt-dragging="true"\]/.test(r.sel));
+const fieldDraggingHover = fieldDragging?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("the dragged row keeps its own ground under the pointer that is dragging it",
+   beats(spec(fieldDraggingHover ?? ""), spec(fieldHover?.sel ?? "")), true);
+// A TRANSPARENT BORDER ON ALL FOUR SIDES, always, so that the indicator appearing
+// does not change the row's height -- a reflow under a pointer mid-drag, which is
+// the defect §2.14 spent a day removing from the foot.
+const fieldBase = rules.find((r) => r.sel === "aside#gt-cart-drawer div.gt-cart-field");
+is("every field row reserves the border the drop indicator paints",
+   /border:\s*1px solid transparent/.test(fieldBase?.body ?? ""), true);
+is("and the indicator only ever changes its colour, never its width",
+   ["before", "after"].map((edge) => {
+     const rule = rules.find((r) => r.sel.endsWith(`[data-gt-drop="${edge}"]`));
+     return /^\s*border-block-(start|end)-color:[^;]+;?\s*$/.test(rule?.body ?? "");
+   }), [true, true]);
+
 // ---- 2d. THE DRAWER OWNS ITS FOCUS APPEARANCE. Atlassian's sheet may style a
 // focused button inside the Cart, and a host rule on :focus paints on a MOUSE click
 // where the Cart's own :focus-visible ring does not. So :focus is cleared -- and

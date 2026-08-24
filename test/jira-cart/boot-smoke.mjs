@@ -850,9 +850,14 @@ is("and they are shown by their labels, not their ids",
   ["Markdown link on the key", "Markdown link, no summary", "Key, summary, then the URL",
    "Key and URL, no summary", "URL only"]);
 is("it carries what storage says", shapeSelect().value, "markdown");
-is("and the pinned group has lost its placeholder note",
-  byId.get("gt-cart-prefs").querySelector(".gt-cart-group").children
-    .some((child) => child.className === "gt-cart-note"), false);
+// THE LAST PLACEHOLDER WENT AT 1.2.0. `Nothing to configure here yet.` stood in for
+// each group until the ticket that filled it arrived; ticket 03 took the pinned
+// group's and ticket 04 took both export tabs', so the class is gone from the script
+// and from the stylesheet with it. This asserts it is gone from the whole screen and
+// not just from one group, because a placeholder left on a tab nobody opened is a
+// screen that reads as unfinished to the one person who does open it.
+is("no placeholder note is left anywhere on the settings screen",
+  byId.get("gt-cart-prefs").querySelectorAll(".gt-cart-note").length, 0);
 
 shapeSelect().value = "key-summary-url";
 dispatch(shapeSelect(), "change");
@@ -897,6 +902,117 @@ is("and the panels swapped",
 is("the restore appears on a tab that holds export settings", restoreButton().hidden, false);
 is("and it is an offer before it is a question", restoreButton().textContent, "↺ Restore export defaults");
 
+/* ---- TWO SELECTIONS OVER ONE CATALOGUE (§2.14, decisions 7 to 11). Each export
+   tab carries an ordered, ticked list of the SAME eight fields, and a preference can
+   only say which of them a document uses and in what order -- so the ids, the labels
+   and every measured style stay in one copy each and nothing a user can click
+   reaches the five paste rules.
+
+   THE DRAG ITSELF IS NOT DRIVEN HERE AND CANNOT BE: this harness has no layout and
+   no paint, so there is no top half of a row to put a pointer in. `format-smoke`
+   covers `moveField` directly and §7 step 31 is the browser pass that covers the
+   pointer plumbing. What IS driven here is everything else -- the rows, the ticks,
+   the writes, and the order the panel draws a stored list in. */
+const fieldRows = (tab) => byId.get(`gt-cart-fields-${tab}`).children;
+const fieldIds = (tab) => fieldRows(tab).map((row) => row.attrs["data-gt-field"]);
+const fieldRow = (tab, id) => fieldRows(tab).find((row) => row.attrs["data-gt-field"] === id);
+const fieldBox = (tab, id) => fieldRow(tab, id).querySelector("input");
+const fieldNote = (tab, id) => fieldRow(tab, id).querySelector(".gt-cart-field-note").textContent;
+const ticked = (key) => prefsOf()[key].filter((one) => one.on).map((one) => one.id);
+const CATALOGUE = ["type", "status", "priority", "assignee", "team", "fixv", "remaining", "parent"];
+
+is("each export tab carries a field list", 
+  ["details", "report"].map((tab) => !!byId.get(`gt-cart-fields-${tab}`)), [true, true]);
+is("and the appearance tab does not, because it configures no export",
+  byId.get("gt-cart-fields-appearance"), undefined);
+// OFF IS NOT ABSENT. Every catalogue field has a row whether it is ticked or not, so
+// a field is always findable and one click turns it on -- which is the other half of
+// `normaliseFieldList`'s step 5 and why a stored empty list is still completed.
+is("every catalogue field has a row in both lists, ticked or not",
+  [fieldIds("details"), fieldIds("report")], [CATALOGUE, CATALOGUE]);
+is("and it is named once, in the catalogue, rather than beside the checkbox",
+  fieldRows("details").map((row) => row.querySelector("label").textContent || 
+    row.querySelector("label").children.map((k) => k.textContent).join("")),
+  [" Type", " Status", " Priority", " Assignee", " Team", " Fix version", " Time remaining", " Parent"]);
+is("each box says what storage says",
+  fieldIds("details").map((id) => fieldBox("details", id).checked),
+  [true, true, true, true, false, true, true, true]);
+// TWO SELECTIONS. Report's own list is the same catalogue with priority off, because
+// priority is its first band -- and at 1.2.0 that is what the DEFAULT says rather
+// than what the renderer does (decision 8).
+is("📊 Report's list is its own, and it differs from 📋 Details' by the band",
+  fieldIds("report").map((id) => fieldBox("report", id).checked),
+  [true, true, false, true, false, true, true, true]);
+is("team is off in both: a NEW FIELD ARRIVES OFF where a new tab arrives visible",
+  ["details", "report"].map((tab) => fieldBox(tab, "team").checked), [false, false]);
+
+// Every row is a drag target that names the preference a drop writes. The row and
+// its checkbox both carry it, because the delegated `change` listener is handed the
+// input and the delegated drag listeners are handed the row.
+is("every row is draggable and names the key it writes",
+  fieldRows("details").map((row) => `${row.attrs.draggable}:${row.attrs["data-gt-list"]}`),
+  CATALOGUE.map(() => "true:detailsFields"));
+is("and so does every checkbox inside one",
+  fieldRows("report").map((row) => row.querySelector("input").attrs["data-gt-list"]),
+  CATALOGUE.map(() => "reportFields"));
+
+// A FIELD THAT IS ALSO A HEADING IS MARKED, NOT VETOED (decision 8). A field that
+// appeared only in a heading would be a field whose meaning depends on the row's
+// position, which is what §2.14 rule 4 is about -- so somebody who drags a line out
+// of its band in the pasted mail can choose to keep the value readable on the row.
+is("📊 Report marks the two fields that are also its headings",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["priority", "team"]);
+is("and it says so in words", fieldNote("report", "priority"), "also a heading");
+is("📋 Details marks nothing, because it has no headings at all",
+  fieldIds("details").filter((id) => fieldNote("details", id)), []);
+
+// ---- TICKING A FIELD IS A WRITE, and the panel reads it back out of storage.
+const teamBox = fieldBox("details", "team");
+teamBox.checked = true;
+dispatch(teamBox, "change");
+flush();
+is("ticking a field writes the preference", ticked("detailsFields"),
+  ["type", "status", "priority", "assignee", "team", "fixv", "remaining", "parent"]);
+is("and the box still says what storage says after the render it caused",
+  fieldBox("details", "team").checked, true);
+// ONE CATALOGUE, TWO SELECTIONS: what is duplicated is the selection, and it costs a
+// second list of checkboxes and nothing else.
+is("the OTHER list was not touched by it", ticked("reportFields"),
+  ["type", "status", "assignee", "fixv", "remaining", "parent"]);
+
+// A TICK IS NOT A REORDER. The entry keeps its place, which is the whole reason the
+// list stores { id, on } in order rather than an array of enabled ids: unticking
+// would otherwise lose the position and re-ticking would send the field to the end.
+const priorityBox = fieldBox("details", "priority");
+priorityBox.checked = false;
+dispatch(priorityBox, "change");
+flush();
+is("unticking writes too", ticked("detailsFields"),
+  ["type", "status", "assignee", "team", "fixv", "remaining", "parent"]);
+is("AND THE FIELD KEEPS ITS PLACE rather than being sent to the end",
+  prefsOf().detailsFields.map((one) => one.id), CATALOGUE);
+is("so the row is still where it was, unticked", 
+  [fieldIds("details")[2], fieldBox("details", "priority").checked], ["priority", false]);
+
+// ---- THE PANEL DRAWS THE STORED ORDER. This is the state half of the drag: the
+// preference a drop writes is poked in directly, and what is checked is that the
+// panel puts the rows where it says. No pointer is involved and none could be.
+const parentRow = fieldRow("details", "parent");
+setPrefs({ detailsFields: 
+  ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]
+    .map((id) => ({ id, on: prefsOf().detailsFields.find((one) => one.id === id).on })) });
+is("a stored reorder is what the panel draws, not the catalogue's order",
+  fieldIds("details"),
+  ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]);
+// MOVED, NOT REBUILT. A rebuilt row would take the focus off the box you are
+// clicking and would pull the floor out from under a drag already in flight, which
+// is the rule ticket 02 wrote for this panel and the reason it only ever SETS.
+is("and the row was MOVED rather than built again, which is the panel's whole rule",
+  fieldRows("details")[0] === parentRow, true);
+is("so its checkbox came with it, still saying what storage says",
+  fieldBox("details", "parent").checked, true);
+is("📊 Report's list did not move with it", fieldIds("report"), CATALOGUE);
+
 // ---- COLLECTING FROM THE PAGE KEEPS WORKING WHILE ⚙ IS UP (decision 25). What ⚙
 // replaces is the inside of the DRAWER; the floating `+` beside a hovered issue link
 // is a different element on the page, and `renderToggle` reads only the hovered
@@ -929,6 +1045,48 @@ flush();
 is("another tab's write re-renders the drawer under the panel", badge.textContent, "🛒 Scratch 1 ▾");
 is("and does not close it either", [panel().hidden, tabPanel("details").hidden], [false, false]);
 
+/* ---- A HELD FETCH SURVIVES A PREFERENCE CHANGE, and that is the visible half of
+   the decision that the selection is applied at RENDER and never at fetch.
+   `DETAIL_FIELDS` asks Jira for all nine whatever the two lists say, so the held rows
+   carry every field and a field ticked while a copy is armed costs a re-render and
+   nothing else. Narrowing the fetch to the ticked fields is the obvious-looking
+   optimisation and it would disarm the button you had already armed -- including
+   from ANOTHER TAB, where nobody pressed anything (§2.14).
+
+   What throws the held fetch away is a change to the KEY LIST, and only that. */
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [{ key: "RDC-1513" }] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("📋 Details is armed while the settings are up", details().textContent, "📋 Copy");
+const fixvBox = fieldBox("details", "fixv");
+fixvBox.checked = false;
+dispatch(fixvBox, "change");
+flush();
+is("a field unticked mid-arm wrote the preference", ticked("detailsFields").includes("fixv"), false);
+is("AND THE ARMED COPY IS STILL ARMED", details().textContent, "📋 Copy");
+is("and still offers the same two items it fetched", /^Copy 1 item/.test(details().title), true);
+// The same from outside this tab, which is where nobody pressed anything.
+setPrefs({ reportFields: prefsOf().reportFields.map((one) => ({ ...one, on: false })) });
+is("another tab emptying the OTHER list does not disarm it either",
+  details().textContent, "📋 Copy");
+// And the copy it makes is the list as it stands NOW, not as it stood at the press.
+dispatch(details(), "click");
+await settle();
+is("the copy took the fields as they stand at the COPY, not at the fetch",
+  /Pyr 2026\.8\.0/.test(clipboard.at(-1)["text/plain"].text), false);
+is("and the fields still ticked are all there, in the order the drag left them",
+  clipboard.at(-1)["text/plain"].text.split(" — ")[1],
+  "↳ [RDC-26701](https://dalet.atlassian.net/browse/RDC-26701) · Story · Dev Resolved · William CHUANG · 0m left");
+await settle();
+await settle();
+network.body = null;
+
 // ---- ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention:
 // ⌫ becomes `Empty 3?` before it will empty anything.
 // `url` and not a made-up id: since ticket 03 the shapes are real, and a restore
@@ -937,6 +1095,12 @@ is("and does not close it either", [panel().hidden, tabPanel("details").hidden],
 setPrefs({ lineShape: "url", reportBand2: "none", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
 is("five export settings are away from their defaults",
   [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
+// Both field lists too, and by real clicks and a real reorder rather than a poke:
+// the section above ticked team, unticked priority and fixv, moved the parent to the
+// top, and emptied 📊 Report's list altogether.
+is("and so are both field lists, which is what the two sections above did to them",
+  [ticked("detailsFields"), ticked("reportFields"), prefsOf().detailsFields[0].id],
+  [["parent", "type", "status", "assignee", "team", "remaining"], [], "parent"]);
 dispatch(restoreButton(), "click");
 flush();
 is("ONE PRESS ARMS IT and the label becomes the question", restoreButton().textContent, "Restore?");
@@ -961,10 +1125,16 @@ is("TWO PRESSES PUT THE FIVE EXPORT SETTINGS BACK",
   [prefsOf().lineShape, prefsOf().reportBand1, prefsOf().reportBand2],
   ["markdown", "priority", "team"]);
 is("both field lists with them", 
-  [prefsOf().detailsFields.filter((f) => f.on).map((f) => f.id),
-   prefsOf().reportFields.filter((f) => f.on).map((f) => f.id)],
+  [ticked("detailsFields"), ticked("reportFields")],
   [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"],
    ["type", "status", "assignee", "fixv", "remaining", "parent"]]);
+// THE ORDER COMES BACK WITH THE TICKS, because a restore puts the whole stored list
+// back and the order is half of what one says.
+is("and the ORDER comes back with them, not just the ticks",
+  prefsOf().detailsFields.map((one) => one.id), CATALOGUE);
+is("the panel followed it, which is a render reading storage rather than a click",
+  [fieldIds("details"), fieldBox("details", "priority").checked, fieldBox("details", "team").checked],
+  [CATALOGUE, true, false]);
 // IT IS AN EXPORT RESTORE AND NOTHING ELSE (decision 22). A dragged size is only
 // recoverable by dragging the grip again (risk 10), and being thrown to another tab
 // because you reset a field list would be a second change nobody asked for.

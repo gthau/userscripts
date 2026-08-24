@@ -51,7 +51,8 @@ the one place styling is written, and no preference can reach it.
    stops them drifting; the answer is **ONE CATALOGUE, TWO SELECTIONS** — the field
    ids, their labels and every measured style live in `detailBits`/`detailChip`
    once, and a preference can only say which of them a document uses and in what
-   order.
+   order. *(Built on 2026-08-25: the catalogue is now `FIELD_CATALOGUE` and one
+   field's value is `detailBit`, with `detailChip` unchanged. See decision 36.)*
 8. **A ticked field is displayed, band or not.** The shipped defaults leave the
    banded fields unticked, so 1.1.0's output is unchanged byte for byte. This
    replaces the hardcoded `detailBits(item, ["priority"])`.
@@ -300,10 +301,88 @@ drawer's 300px floor**, which no harness in this repo can see. ADR §7 step 30 c
 it. **`Restore export defaults` puts the dropdown back**, pressed the same day, which
 closes the one half that had been left standing.
 
+### Landed on 2026-08-25, by ticket 04
+
+**34. The two field lists ship, and §2.14's *"Not configurable"* is OVERTURNED —
+answered rather than dropped.** The bullet's ground was *"a setting that silently
+changes what a button produces is what §2.8 warns about, and a fixed output is
+checkable"*, and the amendment answers all three words that carry weight: the setting
+is **not silent** (a row of checkboxes in ⚙, on a tab named after the button it
+governs), the output is still a **fixed function** of it, and every reachable
+combination is **checkable** — `format-smoke` grew 87 checks saying so. What changed
+is that there are more combinations, not that any of them is unchecked. §4's row went
+with it, same date, same reasoning. **The line neither crosses is the one §2.8 drew:**
+a preference may say which fields and in what order, never what a field looks like.
+
+**35. `detailBits` lost `skip` and gained the selection, and the direction is the
+point.** A skip list says which fields a FORMAT declines, so the format owns the
+answer; a selection says which fields a DOCUMENT uses, so the preference does — and
+the two documents can then differ without either knowing about the other. The
+hardcoded `detailBits(item, ["priority"])` is gone; 📊 Report's default list simply
+leaves priority unticked, so its bytes are 1.1.0's.
+
+**36. The catalogue split out of the renderer, and a new seam needed a new check.**
+`FIELD_CATALOGUE` names the ids and the labels; `detailBit(id, item)` answers for one
+field; `detailChip` still owns every measured style. That creates the same defect
+shape `SHAPES`/`LINE_SHAPE_IDS` has — **a catalogue id with no `case` is a field that
+can be ticked and draws nothing** — so `format-smoke` ticks every catalogue id against
+an item carrying every field and requires a bit back. Two more tables are held
+together the same way: the tabs that EDIT a field list and the exports that READ one
+must name the same preference keys.
+
+**37. The drag survives a re-render because it carries an ID, never an index.** This
+is the answer to the hazard decision 25 created and §2.11's two existing drag defects
+pointed at. An add from the page keeps working while ⚙ is up, every add calls
+`render`, and another tab can write this very list — so by the time the pointer comes
+up the row under it may be at a different index than it was at `dragstart`. Both ends
+are resolved against the stored list at drop time. A stale index cannot exist because
+none was kept, and the drag therefore needs **no entry in the `dragging` guard**:
+unlike the grip and the divider it owns no property that `render` puts back.
+
+**HTML5 drag and drop, not the grip's pointer plumbing.** Two reasons, and the second
+is the load-bearing one: a reorder wants a drag image and a drop target, which the
+platform gives away and `trackDrag` would have to grow; and **Jira's own board and
+backlog drags are pointer-based**, so this is the mechanism least likely to collide
+with them on a page we do not own. It is also what the prototype the user pressed
+used.
+
+**38. The panel MOVES its rows and destroys none of them**, and the order on screen is
+compared against the order on screen rather than against a remembered signature. The
+live list and the chips keep a signature because they compare content that costs
+something to rebuild; here the comparison is eight ids long, and deriving it means
+there is no variable to reset when `ensureDrawer` builds a fresh drawer — which is a
+bug a signature would have had, silently, in exactly the case where the rows are back
+in catalogue order and the signature says they are not. `boot-smoke` asserts node
+identity across a reorder, so a later session cannot quietly turn it into a rebuild.
+
+**39. THE 300px PRESS WAS NOT RUN, and decision 26 is why.** Recorded again here
+because it is the one claim in this ticket that rests on a decision rather than a
+measurement: a user who finds the drag fiddly at the minimum width will make the
+drawer wider. If a pass ever says otherwise, decision 26 is what reopens — not the
+drag.
+
+**40. IT WAS USED IN A BROWSER THE SAME DAY, and this is a USE REPORT rather than a
+run of §7 step 31.** The user installed it and said *"I tested in the browser, it
+works"*. Recorded at exactly that precision, because the distinction is the one this
+whole record keeps: a use report says the panel draws, a tick takes and a row can be
+dragged, since none of that could be true otherwise. **It does not say which of step
+31's seven items were exercised**, and it does **not** close decision 26 — the 300px
+question was never whether the drag works, but whether it is fiddly at the floor, and
+nothing about a normal-sized drawer answers that. Step 31 keeps its items.
+
+**Twenty-one mutations were confirmed able to fail** in a scratch copy: the catalogue
+seam, `moveField`'s downward off-by-one and its non-integer guard, both shipped
+defaults, the em dash on an empty selection, the selection not being handed down at
+all, the panel rebuilding instead of moving and not reordering at all, a tick sending
+its field to the end of the list, the two lists collapsing into one — and three in the
+stylesheet, including **the same specificity trap this sheet has now been caught by
+twice**: the dragged row's ground is by definition under the pointer, so without a
+`:hover` twin it would win on source order alone.
+
 ---
 
-**Nothing is open. Tickets 02, 03, 04 and 05 can each be run from their own file, and
-06 records what they land.**
+**Nothing is open. Ticket 05 can be run from its own file, and 06 records what 02,
+03 and 04 landed.**
 
 **The em dash collision, because it is the sharpest thing the prototype found.**
 §2.8 invented the em dash because *"a summary can contain dashes"*. `RDC-1513`'s

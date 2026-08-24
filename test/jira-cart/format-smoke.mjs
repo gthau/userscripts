@@ -30,8 +30,9 @@ function slice(head, end) {
 }
 
 const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys","formatJql","searchUrl","format",
-               "detailBits","detailChip","formatDetails","byLabel","reportGroups","formatReport",
-               "shapeFor","bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine"];
+               "detailBit","detailBits","detailChip","formatDetails","byLabel","reportGroups","formatReport",
+               "shapeFor","bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine",
+               "clamp","defaultFieldList","enabledFields","moveField"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
 // because section 12 below asserts things ABOUT these values -- that no ground is
 // saturated, that no colour appears without one -- and a copy would let the file
@@ -45,6 +46,15 @@ const harness = `
   ${slice("const LINE_SHAPE_IDS = [", "\n  ];")}
   ${slice("const SHAPES = [", "\n  ];")}
   ${slice("const EXPORTS = [", "\n  ];")}
+  /* THE CATALOGUE AND THE SHIPPED DEFAULTS, sliced in rather than restated, because
+     section 16 below asserts things ABOUT them -- that the two defaults reproduce
+     1.1.0 byte for byte, and that every id the catalogue names draws something. A
+     copy here would assert that a copy is right. DEFAULT_PREFS is built at load from
+     defaultFieldList and SETTINGS_TAB_IDS, so both come with it. */
+  ${slice("const FIELD_CATALOGUE = [", "\n  ];")}
+  ${slice("const SETTINGS_TABS = [", "\n  ];")}
+  ${slice("const SETTINGS_TAB_IDS =", "\n")}
+  ${slice("const DEFAULT_PREFS = {", "\n  };")}
   ${slice("const LIST_ITEM_STYLE =", "\n")}
   ${slice("const NO_PRIORITY =", "\n")}
   ${slice("const NO_TEAM =", "\n")}
@@ -52,26 +62,44 @@ const harness = `
   ${slice("const SUMMARY_FIELDS =", "\n")}
   ${slice("const DETAIL_FIELDS = [", "\n  ];")}
   return {${names.join(",")}, EXPORTS, SHAPES, LINE_SHAPE_IDS, SUMMARY_FIELDS, DETAIL_FIELDS,
+          FIELD_CATALOGUE, SETTINGS_TABS, DEFAULT_PREFS,
           MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE,
           NO_PRIORITY, NO_TEAM, TEAM_FIELD};
 `;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const location = { origin: "https://dalet.atlassian.net" };
-/* THE ONE PREFERENCE THE FORMATS READ, and the harness stands in for the STORE
-   rather than for the formatters. `format` reads `loadPrefs().lineShape` once per
-   copy and hands the shape to all three consumers (§2.8, decision 5), so shimming
-   it here exercises the real path -- the same code that decides which shape a real
-   press gets. The three builders stay pure functions of their arguments.
+/* THE PREFERENCES THE FORMATS READ, and the harness stands in for the STORE rather
+   than for the formatters. `format` reads them once per copy and hands the shape and
+   the field selection to the builders (§2.8 decision 5, §2.14 decisions 7 and 8), so
+   shimming storage here exercises the real path -- the same code that decides what a
+   real press gets. The builders stay pure functions of their arguments.
 
-   `markdown` between tests, so every section written before 1.2.0 keeps asserting
-   1.1.0's bytes without knowing this exists. */
-let storedShape = "markdown";
-const loadPrefs = () => ({ lineShape: storedShape });
+   THE BASE IS `DEFAULT_PREFS` ITSELF, sliced out of the script. That is what makes
+   every section written before 1.2.0 a check that THE SHIPPED DEFAULTS still emit
+   1.1.0's bytes, rather than a check against a stub that happens to agree with them.
+   Nothing below sets a preference except through `withPrefs`, which puts the
+   defaults back afterwards. */
+let prefsPatch = {};
+let shipped = null;
+const loadPrefs = () => ({ ...shipped, ...prefsPatch });
 const f = new Function("SAFE_KEY_RE", "location", "loadPrefs", harness)(SAFE_KEY_RE, location, loadPrefs);
-const asShape = (id, kind, items, scope = "collection") => {
-  storedShape = id;
-  try { return f.format(kind, items, scope); } finally { storedShape = "markdown"; }
+shipped = f.DEFAULT_PREFS;
+const withPrefs = (patch, run) => {
+  prefsPatch = patch;
+  try { return run(); } finally { prefsPatch = {}; }
 };
+const asShape = (id, kind, items, scope = "collection") =>
+  withPrefs({ lineShape: id }, () => f.format(kind, items, scope));
+/* A STORED FIELD LIST IN THE ORDER GIVEN: the named ids ticked, in that order, then
+   every other catalogue field appended OFF -- which is the exact shape
+   `normaliseFieldList` produces, and the shape a user gets by dragging the fields
+   they want to the top and unticking the rest. */
+const listOf = (ids) => [
+  ...ids.map((id) => ({ id, on: true })),
+  ...f.FIELD_CATALOGUE.filter((one) => !ids.includes(one.id)).map((one) => ({ id: one.id, on: false })),
+];
+const withFields = (key, ids, kind, items, scope = "collection") =>
+  withPrefs({ [key]: listOf(ids) }, () => f.format(kind, items, scope));
 
 let fails = 0;
 const is = (label, got, want) => {
@@ -163,10 +191,14 @@ is("six exports, and the six labels", f.EXPORTS.map((one) => one.label),
   ["🔗 Links", "📃 Names", "🔑 Keys", "📋 Details", "📊 Report", "🔍 Search"]);
 is("only JQL restricts its scopes", f.EXPORTS.filter((one) => one.scopes).map((one) => one.kind), ["jql"]);
 is("exactly one entry navigates instead of copying", f.EXPORTS.filter((one) => one.opens).map((one) => one.kind), ["jql"]);
-// `build` is called directly here, so the shape has to be handed over the way
-// `format` hands it over: it is an ARGUMENT and not something a builder reads for
-// itself, which is what keeps one preference from being read three times (§2.8).
-is("and the other three still build a clipboard payload", f.EXPORTS.filter((one) => !one.opens).every((one) => !!one.build(THREE, "collection", f.shapeFor("markdown")).text), true);
+// `build` is called directly here, so the shape AND the field selection have to be
+// handed over the way `format` hands them over: both are ARGUMENTS and neither is
+// something a builder reads for itself, which is what keeps one preference from
+// being read three times (§2.8, §2.14).
+is("and the other five still build a clipboard payload",
+  f.EXPORTS.filter((one) => !one.opens).every((one) =>
+    !!one.build(THREE, "collection", f.shapeFor("markdown"),
+      one.fields ? f.enabledFields(f.DEFAULT_PREFS[one.fields]) : undefined).text), true);
 
 // ---- 7b. the search URL. The query is unchanged; only where it goes changed.
 const jql = f.format("jql", THREE, "collection").text;
@@ -685,6 +717,246 @@ for (const kind of ["links", "details", "report"]) {
   is(`a copy with no preference stored emits the markdown shape · ${kind}`,
     f.format(kind, SHAPED, "collection"), asShape("markdown", kind, SHAPED));
 }
+
+// ---- 16. TWO SELECTIONS OVER ONE CATALOGUE (ADR §2.14, decisions 7 to 11)
+//
+// EVERY SECTION ABOVE THIS ONE IS ALREADY A CHECK ON THE DEFAULTS, and that is the
+// first thing this section claims. `loadPrefs` above hands out `DEFAULT_PREFS`
+// itself, sliced out of the script, so sections 12, 14 and 15 pin 1.1.0's bytes
+// while the shipped defaults are what produced them. None of them changed when the
+// field lists landed, which is the requirement: an install that never opens ⚙ must
+// not be able to tell that any of this exists.
+//
+// What is asserted below is what a CLICK can now reach.
+
+// -- 16a. the two defaults, said out loud so their silence above is not read as luck
+is("📋 Details ships 1.1.0's seven fields, in 1.1.0's reading order",
+  f.enabledFields(f.DEFAULT_PREFS.detailsFields),
+  ["type", "status", "priority", "assignee", "fixv", "remaining", "parent"]);
+// Priority is 📊 Report's first band, and a band leaves the row -- which at 1.2.0 is
+// what the DEFAULT says rather than what the renderer does (decision 8).
+is("📊 Report ships the same list less priority, which is its first band",
+  f.enabledFields(f.DEFAULT_PREFS.reportFields),
+  ["type", "status", "assignee", "fixv", "remaining", "parent"]);
+is("team is off in both, because a NEW FIELD ARRIVES OFF (decision 21)",
+  [f.DEFAULT_PREFS.detailsFields, f.DEFAULT_PREFS.reportFields]
+    .map((list) => list.find((one) => one.id === "team").on), [false, false]);
+// Off is not absent. Both lists carry every catalogue field, so every field has a
+// row in the ⚙ panel and one click turns it on (`normaliseFieldList`, step 5).
+is("and both lists still name every catalogue field, so none of them is unreachable",
+  [f.DEFAULT_PREFS.detailsFields, f.DEFAULT_PREFS.reportFields]
+    .map((list) => list.map((one) => one.id)),
+  [f.FIELD_CATALOGUE.map((one) => one.id), f.FIELD_CATALOGUE.map((one) => one.id)]);
+
+// -- 16b. THE CATALOGUE AND THE RENDERER MUST NAME THE SAME FIELDS. A catalogue id
+// with no `case` in `detailBit` is a field that can be TICKED AND DRAWS NOTHING, and
+// a `case` with no catalogue entry is bytes nothing can ask for. It is the same
+// defect shape as 15a's, at a different seam, and this is the only thing holding the
+// two together.
+const EVERY = {
+  key: "RDC-1513", summary: "S", type: "Story", status: "Dev Resolved",
+  category: "indeterminate", priority: "P1", assignee: "William CHUANG",
+  team: "Planning", teamId: "t1", fixVersions: ["Pyr 2026.8.0 (Release - Active)"],
+  remaining: "2d", parent: { key: "RDC-26701", summary: "p" },
+};
+is("every id the catalogue names draws a bit on an item that carries every field",
+  f.FIELD_CATALOGUE.filter((one) => !f.detailBit(one.id, EVERY)).map((one) => one.id), []);
+is("and every bit carries BOTH flavours, because the parent is a reference not a value",
+  f.FIELD_CATALOGUE.every((one) => {
+    const bit = f.detailBit(one.id, EVERY);
+    return bit.id === one.id && !!bit.text && !!bit.html;
+  }), true);
+// This cannot fire from a stored preference -- `normaliseFieldList` drops an id the
+// catalogue does not name -- and it is asserted because this is the COPY path: a
+// throw here is a copy that silently never happened (§2.8's scar, and 15a's reason).
+is("an id the catalogue does not name draws nothing rather than throwing",
+  f.detailBit("haiku", EVERY), null);
+is("and an absent value drops out along with its separator",
+  f.FIELD_CATALOGUE.map((one) => f.detailBit(one.id, { key: "GLX-402" })), 
+  f.FIELD_CATALOGUE.map(() => null));
+
+// -- 16c. the two tables that name the two keys, held together the way 15a holds the
+// shapes. A key a TAB edits and no EXPORT reads is a control that changes nothing; a
+// key an export reads and no tab edits is a preference with no way to reach it.
+is("the tabs that edit a field list and the exports that read one name the same keys",
+  f.SETTINGS_TABS.filter((one) => one.fields).map((one) => one.fields).sort(),
+  f.EXPORTS.filter((one) => one.fields).map((one) => one.fields).sort());
+is("and both keys are real preferences with a default behind them",
+  f.EXPORTS.filter((one) => one.fields)
+    .map((one) => Array.isArray(f.DEFAULT_PREFS[one.fields])), [true, true]);
+is("the two exports that read a field list are the two that fetch",
+  f.EXPORTS.filter((one) => one.fields).map((one) => one.kind), ["details", "report"]);
+// The tab that owns the bands names them, so the panel can mark a row `also a
+// heading` without a `"report"` literal inside the renderer. Every key it names must
+// be a real band preference, or the mark is read off nothing and silently never
+// appears -- ticket 05 puts the dropdowns on that same tab.
+is("the tab that has bands names preferences that exist",
+  f.SETTINGS_TABS.flatMap((one) => one.bands ?? [])
+    .map((key) => typeof f.DEFAULT_PREFS[key] === "string"), [true, true]);
+is("and it is the report tab, which is the only one with headings",
+  f.SETTINGS_TABS.filter((one) => one.bands).map((one) => one.fields), ["reportFields"]);
+
+// -- 16d. A REORDERED LIST EMITS IN THE STORED ORDER. The catalogue's order is the
+// default and nothing more; what a document prints is what the preference says.
+const KEY_OF = { details: "detailsFields", report: "reportFields" };
+const CATALOGUE_IDS = f.FIELD_CATALOGUE.map((one) => one.id);
+const reversed = withFields("detailsFields",
+  ["parent", "remaining", "fixv", "assignee", "priority", "status", "type"],
+  "details", [DETAILED[0]], "item");
+is("a reordered list emits in the stored order, not the catalogue's",
+  reversed.text.split(" — ")[1].split(" · "),
+  [`↳ [RDC-26701](${URL}/RDC-26701)`, "0m left", "Pyr 2026.8.0 (Release - Active)",
+   "William CHUANG", "P2", "Dev Resolved", "Story"]);
+is("and the html tail is the same seven in the same order",
+  f.detailBits(DETAILED[0], f.enabledFields(listOf(
+    ["parent", "remaining", "fixv", "assignee", "priority", "status", "type"])))
+    .map((bit) => bit.id),
+  ["parent", "remaining", "fixv", "assignee", "priority", "status", "type"]);
+
+// -- 16e. ZERO FIELDS IS ALLOWED (decision 9): the line is the head alone, no em
+// dash. It needs no new code -- the renderer already does exactly this for an issue
+// Jira returned nothing about -- and it is asserted anyway, because it is now
+// reachable by a CLICK rather than only by a thin item.
+const noneDetails = withFields("detailsFields", [], "details", SHAPED);
+const noneReport = withFields("reportFields", [], "report", SHAPED);
+is("every field off · Details text is the head alone, with no em dash",
+  noneDetails.text, [`- ${HEADS.markdown.text[0]}`, `- ${HEADS.markdown.text[1]}`].join("\n"));
+is("every field off · Details html is the head alone too",
+  noneDetails.html,
+  `<ul>${liOpen}${HEADS.markdown.bold[0]}</li>${liOpen}${HEADS.markdown.bold[1]}</li></ul>`);
+is("every field off · Report keeps its headings and loses every tail",
+  reportRows(noneReport.text), [`- ${HEADS.markdown.text[0]}`, `- ${HEADS.markdown.text[1]}`]);
+is("and no em dash survives in either flavour of either export",
+  /—/.test(noneDetails.text + noneDetails.html + noneReport.text + noneReport.html), false);
+// KNOWN AND ACCEPTED: 📋 Details configured this way emits 🔗 Links' bytes. Two
+// buttons, one document, by the user's own choice -- and the HTML still differs by
+// the one declaration §2.14 keeps on purpose, the bold on the key.
+is("so its plain flavour IS 🔗 Links', which is the stated cost of decision 9",
+  noneDetails.text, f.format("links", SHAPED, "collection").text);
+is("and the html differs from Links by the bold key and nothing else",
+  noneDetails.html.split(BOLD).join(""), f.format("links", SHAPED, "collection").html);
+
+// -- 16f. one field on: head, em dash, one chip, and no separator
+const dash = `<span style="color:${f.MUTED_INK}"> — </span>`;
+const dot = `<span style="color:${f.MUTED_INK}"> · </span>`;
+const oneOn = withFields("detailsFields", ["status"], "details", [DETAILED[0]], "item");
+is("one field on · text: the head, the em dash, one value",
+  oneOn.text, `${HEADS.markdown.text[0]} — Dev Resolved`);
+is("one field on · html: the head, the em dash, one chip",
+  oneOn.html,
+  HEADS.markdown.bold[0] + dash + f.detailChip(f.detailBit("status", DETAILED[0]), DETAILED[0]));
+is("and the separator that goes BETWEEN fields is not emitted for one field",
+  [oneOn.text.includes(" · "), oneOn.html.includes(dot)], [false, false]);
+
+// -- 16g. TEAM, WHICH 1.1.0 FETCHED AND COULD NOT PRINT (decision 10). It has been in
+// `DETAIL_FIELDS` since 1.1.0 for 📊 Report's sub-band headings, and 📋 Details has no
+// headings -- so until the catalogue took it, the field was fetched on every press of
+// either button and unreachable from one of them.
+const TEAMED = { ...DETAILED[0], team: "Planning", teamId: "t1" };
+const teamOn = withFields("detailsFields", ["team"], "details", [TEAMED], "item");
+is("team ticked reaches 📋 Details at last", teamOn.text, `${HEADS.markdown.text[0]} — Planning`);
+is("and it is drawn in the plain muted grey, like every other unadorned field",
+  teamOn.html, HEADS.markdown.bold[0] + dash + `<span style="color:${f.MUTED_INK}">Planning</span>`);
+is("it takes no lozenge, no weight and no colour of its own",
+  f.detailChip(f.detailBit("team", TEAMED), TEAMED),
+  `<span style="color:${f.MUTED_INK}">Planning</span>`);
+// It is still not in the DEFAULT, so section 12's "Details never prints the team it
+// fetched" is still true of a fresh install and both statements stand together.
+is("and a fresh install still does not print it",
+  /Planning/.test(f.format("details", [TEAMED], "item").text), false);
+
+// -- 16h. THE TWO LISTS ARE INDEPENDENT, which is the whole point of two selections:
+// each document is correct, and neither knows about the other.
+const split = withPrefs(
+  { detailsFields: listOf(["status"]), reportFields: listOf(["type"]) },
+  () => ({
+    details: f.format("details", [DETAILED[0]], "item"),
+    report: f.format("report", [DETAILED[0]], "collection"),
+  }));
+is("a field ticked in one list and not the other makes two different documents",
+  split.details.text !== reportRows(split.report.text)[0].slice(2), true);
+is("and each is right: Details took its own list", split.details.text.endsWith(" — Dev Resolved"), true);
+is("and Report took its own", reportRows(split.report.text)[0].endsWith(" — Story"), true);
+// ONE CATALOGUE, so the styling cannot differ between them however the lists do.
+is("but the one chip renderer serves both, so a field drawn twice is drawn the same",
+  f.detailChip(f.detailBit("status", DETAILED[0]), DETAILED[0]),
+  f.detailChip(f.detailBit("status", DETAILED[0]), DETAILED[0]));
+
+// -- 16i. THE FIVE PASTE RULES, ON EVERY NEW BYTE STRING. Each is a measurement from
+// a real paste into Outlook and Teams, and each is a change a later session would
+// otherwise make on reasonable-sounding instinct (§2.14, appendix A.9). A selection
+// can now produce byte strings 1.1.0 never emitted, so every one of them is run over
+// the same five rules section 15d runs over the shapes.
+const SELECTIONS = [
+  ["nothing ticked", []],
+  ["one field", ["status"]],
+  ["team, which 1.1.0 could not print", ["team"]],
+  ["the whole catalogue", CATALOGUE_IDS],
+  ["the whole catalogue, reversed", [...CATALOGUE_IDS].reverse()],
+];
+for (const [label, ids] of SELECTIONS) {
+  const everyHtml = ["details", "report"]
+    .map((kind) => withFields(KEY_OF[kind], ids, kind, [TEAMED, DETAILED[2]]).html)
+    .join("");
+  is(`${label} · rule 5: no font-size anywhere`, /font-size/.test(everyHtml), false);
+  is(`${label} · rule 2: nothing depends on opacity`, /opacity/.test(everyHtml), false);
+  is(`${label} · rule 1: no separator is a box`, /border:/.test(everyHtml), false);
+  is(`${label} · rule 3: every background is one of the pale lozenge grounds`,
+    [...everyHtml.matchAll(/background:(#[0-9a-f]{6})/gi)].map((m) => m[1])
+      .every((one) => pale.includes(one)), true);
+  is(`${label} · rule 3: no colour the palette does not name`,
+    [...everyHtml.matchAll(/color:(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
+      .every((one) => allowed.has(one)), true);
+  // ONE ISSUE IS STILL ONE LINE, whatever the selection says, and no format drops an
+  // item -- the two rules §2.14 inherits from §2.8 unchanged.
+  const text = withFields(KEY_OF.details, ids, "details", [TEAMED, DETAILED[2]]).text;
+  is(`${label} · one issue is still one line`, text.split("\n").length, 2);
+  is(`${label} · and the item Jira said nothing about is still there`,
+    /GLX-402/.test(text), true);
+  is(`${label} · no trailing space on any line`, /[ \t]$/m.test(text), false);
+}
+is("the whole catalogue ticked draws all eight, and the separator only between them",
+  withFields("detailsFields", CATALOGUE_IDS, "details", [TEAMED], "item").text
+    .split(" — ")[1].split(" · ").length, 8);
+
+// -- 16j. `moveField` DIRECTLY, because no harness in this repository can drive the
+// drag: `boot-smoke` has no layout and no paint, so it cannot put a pointer in the
+// top half of a row. This is the half of the cost of decision 11 that CAN be paid
+// here; §7 step 31 is the browser pass that pays the rest.
+const L = ["a", "b", "c", "d"].map((id) => ({ id, on: false }));
+const ids = (list) => list.map((one) => one.id);
+// `to` is the GAP the row lands in, so "after the last row" is `list.length`.
+is("moveField · the middle, downward", ids(f.moveField(L, 1, 3)), ["a", "c", "b", "d"]);
+is("moveField · the middle, upward", ids(f.moveField(L, 2, 0)), ["c", "a", "b", "d"]);
+is("moveField · the first row to the very end", ids(f.moveField(L, 0, 4)), ["b", "c", "d", "a"]);
+is("moveField · the last row to the very front", ids(f.moveField(L, 3, 0)), ["d", "a", "b", "c"]);
+// Dropping a row on its own top half and on its own bottom half are the same
+// no-op, and they arrive as two different numbers -- which is the off-by-one.
+is("moveField · dropped above itself is a no-op", ids(f.moveField(L, 1, 1)), ["a", "b", "c", "d"]);
+is("moveField · dropped below itself is the same no-op", ids(f.moveField(L, 1, 2)), ["a", "b", "c", "d"]);
+is("moveField · an index past the end is refused, not clamped into a move",
+  ids(f.moveField(L, 9, 0)), ["a", "b", "c", "d"]);
+is("moveField · a negative index is refused too", ids(f.moveField(L, -1, 0)), ["a", "b", "c", "d"]);
+// A dataset carries strings. `"1" >= 0` is true and `splice("1", 1)` works, but
+// `Number("x")` is NaN, which passes both comparisons and would splice the FIRST row.
+is("moveField · a string index is refused, because a dataset carries strings",
+  ids(f.moveField(L, "1", 3)), ["a", "b", "c", "d"]);
+is("moveField · and NaN is refused rather than moving the first row",
+  ids(f.moveField(L, NaN, 3)), ["a", "b", "c", "d"]);
+is("moveField · a target past the end lands at the end", ids(f.moveField(L, 0, 99)), ["b", "c", "d", "a"]);
+is("moveField · a target below zero lands at the front", ids(f.moveField(L, 3, -5)), ["d", "a", "b", "c"]);
+is("moveField · it never mutates the list it was given", ids(L), ["a", "b", "c", "d"]);
+is("and it returns a NEW array even when it refuses", f.moveField(L, 9, 0) !== L, true);
+
+is("enabledFields keeps the stored order and drops the unticked",
+  f.enabledFields([{ id: "b", on: true }, { id: "a", on: false }, { id: "c", on: true }]), ["b", "c"]);
+// It does NOT re-check that `on` is exactly `true`, and that is deliberate rather
+// than missing: every preference is range-checked once, in `normalisePrefs`, so the
+// rest of the script can treat the result as a fact -- a second check here would be a
+// second rule that can disagree with the first. `store-smoke` step 4 is where a
+// hand-edited `on: "yes"` is proved not to tick anything.
+is("an empty selection is an empty list, never a default put back",
+  f.enabledFields(listOf([])), []);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
