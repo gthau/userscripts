@@ -239,6 +239,48 @@ name. The chosen fix costs neither height nor width. **If the button is still mi
 once ticket 02 has given it a pressed state, the label is the next thing to try**, and
 this is the record that it was on the table.
 
+### Answered on 2026-08-25, from use
+
+**31. THE GEAR SAYS WHETHER THE SETTINGS ARE OPEN. Landed early, not deferred to 02.**
+Reported as bad UX and it was: the button appeared "bordered in blue after clicking",
+the blue arrived **whether the click had opened the settings or closed them**, and a
+click anywhere else took it away.
+
+**The diagnosis is the part worth keeping, because the symptom named the wrong thing.**
+That blue was the FOCUS ring, not a state. `prefsOpen` lived in memory and *nothing on
+screen was a function of it* — the button carried no state at all, so a focus
+indicator was the only thing that ever changed on it. This is §2.8's rule about labels
+("every label is a function of current state") applied to an attribute, and the ⚙ was
+the one control in the drawer that broke it.
+
+Three changes, all shipped:
+
+- **One constant, `PREFS_STATE_ATTR`, interpolated into both** the `setAttribute` in
+  `render` and the stylesheet's selector. Two literals would be two values that can
+  disagree, and they disagree *silently*: the attribute keeps flipping while the paint
+  stops following it, which is exactly how the ⚙ was inert for two versions (§2.11).
+- **The active collection chip's three declarations**, not a new blue. That token pair
+  is already the Cart's word for "this one is on", and `jira-ux`'s locked padlock uses
+  it too. The selector is repeated with `:hover` because the plain hover rule is
+  (1,3,2) and would otherwise make an open gear go quiet under the pointer.
+- **The drawer clears `:focus` and puts its own ring back on `:focus-visible`.** The
+  Cart is not in a shadow root, so Atlassian's stylesheet has every right to paint a
+  focused button inside it — and a host rule on `:focus` paints on a MOUSE click,
+  where the Cart's own ring deliberately does not. The reset stays scoped to the
+  drawer so the badge and the floating toggle keep their rings, and every ring inside
+  the drawer must strictly out-specify it or a keyboard user loses their place.
+
+Nine checks, all nine confirmed able to fail. **Decision 16 is unchanged and this is
+its early half:** ticket 02 renames the attribute to `aria-pressed` when the panel
+stops being a region and becomes the content, which is one constant and no CSS.
+
+**If a blue ring still appears on the click that CLOSES the settings**, then the
+browser's own `:focus-visible` heuristic is firing on a mouse click rather than the
+host sheet being the cause, and the remaining fix is one line — suppress the mouse
+path's focus on that button alone. It is deliberately not written on a guess.
+
+---
+
 **Nothing is open. Tickets 02, 03, 04 and 05 can each be run from their own file, and
 06 records what they land.**
 

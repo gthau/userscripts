@@ -136,6 +136,56 @@ is("and the gear's own rule sets no size, only a glyph size",
 is("the shared icon rule still sets the small glyph, so only the gear grew",
    /font-size:\s*13px/.test(iconBase?.body ?? ""), true);
 
+// ---- 2c. THE GEAR SAYS WHETHER THE SETTINGS ARE OPEN, and the paint has to
+// survive the pointer. Added at 1.2.0 from a use report: the button looked
+// "bordered in blue after clicking", which read as a state and was the FOCUS ring --
+// it arrived whether the click had opened the settings or closed them. The state now
+// exists on the button and this is what proves it paints.
+const hoverRule = rules.find((r) => r.sel.includes("button.gt-cart-icon:hover"));
+const stateSel = rules.find((r) => /button\.gt-cart-icon\[aria-[a-z]+="true"\]/.test(r.sel));
+is("the open gear carries the same three declarations as the active collection chip",
+   ["border-color", "background", "color"].map((prop) =>
+     new RegExp(`(^|;)\\s*${prop}:\\s*var\\(--gt-cart-selected`).test(stateSel?.body ?? "")),
+   [true, true, true]);
+// The hover rule is (1,3,2) -- class, :hover, :not(:disabled) -- and the state alone
+// would be (1,2,2), so an open gear would go quiet under the pointer. The state's
+// selector is repeated WITH :hover for exactly that reason, and this is the check
+// that says so rather than trusting document order.
+const stateHover = stateSel?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("and keeps them under the pointer, so an open gear does not go quiet on hover",
+   beats(spec(stateHover ?? ""), spec(hoverRule?.sel.split(",")[0] ?? "")), true);
+// The attribute is written by `render` from one constant and interpolated into this
+// selector, so the two cannot name different attributes. What CAN happen is that the
+// interpolation is replaced by a literal, and then the constant moves and the paint
+// stays behind -- which is how the ⚙ was inert for two versions.
+is("the state selector names the attribute the script writes",
+   stateSel?.sel.includes(`[${ids.PREFS_STATE_ATTR}="true"]`), true);
+
+// ---- 2d. THE DRAWER OWNS ITS FOCUS APPEARANCE. Atlassian's sheet may style a
+// focused button inside the Cart, and a host rule on :focus paints on a MOUSE click
+// where the Cart's own :focus-visible ring does not. So :focus is cleared -- and
+// every ring must strictly beat that reset, or a keyboard user loses their place
+// with nothing on screen to say so.
+const focusReset = rules.find((r) => r.sel === "aside#gt-cart-drawer :focus");
+is("the drawer clears the focus outline it does not own", /outline:\s*none/.test(focusReset?.body ?? ""), true);
+const allRings = rules
+  .filter((r) => /outline:\s*2px solid var\(--gt-cart-focus\)/.test(r.body))
+  .flatMap((r) => r.sel.split(",").map((x) => x.trim()))
+  .filter((x) => x.includes(":focus-visible"));
+// SCOPED TO THE DRAWER, and the scope is the point: the badge's ring and the
+// floating toggle's are (1,1,1) like the reset, and they survive only because
+// neither element is inside the drawer. The reset must therefore stay scoped -- an
+// unscoped `:focus { outline: none }` would eat both and this check would still be
+// green if it looked at every ring in the sheet. It was written that way first.
+is("the reset is scoped to the drawer, so the badge and the toggle keep their rings",
+   [focusReset.sel.startsWith("aside#gt-cart-drawer"),
+    allRings.filter((sel) => !sel.startsWith("aside#gt-cart-drawer")).sort()],
+   [true, ["button#gt-cart-badge:focus-visible", "button#gt-cart-toggle:focus-visible"]]);
+const ringSelectors = allRings.filter((sel) => sel.startsWith("aside#gt-cart-drawer"));
+is("and every ring inside the drawer strictly beats the reset",
+   [ringSelectors.length, ringSelectors.filter((sel) => beats(spec(sel), spec(focusReset.sel))).length],
+   [ringSelectors.length, ringSelectors.length]);
+
 // ---- 3. The generated collected-keys sheet (§2.7) paints EVERY anchor whose href
 // names a collected key, and since 0.4.0 the drawer holds such anchors itself. Our
 // own rule has to win, or a collected key in the drawer is green on the red hover.

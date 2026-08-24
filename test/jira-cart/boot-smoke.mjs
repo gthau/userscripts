@@ -732,9 +732,17 @@ is("and the debug line names tier 1, which is how §7 step 5 is read",
 const gear = () => byId.get("gt-cart-head").querySelector('[data-gt-action="prefs"]');
 const prefsArea = () => byId.get("gt-cart-prefs");
 is("the preferences area starts hidden", prefsArea().hidden, true);
+// THE BUTTON SAYS SO TOO, and it did not until 1.2.0. A use report said the ⚙ was
+// "bordered in blue after clicking" whether the click had opened the settings or
+// closed them -- that was the FOCUS ring standing in for a state that did not exist,
+// and clicking anywhere else took it away. `css-smoke` proves the paint; this proves
+// the attribute it paints from follows the panel.
+is("and the ⚙ says it is closed before anything is pressed",
+  gear().getAttribute("aria-expanded"), "false");
 dispatch(gear(), "click");
 flush();
 is("THE ⚙ OPENS IT", prefsArea().hidden, false);
+is("and the button now says it is open", gear().getAttribute("aria-expanded"), "true");
 is("all three switches are there, not just the one 08 specified",
   [byId.get("gt-cart-pref-right-click"), byId.get("gt-cart-pref-layout"), byId.get("gt-cart-pref-corner")].map((n) => !!n),
   [true, true, true]);
@@ -760,6 +768,8 @@ dispatch(byId.get("gt-cart-pref-right-click"), "change");
 dispatch(gear(), "click");
 flush();
 is("and the ⚙ closes it again", prefsArea().hidden, true);
+is("and says so, so the state cannot outlive the panel",
+  gear().getAttribute("aria-expanded"), "false");
 
 // ---- 🔍 SEARCH SHOWS EXACTLY THE COLLECTION (§7 step 14), with three items and
 // one of them summary-less -- which is the step's own setup. A format that dropped

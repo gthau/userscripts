@@ -5,7 +5,7 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**539 checks across seven files. No framework, no `package.json`, no dependencies.**
+**548 checks across seven files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
@@ -23,8 +23,8 @@ answer.
 | `store-smoke.mjs` | 104 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, and both field lists through all five steps of `normaliseFieldList` |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of all eight views, and `groupFor`'s **two** answers — place beside the key, read from the widest |
 | `format-smoke.mjs` | 156 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground |
-| `boot-smoke.mjs` | 163 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch |
-| `css-smoke.mjs` | 28 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button's own glyph size, the specificity that makes it paint, and the 22px box the head's height depends on |
+| `boot-smoke.mjs` | 166 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch |
+| `css-smoke.mjs` | 34 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button: its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
 
 ## Why they cannot drift from the code

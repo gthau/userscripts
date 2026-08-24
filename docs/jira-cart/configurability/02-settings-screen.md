@@ -100,17 +100,39 @@ Landed on 2026-08-24, because a beta tester on 1.1.0 did not find the button at 
 215px floor is derived from, so a taller button re-derives `MIN_BLOCK`. What is left
 for this ticket is the STATE, not the size.
 
-**⚙ carries its state on `aria-pressed`, styled with
-`--gt-cart-selected-bg` / `--gt-cart-selected-text`.** Those two tokens already
-exist at `src/jira-cart.user.js:4528`. The same pair dresses `jira-ux`'s locked
-padlock (`jira-ux-improvements.user.js:1255`) and the Cart's own **active
-collection chip** (`src/jira-cart.user.js:5297`), which also adds
-`border-color` and `font-weight: 600`. Match the chip — three declarations, not a
-new blue.
+**THE STATE PAINT IS ALREADY LANDED, on `aria-expanded`. This ticket RENAMES the
+attribute; it does not invent the styling.** Shipped on 2026-08-25 from a use
+report, because the button was reading as stateful when it was not — see below. What
+exists now:
 
-`aria-pressed` and not `aria-expanded`: this is a mode toggle, not a disclosure.
-The panel it controls is no longer a region beside the content; it *is* the
-content. Drop the existing `aria-controls`.
+- `PREFS_STATE_ATTR`, one constant, **interpolated into both** the `setAttribute`
+  call in `render` and the stylesheet's selector, so the two cannot name different
+  attributes. `css-smoke` asserts the selector resolves from the constant.
+- the three declarations of the **active collection chip** —
+  `border-color: var(--gt-cart-selected-text)`, `background:
+  var(--gt-cart-selected-bg)`, `color: var(--gt-cart-selected-text)` — and not a new
+  blue. The same pair dresses `jira-ux`'s locked padlock.
+- the selector repeated with `:hover:not(:disabled)`, because the plain hover rule is
+  (1,3,2) and would otherwise paint over the state and make an open gear go quiet
+  under the pointer. Asserted, not left to document order.
+- `boot-smoke` checks the attribute follows the panel in both directions.
+
+**So your job is one line: `aria-expanded` becomes `aria-pressed`,** because once ⚙
+replaces the drawer's body the panel is no longer a region beside the content — it
+*is* the content, and that is a mode toggle rather than a disclosure. Change the
+constant and both the render and the sheet follow it. Drop the existing
+`aria-controls` at the same time. **Every check above must still pass afterwards**;
+if one names `aria-expanded` in a literal, that is the defect this design was set up
+to prevent.
+
+**Why the report happened, because it is the reason the ticket's own reasoning was
+right.** The ⚙ appeared "bordered in blue after clicking", and the blue arrived
+whether the click had opened the settings or closed them, then vanished on a click
+anywhere else. That was the **focus ring** standing in for a state that did not
+exist: `prefsOpen` lived in memory and nothing on screen was a function of it. The
+drawer now also clears `:focus` and puts its own ring back on `:focus-visible`,
+because the Cart is not in a shadow root and the host page has every right to paint a
+focused button inside it.
 
 **✕ keeps exactly one meaning on both screens: close the drawer.** A ✕ that
 sometimes goes back instead is the two-values-that-disagree bug wearing a different
@@ -209,6 +231,10 @@ only way to see these:
   their reasons and their costs**, including *Appearance* sitting as a peer of two
   export tabs. Both were decided on 2026-08-24, before this ticket ran; neither is
   yours to reopen without new evidence.
-- **The ⚙ button still passes `css-smoke`'s five glyph checks** after it gains its
+- **§2.9 records the state button as landed early**, with the use report that forced
+  it: a blue ring read as a state, and the button had none. That is the same class of
+  finding as §2.14's label ladder — a control that reports its own state — and §2.9
+  is where the ⚙ lives.
+- **The ⚙ button still passes every `css-smoke` check it has** after it gains its
   pressed state. If the pressed style needs the box to grow, `MIN_BLOCK` is
   re-derived deliberately and §2.11 rule 7 is amended — not quietly widened.

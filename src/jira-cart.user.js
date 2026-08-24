@@ -3195,9 +3195,25 @@ ${selectors.join(",\n")} {
   const HEAD_ID = "gt-cart-head";
   const ALERT_ID = "gt-cart-alert";
   const PREFS_ID = "gt-cart-prefs";
+  const PREFS_BUTTON_ID = "gt-cart-prefs-button";
   const PREF_RIGHT_CLICK_ID = "gt-cart-pref-right-click";
   const PREF_LAYOUT_ID = "gt-cart-pref-layout";
   const PREF_CORNER_ID = "gt-cart-pref-corner";
+  /* THE ONE NAME FOR "THE SETTINGS ARE OPEN", and it is a constant because it is
+     used TWICE: `render` writes it on the ⚙, and the stylesheet's selector paints
+     the button from it. Two literals would be two values that can disagree, and the
+     way they disagree is silent -- the attribute keeps flipping and the paint stops
+     following it, which is how the ⚙ was already inert for two versions (§2.11).
+     Interpolated into the sheet, so one edit moves both.
+
+     `aria-expanded` and not `aria-pressed`: today the button shows and hides a
+     REGION inside the drawer and carries `aria-controls` naming it, which is a
+     disclosure. When ⚙ becomes a mode that replaces the drawer's body, the panel
+     stops being a region beside the content and becomes the content -- then this
+     becomes `aria-pressed`, `aria-controls` goes, and both the render and the sheet
+     follow this line. */
+  const PREFS_STATE_ATTR = "aria-expanded";
+
   const BODY_ID = "gt-cart-body";
   const LIVE_HEAD_ID = "gt-cart-live-head";
   const LIVE_LIST_ID = "gt-cart-live-list";
@@ -3404,6 +3420,7 @@ ${selectors.join(",\n")} {
       "prefs",
       "Preferences",
     );
+    prefsButton.id = PREFS_BUTTON_ID;
     prefsButton.textContent = "⚙";
     prefsButton.setAttribute("aria-controls", PREFS_ID);
     const closeButton = actionButton("gt-cart-icon", "close", "Close the Cart");
@@ -4153,6 +4170,22 @@ ${selectors.join(",\n")} {
       alert.textContent = line;
       alert.hidden = line === "";
     }
+
+    /* THE BUTTON SAYS WHETHER THE SETTINGS ARE OPEN, and it says it HERE -- on the
+       line above the one that hides the area, so the two cannot drift apart. Added
+       on 2026-08-25 from a use report, and the report is worth keeping because the
+       diagnosis is not what it looks like: the ⚙ appeared to be "bordered in blue
+       after clicking", which read as a state and was not one. It was the FOCUS ring,
+       which is why it appeared whether the click had opened the settings or closed
+       them, and why clicking anywhere else took it away. The button carried no state
+       at all -- `prefsOpen` lived in memory and nothing on screen was a function of
+       it.
+       So the fix is not to the ring. It is that the state now exists on the button,
+       and the stylesheet paints it with the same pair the active collection chip
+       uses (see the sheet). A label being a function of state is §2.8's rule; this
+       is the same rule applied to an attribute. */
+    const prefsButton = document.getElementById(PREFS_BUTTON_ID);
+    prefsButton?.setAttribute(PREFS_STATE_ATTR, String(prefsOpen));
 
     const prefsArea = document.getElementById(PREFS_ID);
     if (prefsArea) {
@@ -5352,6 +5385,20 @@ ${D} div.gt-cart-row:hover,
 ${D} div.gt-cart-item:hover {
   background: var(--gt-cart-hover);
 }
+/* THE DRAWER OWNS ITS OWN FOCUS APPEARANCE. The Cart is not in a shadow root, so
+   Atlassian's stylesheet has every right to style a focused button inside it -- the
+   same argument the row-key rule below makes about the generated sheet -- and a host
+   rule on :focus paints on a MOUSE click, where the Cart's own ring is deliberately
+   :focus-visible and does not. That difference is invisible until somebody reads a
+   blue ring as a state, which is exactly what happened on 2026-08-25.
+
+   So :focus is cleared and :focus-visible puts the Cart's ring back. This rule is
+   (1,1,1) and every ring below names a class or an element as well, so each of them
+   strictly beats it -- asserted in css-smoke, because a ring this rule silently ate
+   would be a keyboard user losing their place with nothing to say so. */
+${D} :focus {
+  outline: none;
+}
 ${D} button.gt-cart-row-body:focus-visible,
 ${D} a.gt-cart-row-key:focus-visible,
 ${D} button.gt-cart-chip-main:focus-visible,
@@ -5555,6 +5602,36 @@ ${D} button.gt-cart-button:hover:not(:disabled) {
    next thing to try. */
 ${D} button.gt-cart-icon[data-gt-action="prefs"] {
   font-size: 16px;
+}
+
+/* WHILE THE SETTINGS ARE OPEN, THE GEAR IS ON. Added on 2026-08-25 from a use
+   report: the button appeared to be "bordered in blue after clicking", and that read
+   as a state without being one. It was the FOCUS ring -- which is why it arrived
+   whether the click had opened the settings or closed them, and why clicking
+   anywhere else took it away. The button carried NO state, so nothing on screen was
+   a function of whether the panel was up.
+
+   THE SAME THREE DECLARATIONS THE ACTIVE COLLECTION CHIP USES, and not a new blue:
+   this pair of tokens is already the Cart's word for "this one is on", and
+   jira-ux-improvements dresses its locked padlock with it too. A fourth blue would
+   be a fourth thing to keep in step.
+
+   THE SELECTOR IS REPEATED WITH :hover ON PURPOSE. The hover rule above is
+   (1,3,2) -- the class, :hover, and :not(:disabled) -- and the state on its own
+   would be (1,2,2), so hovering an open gear would paint the plain hover tint over
+   the state and the button would go quiet under the pointer. Equal specificity plus
+   document order is not good enough here: this sheet's own history is a rule that
+   lost the cascade and left the gear inert for two versions (§2.11). css-smoke
+   asserts the win rather than trusting the order.
+
+   The attribute name is interpolated and never typed: the render writes the same
+   constant on the button, so this rule cannot be left painting an attribute the
+   script has stopped writing. */
+${D} button.gt-cart-icon[${PREFS_STATE_ATTR}="true"],
+${D} button.gt-cart-icon[${PREFS_STATE_ATTR}="true"]:hover:not(:disabled) {
+  border-color: var(--gt-cart-selected-text);
+  background: var(--gt-cart-selected-bg);
+  color: var(--gt-cart-selected-text);
 }
 ${D} button.gt-cart-x {
   flex: none;
