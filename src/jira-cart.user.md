@@ -2852,6 +2852,14 @@ sections to somebody's page.
    sample carrying one two-release issue, and every item is still in the document.
    Every other band keeps the property, which is what makes this the exception
    rather than the new rule.
+   > **Pressed on 2026-08-25, and the exception reads as intended.** A collection
+   > carrying real issues in two releases was banded by fix version and reported
+   > **exported as expected**. That is the half of this limit no assertion could
+   > reach: the line count and the two headings were already held byte for byte, and
+   > the risk this limit exists to name is not that the bytes are wrong — it is that
+   > a document listing one issue twice looks like a **fault** to whoever receives
+   > it. It did not. The limit stays, because it is still the property a reader
+   > loses and still the thing to say out loud beside the dropdown.
 
 ## 3. What the script gives the user
 
@@ -3295,7 +3303,8 @@ replaced by something else.
 | 31, item 3 | **CONFIRMED IN A BROWSER, 2026-08-25, and half of it RETIRED to the harness** | Ticking, unticking and reordering were exercised repeatedly and reported **working well** — which is the ergonomic half of decision 26, and the opposite of the *fiddly* the decision was hedging against. The item's other half, that 🔗 Links is unaffected, **left this step**: it is bytes with no paint in it, so `format-smoke` holds it instead — a wild selection and an empty one, with all four unconfigurable exports required to come out byte-identical. Worth knowing why that check is not redundant: every other Links, Names, Keys and JQL check in the file runs with the DEFAULTS in place, so they say *these bytes are 1.1.0's* and never *these bytes do not move when a preference moves* |
 | 31, item 6 | **STILL WANTS A BROWSER, and it is the cheap one** | Ticking a field **while `📋 Copy` is armed**, to see the label survive it. `boot-smoke` drives it already, in this tab and from another one, so what is missing is only the paint. Listed rather than chased |
 | 32, less the fix-version paste | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira, AND IT IS THE STEP THAT FOUND A DEFECT** | 📊 Report's two bands, used rather than read. The dropdowns were pressed and the grouped reports came back **working**. **The duplicate pair was found HERE and by nothing else**: the ticket shipped `Team` then `Team` reachable and argued in writing that it was harmless — useless, truthful, visible on the paste — and one press said otherwise, which is the whole reason this step exists rather than a table of assertions. The answer, a greyed option plus a one-press swap, was pressed the same day and reported **working well**. Everything about the bytes is held outside a browser and it is the largest block in `format-smoke`: each of the seven as band 1 and again as band 2, every `No …` heading, empty-sorts-last in both bands, the status categories in Atlassian's order and not alphabetically, one non-default pair byte for byte in both flavours, the five paste rules over every pair, and the multi-valued line count — plus `bandPatch` directly, and a sweep proving no press on either dropdown from any starting pair can produce a duplicate |
-| 32's fix-version PASTE | **STILL WANTS A REAL MAIL, and it is the one worth chasing** | A report banded by fix version, on a collection holding an issue in two releases, **pasted into Outlook and Teams**. The harness proves the line count is items plus one and that the issue is under both headings; what it cannot say is whether a document that lists one issue twice **reads as intended rather than as a bug** to the team lead who receives it. It is the only output in this effort that breaks *lines equals items* on purpose, so it is the only one where the bytes being right is not the whole question. The other bullets of step 32 — the two rows at the 300px floor, the epic and `Unassigned` wording, and `Restore` putting both dropdowns back — have no report against them either way and are listed rather than claimed |
+| 32's fix-version export | **CONFIRMED IN A BROWSER, 2026-08-25** | A report banded by fix version, on a collection holding real issues in two releases. **Reported exported as expected** — so the one output in this effort that breaks *lines equals items* on purpose comes out the way the design says, on real data rather than on the harness's three-row sample, and the repetition read as intended rather than as a fault. That was the open question: the bytes were already held (the line count is items plus one, and the issue is under both headings), and whether a document listing one issue twice looks deliberate is not a thing bytes can answer. **What this run does NOT say**, recorded so it is not read as more than it is: the report was of the export, and **no paste target was itemised** — nothing here records Outlook against Teams for a banded report, the way appendix A.9 does for the chips. The chips inside those rows are unchanged from A.9's own pastes, which is why that gap blocks nothing |
+| 32's remaining bullets | **NO REPORT EITHER WAY** | The two dropdowns at the 300px floor, the `KEY Summary` and `Unassigned` wording at the size it is read, and `Restore export defaults` putting both dropdowns back. Listed rather than claimed, and none of them blocks: the first is the same grid step 30 already measured at that width, and the last is held by `boot-smoke` in state if not in paint |
 | the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor was DECIDED rather than measured** (decision 26), so this step is the first time anybody will have put a pointer on it |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
@@ -3527,9 +3536,10 @@ pass each, and they are cheap.
       must be on screen saying so. This is the one output in the effort where the
       line count deliberately exceeds the item count, and reading it in a real mail
       is what says the repetition looks intended rather than like a bug.
-      **STILL UNPASTED as of 2026-08-25.** The bands were pressed that day and the
-      reports came back working, but nobody has yet put a fix-version report on a
-      clipboard and into Outlook or Teams. The bytes are held; the reading is not.
+      **PRESSED 2026-08-25: multi-fix-version issues export as expected**, on a real
+      collection. The repetition reads as intended, which is the half no harness can
+      reach. No paste target was itemised, so nothing here says Outlook against Teams
+      for a banded report — see the table above.
     - **Choose `Parent`, then `Assignee` as the second band.** Epic headings must
       read `KEY Summary` and unassigned rows must group under `Unassigned` — the
       wording, at the size it will be read.
