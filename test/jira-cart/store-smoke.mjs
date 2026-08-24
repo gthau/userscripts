@@ -276,7 +276,43 @@ is("every line shape the script names is honoured",
    tab.LINE_SHAPE_IDS.map((id) => storedAs({ lineShape: id }).lineShape), tab.LINE_SHAPE_IDS);
 is("every bandable field is honoured in band 1",
    tab.BAND_IDS.map((id) => storedAs({ reportBand1: id }).reportBand1), tab.BAND_IDS);
-is("and in band 2", tab.BAND_IDS.map((id) => storedAs({ reportBand2: id }).reportBand2), tab.BAND_IDS);
+/* THE SWEEP HAS TO MOVE BAND 1 OUT OF THE WAY, and that is the rule below rather
+   than an awkwardness of the harness: the two bands may not name the same field
+   (§2.15, reversed from use on 2026-08-25), so asking for `priority` in band 2 while
+   band 1 holds the DEFAULT `priority` is asking for the duplicate. Each id is
+   therefore checked against a band 1 that is not it. */
+is("and in band 2",
+   tab.BAND_IDS.map((id) => storedAs({
+     reportBand1: id === "team" ? "priority" : "team", reportBand2: id,
+   }).reportBand2), tab.BAND_IDS);
+
+/* -- 14a. THE TWO BANDS MAY NOT NAME THE SAME FIELD, and BAND 2 IS ALWAYS THE ONE
+   THAT GIVES WAY. Band 1 is required and band 2 is optional, so the optional one is
+   the only one that can yield to a state a click can also produce.
+
+   This shipped ALLOWED and was reversed by use on 2026-08-25: the reasoning was that
+   `Team` under `Team` is useless, truthful and visible the moment it is pasted, so
+   refusing it was more machinery than the mistake was worth. The user pressed it and
+   reported it as a defect. A report whose every sub-heading repeats the heading above
+   it is not a configuration anybody chose.
+
+   The ⚙ panel is what stops a CLICK reaching this state -- `Then by` does not offer
+   the field `Group by` holds, and moving `Group by` onto `Then by`'s field swaps the
+   two. This is the other half: a hand-edited blob, and a build where a band was
+   dropped from the vocabulary. */
+for (const id of tab.BAND_IDS) {
+  is(`a stored duplicate collapses band 2 to none, not band 1: ${id}`,
+     [storedAs({ reportBand1: id, reportBand2: id }).reportBand1,
+      storedAs({ reportBand1: id, reportBand2: id }).reportBand2],
+     [id, "none"]);
+}
+// AND THE DEFAULT CANNOT PUT ONE BACK EITHER. A blob naming `team` for band 1 and
+// nonsense for band 2 would otherwise have `team` restored underneath itself, because
+// `team` is what band 2 falls back to.
+is("a band 2 falling back to its default cannot duplicate band 1 either",
+   storedAs({ reportBand1: "team", reportBand2: "haiku" }).reportBand2, "none");
+is("but the same fallback still works where there is nothing to collide with",
+   storedAs({ reportBand1: "priority", reportBand2: "haiku" }).reportBand2, "team");
 is("every tab the script names is honoured",
    tab.SETTINGS_TAB_IDS.map((id) => storedAs({ settingsTab: id }).settingsTab), tab.SETTINGS_TAB_IDS);
 is("an unknown shape falls back to markdown", storedAs({ lineShape: "haiku" }).lineShape, "markdown");

@@ -873,6 +873,35 @@
   // treat the result as a fact.
   function normalisePrefs(stored) {
     const source = stored && typeof stored === "object" ? stored : {};
+
+    /* THE TWO BANDS ARE RESOLVED UP HERE, because they are the one pair of keys in
+       this function with a rule BETWEEN them and an object literal has no place to
+       put one. Each is checked against the vocabulary on its own first, exactly as
+       every key below is, and then the one cross-key rule is applied once.
+
+       THE TWO MAY NOT NAME THE SAME FIELD -- reversed on 2026-08-25, from use.
+       Ticket 05 shipped it allowed, on the reasoning that `Team` under `Team` is
+       useless, truthful and visible the moment it is pasted, so refusing it was more
+       machinery than the mistake was worth. THE USER PRESSED IT AND REPORTED IT AS A
+       DEFECT, which is what it is: a report whose every sub-heading repeats the
+       heading above it is not a configuration anybody chose, and "you can see that it
+       is wrong" is not the same as "you meant it" (§2.15).
+
+       BAND 2 IS THE ONE THAT GIVES WAY, always, and never band 1: band 1 is required
+       and band 2 is optional, so the optional one is the one that can yield without
+       producing a state no click can make. That includes the case where band 2's own
+       DEFAULT is what would duplicate -- a hand-edited blob naming `team` for band 1
+       and nonsense for band 2 must not have `team` put back underneath itself. */
+    const band1 = BAND_IDS.includes(source.reportBand1)
+      ? source.reportBand1
+      : DEFAULT_PREFS.reportBand1;
+    const band2 =
+      source.reportBand2 === NO_BAND
+        ? NO_BAND
+        : BAND_IDS.includes(source.reportBand2)
+          ? source.reportBand2
+          : DEFAULT_PREFS.reportBand2;
+
     // The order matches DEFAULT_PREFS above, so the two read as one list.
     return {
       // The drawer starts closed on a fresh install and is remembered after that.
@@ -911,16 +940,10 @@
       // NEVER `none`. A report with no bands at all is 📋 Details, so a blob asking
       // for one gets the default band back rather than a second copy of another
       // export.
-      reportBand1: BAND_IDS.includes(source.reportBand1)
-        ? source.reportBand1
-        : DEFAULT_PREFS.reportBand1,
-      // `none` IS honoured here, and it is the single-level report.
-      reportBand2:
-        source.reportBand2 === NO_BAND
-          ? NO_BAND
-          : BAND_IDS.includes(source.reportBand2)
-            ? source.reportBand2
-            : DEFAULT_PREFS.reportBand2,
+      reportBand1: band1,
+      // `none` IS honoured here, and it is the single-level report -- and it is also
+      // where a duplicate lands, for the reason written above the two.
+      reportBand2: band2 === band1 ? NO_BAND : band2,
       // The first tab, never blank: an id that is not a tab any more must not leave
       // the panel with nothing on it.
       settingsTab: SETTINGS_TAB_IDS.includes(source.settingsTab)
@@ -2331,33 +2354,273 @@ ${selectors.join(",\n")} {
      §2.15. The same data as 📋 Details, arranged for the audience that asked for
      it: the Technology Portfolio Office sends these to team leads, grouped BY
      PRIORITY AND THEN BY TEAM. That order is the user's, corrected on 2026-08-20
-     from an earlier note that had it the other way round.
+     from an earlier note that had it the other way round -- and since 1.2.0 it is
+     the DEFAULT PAIR rather than the only one. Two dropdowns choose the bands
+     (decision 12), and the shipped values are still priority then team, so an
+     install that never opens ⚙ gets 1.1.0's bytes.
 
-     WHY A SIXTH BUTTON AND NOT A SETTING ON 📋 Details. Headings over grouped rows
-     is a different DOCUMENT from a flat list, not a different arrangement of one --
-     it reorders the items, drops two fields into headings, and cannot be checked by
-     "lines equals items". A switch that silently changed which of those a button
-     produced is exactly what §2.8 warns against, and a fixed output is checkable.
+     WHY A SIXTH BUTTON AND NOT A SETTING ON 📋 Details, AND THE REASONING SURVIVES
+     THE BANDS BECOMING SETTABLE. Headings over grouped rows is a different DOCUMENT
+     from a flat list, not a different arrangement of one -- it reorders the items,
+     moves fields into headings, and cannot be checked by "lines equals items". A
+     switch that silently decided which of those a button produced is exactly what
+     §2.8 warns against. What the two dropdowns configure is THAT document; they do
+     not turn one document into the other, which is why a report with NO bands at
+     all is not on offer -- it would be 📋 Details spelled differently, so band 1 has
+     no `none` and only band 2 does (decision 12).
 
-     It shares the fetch, though: the held result belongs to the collection rather
-     than to a button, so one press of either arms both (§2.14).
+     THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS. `detailsHeld` carries the KIND
+     that produced it and a button offers a copy only for its own kind -- reversed
+     on 2026-08-21, from use, after a day of one press arming both stepped buttons.
+     The held result really does describe the collection rather than a button, and
+     that argument was right about the DATA and wrong about the CONTROL: watching a
+     button you did not press walk through `Fetching…` is broken however correct its
+     state is. What the two exports still share is the FETCH, which is why one field
+     list serves both requests (§2.14, §2.15).
 
-     TWO FIELDS BECOME HEADINGS AND SO LEAVE THE ROW -- AND AT 1.2.0 THAT IS THE
-     DEFAULT RATHER THAN THE RULE (decision 8). Priority is the band and team is the
-     sub-band, and `DEFAULT_PREFS.reportFields` leaves both unticked, so the report
-     emits exactly the bytes 1.1.0 emitted: type, status, assignee, fix version,
-     time remaining and the parent.
+     A TICKED FIELD IS PRINTED, BAND OR NOT (decision 8). `DEFAULT_PREFS.reportFields`
+     leaves priority and team unticked, so the report emits exactly what 1.1.0
+     emitted: type, status, assignee, fix version, time remaining and the parent. The
+     ⚙ panel MARKS a field that is also a heading; it does not veto it. A field that
+     appeared only in a heading would be a field whose meaning depends on the row's
+     position, which is what §2.14 rule 4 is about, and these lists are reshuffled by
+     hand after they are pasted. */
 
-     WHAT CHANGED IS THAT THE TICK WINS AND NOT THE BAND. Somebody who wants the
-     priority on the line as well can have it, and the reason is §2.14 rule 4: a
-     field that appears only in a heading is a field whose meaning depends on the
-     row's position, and these lists are reshuffled by hand after they are pasted.
-     The ⚙ panel marks such a field `also a heading`; it does not veto it. */
+  /* THE NAME AN ABSENT VALUE TAKES, one per band, and it is a NAME rather than a
+     blank heading because a fact about the issue must not read as a failure. Said
+     once, in the heading, rather than repeated down a column.
+
+     These two are constants where the other five are literals in `BANDS` below, and
+     the reason is that these two are what the SHIPPED DEFAULTS emit: §2.15's worked
+     example names them, and `format-smoke` asserts that example byte for byte
+     against these identifiers. */
+  const NO_PRIORITY = "No priority";
+  const NO_TEAM = "No team";
+
+  /* THE THREE STATUS CATEGORIES, IN THEIR ORDER. This is the only rank table in the
+     file, and IT DOES NOT REOPEN §2.15's REFUSAL OF ONE FOR PRIORITY -- the
+     difference is the whole reason it is safe. Priority names are THIS INSTANCE's
+     own and already sort correctly as strings, so a rank over them could only fall
+     out of step with Jira's own scheme. These three are ATLASSIAN's fixed
+     vocabulary: `new`, `indeterminate` and `done` are the only values the field
+     returns, they are finite, and they do not sort meaningfully as strings in either
+     direction.
+
+     BANDING BY STATUS NAME IS WHAT THIS AVOIDS, and it is why the band id is
+     `category` where the row field is `status`. The names are this instance's
+     wording, so a band on them gives `Dev In progress`, `Dev Resolved`, `To Do` --
+     alphabetical noise dressed as a workflow (decision 13).
+
+     ONE LIST GIVES BOTH THE LABEL AND THE RANK, so a heading and its position cannot
+     come to disagree. A key this list does not name ranks LAST, which is where an
+     absent value goes in every band. */
+  const STATUS_BANDS = [
+    ["new", "To do"],
+    ["indeterminate", "In progress"],
+    ["done", "Done"],
+  ];
+
+  /* THE SEVEN BANDS, and each answers two questions about an item: WHICH GROUP it
+     joins, and WHAT THAT GROUP IS CALLED. They are separate answers on purpose --
+     GROUP BY ID, LABEL BY NAME. Two teams can be given the same name and a heading
+     that silently merged them would be a WRONG report rather than an ugly one
+     (appendix C.4), which is the same shape of decision as §2.4's opaque collection
+     id against its editable name. Where a value IS its own identity, as a priority
+     name is, the two answers are the same string and nothing is spent saying so.
+
+     `of` RETURNS A LIST, because one band is multi-valued. Six of the seven return
+     exactly one entry. `fixv` returns ONE PER RELEASE, so an issue in two releases
+     appears in two bands and the paste then has a line per issue-and-band rather
+     than per issue -- the one place `lines equals items` is not the check (decision
+     15). §2.14's rule that NO FORMAT EVER DROPS AN ITEM is untouched by that:
+     nothing vanishes, something repeats, and the two must not be conflated.
+
+     AN EMPTY `label` IS AN ABSENT VALUE. It takes `empty` as its heading and it
+     sorts LAST, because "not set" is not a peer of a real value.
+
+     `rank` IS OPTIONAL AND ONLY `category` HAS ONE. Everything else sorts by its
+     label as a plain string, which is already right for priority (`P0` before `P1`),
+     for names, and for release names.
+
+     THE IDS AND THEIR ORDER MUST MATCH `BAND_IDS`, which is what a stored value is
+     range-checked against and what the ⚙ dropdowns are built from. `format-smoke`
+     holds the two together the way it holds `SHAPES` against `LINE_SHAPE_IDS`: a
+     band this table lacks is a preference that groups nothing, and one `BAND_IDS`
+     lacks is unreachable. They are two lists rather than one because `BAND_IDS` is
+     read by `normalisePrefs`, hundreds of lines above anything that can render.
+
+     TIME REMAINING IS ABSENT, AND THAT IS THE POINT. Its band order would be string
+     order over durations -- `"10m" < "2d" < "9h"` -- which reads as a broken report
+     rather than a configured one, so it is a row field and never a band (decision
+     14). Do not add it back on the reasonable-sounding grounds that a field is a
+     field. */
+  const BANDS = [
+    {
+      id: "priority",
+      label: "Priority",
+      empty: NO_PRIORITY,
+      of: (item) => [{ key: item.priority ?? "", label: item.priority ?? "" }],
+    },
+    {
+      id: "team",
+      label: "Team",
+      empty: NO_TEAM,
+      // The id is a UUID and is exact. A team that came back with a name and no id
+      // still gets its own group rather than joining the nameless one, which is
+      // what the `name:` prefix is for -- it cannot collide with a UUID.
+      of: (item) => [
+        {
+          key: item.teamId || (item.team ? `name:${item.team}` : ""),
+          label: item.team ?? "",
+        },
+      ],
+    },
+    {
+      id: "category",
+      label: "Status category",
+      empty: "No status",
+      of: (item) => [
+        {
+          key: item.category ?? "",
+          label: STATUS_BANDS.find(([key]) => key === item.category)?.[1] ?? "",
+        },
+      ],
+      rank: (key) => {
+        const at = STATUS_BANDS.findIndex(([one]) => one === key);
+        return at < 0 ? STATUS_BANDS.length : at;
+      },
+    },
+    {
+      id: "assignee",
+      label: "Assignee",
+      // The one absent-value name that is not "No …", because English already has
+      // the word and a report that said `No assignee` would be saying it worse.
+      empty: "Unassigned",
+      // GROUPED BY ACCOUNT ID, LABELLED BY DISPLAY NAME, for the reason the team is:
+      // two people can carry the same display name, and a heading that merged them
+      // would be a wrong report rather than an ugly one. The id costs nothing --
+      // `accountId` arrives inside the assignee object the Cart already asks for.
+      of: (item) => [
+        {
+          key: item.assigneeId || (item.assignee ? `name:${item.assignee}` : ""),
+          label: item.assignee ?? "",
+        },
+      ],
+    },
+    {
+      id: "type",
+      label: "Type",
+      empty: "No type",
+      of: (item) => [{ key: item.type ?? "", label: item.type ?? "" }],
+    },
+    {
+      id: "fixv",
+      label: "Fix version",
+      empty: "No fix version",
+      // THE FLAG IS ON THE BAND AND NOT IN THE ⚙ PANEL, so the note that tells the
+      // user what a multi-valued band costs is a question asked of this table rather
+      // than a literal `"fixv"` somewhere else that would have to be remembered if a
+      // second one ever arrived. Nothing in the RENDERER reads it: `of` returning a
+      // list is what actually makes the band multi-valued, and this only says so.
+      multi: true,
+      // THE MULTI-VALUED ONE. An issue in two releases yields two entries and so
+      // appears under both headings, which is the only reason to group by release at
+      // all: a per-release section that listed an issue under `Flex 2026.6.x (LTS
+      // track), Flex 2026.9.0` would not be listing that release. The alternatives
+      // are in §4 and both were weighed rather than skipped.
+      of: (item) => {
+        const versions = item.fixVersions ?? [];
+        return versions.length
+          ? versions.map((name) => ({ key: name, label: name }))
+          : [{ key: "", label: "" }];
+      },
+    },
+    {
+      id: "parent",
+      label: "Parent",
+      // `No epic` and not `No parent`: the field is the parent and the thing a
+      // report is grouped by is the epic, which is the word the reader uses.
+      empty: "No epic",
+      /* GROUPED BY KEY, LABELLED BY KEY AND SUMMARY. The key is exact and the
+         summary is what a section heading has to say -- `RDC-26701` alone tells a
+         team lead nothing, and Jira's own issue header is this same pair in this
+         same order.
+
+         §2.14 REJECTED THE EPIC'S SUMMARY ON THE ROW and that rejection does not
+         reach here: its ground was REPETITION -- 21 characters a line, identical on
+         three of six rows, pushing rows onto a second wrapped line -- and a heading
+         says it once, for the whole group.
+
+         THE BAND COMES FROM `bulkfetch` AND NEVER FROM THE DOM. §6 item 7's warning
+         is that a board card renders its parent epic's SUMMARY TEXT and not its key,
+         so grouping read off the page would join on a display string: two epics with
+         the same summary would merge, and one epic renamed mid-list would split. */
+      of: (item) =>
+        item.parent
+          ? [
+              {
+                key: item.parent.key,
+                label: item.parent.summary
+                  ? `${item.parent.key} ${item.parent.summary}`
+                  : item.parent.key,
+              },
+            ]
+          : [{ key: "", label: "" }],
+    },
+  ];
+
+  /* WHICH BAND A STORED ID MEANS, and `undefined` for `none` and for anything this
+     build does not know. Both are handled the same way one line down, and neither
+     can THROW on the copy path -- the same reason `detailBit` has a `default` that
+     returns null. `none` is the ordinary case for band 2; an unknown id cannot
+     normally arrive at all, because `normalisePrefs` range-checks both keys against
+     `BAND_IDS` on the way in and on the way out (ticket 01). */
+  function bandFor(id) {
+    return BANDS.find((band) => band.id === id);
+  }
+
+  /**
+   * WHAT ONE BAND DROPDOWN WRITES, AND IT IS SOMETIMES TWO KEYS. Pure, and it is
+   * pure for the reason `moveField` is: it is the whole of a rule that a user reaches
+   * through a control, so the harness can hold the rule directly and the handler
+   * stays one line.
+   *
+   * THE TWO BANDS MAY NOT NAME THE SAME FIELD (§2.15, reversed from use on
+   * 2026-08-25). Two things enforce that between them and neither is enough alone:
+   * `Then by` never OFFERS the field `Group by` holds, so band 2 cannot make a
+   * duplicate at all; and moving `Group by` onto the field `Then by` holds SWAPS the
+   * two, which is this function.
+   *
+   * A SWAP AND NOT A REFUSAL, and not band 2 cleared either. Somebody who asks to
+   * group by the field that was the sub-band is reordering the report, which is the
+   * one thing the two dropdowns exist to do, and the swap is that reorder in one
+   * press with nothing thrown away. It is the only place on this screen where a
+   * press moves a control other than the one pressed, so it is worth being able to
+   * say why: the second control does not acquire a value nobody chose -- it receives
+   * the one the FIRST control just gave up, in the same gesture.
+   *
+   * THE GUARD IS THAT BAND 1 MAY NEVER RECEIVE `none`. It cannot arise from a click,
+   * because band 2's dropdown does not offer band 1's field; it is here so that the
+   * rule is a property of the function rather than of the options list, which is a
+   * thing a later session can change.
+   *
+   * The pair comes from `SETTINGS_TABS`, which is the one place the structure is
+   * written down, and the OTHER band is found by which one already holds the value
+   * rather than by being "the one that is not this one" -- so a third band would need
+   * no line here.
+   */
+  function bandPatch(key, value, prefs) {
+    const pair = SETTINGS_TABS.find((tab) => tab.bands?.includes(key))?.bands ?? [];
+    const held = pair.find((one) => one !== key && prefs[one] === value);
+    return held && prefs[key] !== NO_BAND
+      ? { [key]: value, [held]: prefs[key] }
+      : { [key]: value };
+  }
 
   // P0 before P1 before P2: the plain string sort is already right, which is why
-  // there is no rank table here to fall out of step with Jira's own scheme. An
-  // empty value sorts LAST in both bands, because "not set" is not a peer of a
-  // real priority or a real team.
+  // there is no rank table for a priority to fall out of step with Jira's own
+  // scheme. An empty value sorts LAST in every band, because "not set" is not a peer
+  // of a real value.
   function byLabel(a, b) {
     if (a === b) return 0;
     if (a === "") return 1;
@@ -2366,47 +2629,75 @@ ${selectors.join(",\n")} {
   }
 
   /**
-   * Priority band, then team sub-band, then the collection's own order inside.
+   * ONE LEVEL OF GROUPING. Every group carries the heading it will print and the
+   * items under it, in the collection's own order -- which survives inside a group
+   * in every format, as it always has.
    *
-   * GROUPED BY `teamId`, LABELLED BY `team`. Two teams can be given the same name,
-   * and a heading that silently merged them would be a wrong report rather than an
-   * ugly one (appendix C.4). Items with no team at all share the one empty group.
+   * NO BAND IS ONE GROUP WITH NO HEADING, and that single line answers two cases at
+   * once: band 2 set to `None`, which is the one-level report decision 12 offers,
+   * and a band 1 that somehow named something this build cannot resolve, which
+   * degrades to a flat list rather than throwing while a copy is in flight.
+   *
+   * A MULTI-VALUED BAND PUTS ONE ITEM IN SEVERAL GROUPS. That is `fixv` and nothing
+   * else today, and it is the stated exception to `lines equals items` (decision
+   * 15). It falls out of `of` returning a list and needs no branch here.
    */
-  function reportGroups(items) {
-    const bands = new Map();
+  function bandGroups(items, band) {
+    if (!band) return [{ key: "", heading: null, items }];
+
+    const groups = new Map();
     for (const item of items) {
-      const priority = item.priority ?? "";
-      const key = item.teamId || (item.team ? `name:${item.team}` : "");
-      if (!bands.has(priority)) bands.set(priority, new Map());
-      const teams = bands.get(priority);
-      if (!teams.has(key)) teams.set(key, { team: item.team ?? "", items: [] });
-      teams.get(key).items.push(item);
+      for (const value of band.of(item)) {
+        if (!groups.has(value.key)) {
+          groups.set(value.key, {
+            key: value.key,
+            heading: value.label || band.empty,
+            label: value.label,
+            items: [],
+          });
+        }
+        groups.get(value.key).items.push(item);
+      }
     }
 
-    return [...bands.keys()].sort(byLabel).map((priority) => ({
-      priority,
-      teams: [...bands.get(priority).values()].sort((a, b) =>
-        byLabel(a.team, b.team),
-      ),
+    // Sorted by the RANK where a band has one and by the LABEL where it does not,
+    // and never by the key -- a key is an opaque UUID for the team and an
+    // Atlassian keyword for the category, so sorting on it would be arbitrary in one
+    // band and alphabetical noise in the other.
+    return [...groups.values()].sort(
+      band.rank
+        ? (a, b) => band.rank(a.key) - band.rank(b.key)
+        : (a, b) => byLabel(a.label, b.label),
+    );
+  }
+
+  /**
+   * The two bands, outer then inner, and the collection's own order inside.
+   *
+   * `bands` IS THE STORED PAIR, read once by `format` and handed down, exactly as
+   * the field selection and the line shape are. Nothing in here reads storage, so
+   * the whole report stays a pure function of its arguments and is as testable as
+   * the other five formats.
+   */
+  function reportGroups(items, bands) {
+    const [outer, inner] = (bands ?? []).map(bandFor);
+    return bandGroups(items, outer).map((band) => ({
+      key: band.key,
+      heading: band.heading,
+      groups: bandGroups(band.items, inner),
     }));
   }
 
-  // Said once, in a heading, rather than repeated down a column. The wording is the
-  // UI's own vocabulary for an absent value and must not read as an error: a
-  // priority or a team that is not set is a fact about the issue, not a failure.
-  const NO_PRIORITY = "No priority";
-  const NO_TEAM = "No team";
-
-  function formatReport(items, scope, shape, fields) {
-    const groups = reportGroups(items);
+  function formatReport(items, scope, shape, fields, bands) {
+    const groups = reportGroups(items, bands);
 
     const text = groups
       .map((band) =>
         [
-          `**${band.priority || NO_PRIORITY}**`,
-          ...band.teams.map((group) =>
+          ...(band.heading === null ? [] : [`**${band.heading}**`]),
+          ...band.groups.map((group) =>
             [
-              `*${group.team || NO_TEAM}*`,
+              ...(group.heading === null ? [] : [`*${group.heading}*`]),
               ...group.items.map((item) => {
                 const bits = detailBits(item, fields).map((bit) => bit.text);
                 // The same head as the other two exports, from the same one
@@ -2430,12 +2721,18 @@ ${selectors.join(",\n")} {
        outline, and a status mail should not add sections to somebody's page. */
     const html = groups
       .map((band) => {
-        const head = `<p style="margin:14px 0 2px"><strong>${escapeHtml(band.priority || NO_PRIORITY)}</strong></p>`;
+        const head =
+          band.heading === null
+            ? ""
+            : `<p style="margin:14px 0 2px"><strong>${escapeHtml(band.heading)}</strong></p>`;
         return (
           head +
-          band.teams
+          band.groups
             .map((group) => {
-              const sub = `<p style="margin:8px 0 2px"><em>${escapeHtml(group.team || NO_TEAM)}</em></p>`;
+              const sub =
+                group.heading === null
+                  ? ""
+                  : `<p style="margin:8px 0 2px"><em>${escapeHtml(group.heading)}</em></p>`;
               const rows = group.items
                 .map((item) => {
                   const bits = detailBits(item, fields);
@@ -2680,11 +2977,21 @@ ${selectors.join(",\n")} {
       kind: "report",
       label: "📊 Report",
       title:
-        "Ask Jira, then copy the collection grouped by priority and then by team — the shape the Technology Portfolio Office sends to team leads. Its rows carry the fields the 📊 Report tab has ticked. Two presses: the first fetches, the second copies",
+        "Ask Jira, then copy the collection grouped under headings — the shape the Technology Portfolio Office sends to team leads. The two 📊 Report dropdowns choose which fields band it, and its rows carry the fields that tab has ticked. Two presses: the first fetches, the second copies",
       build: formatReport,
       fields: "reportFields",
-      // Same fetch as 📋 Details, because the held result belongs to the collection
-      // rather than to a button: one press of either arms both (§2.15).
+      // WHICH BANDS THIS DOCUMENT READS, and the same seam `fields` is: the keys are
+      // named here so `format` performs the one read, rather than the renderer
+      // reaching into storage. `SETTINGS_TABS` names the same two keys, because that
+      // is where they are EDITED, and `format-smoke` asserts the two tables agree --
+      // a band key a tab edits and no export reads is a dropdown that changes
+      // nothing, and one an export reads and no tab edits is a preference with no
+      // way to reach it (§2.15, ticket 05).
+      bands: ["reportBand1", "reportBand2"],
+      // The same fetch as 📋 Details, because the held result belongs to the
+      // collection rather than to a button -- so one field list serves both
+      // requests. THE ARMING IS NOT SHARED: a press arms its own button and nothing
+      // else, reversed from use on 2026-08-21 (§2.15).
       needsDetails: true,
     },
     {
@@ -2734,6 +3041,11 @@ ${selectors.join(",\n")} {
    * value is two values that can disagree, and this one would disagree silently, in
    * bytes already on somebody's clipboard (principle 1, §2.8).
    *
+   * THE BANDS ARE READ IN THE SAME BREATH, for the same reason and with the same
+   * consequence: a report is grouped by whatever the two dropdowns said at the
+   * moment of the press, and no renderer below this line asks storage anything
+   * (§2.15).
+   *
    * THE FIELD SELECTION IS APPLIED AT RENDER AND NEVER AT FETCH, and the opposite is
    * the obvious-looking optimisation. Narrowing `DETAIL_FIELDS` to the ticked fields
    * would cost three things at once: the constant could fall out of step with a
@@ -2764,6 +3076,11 @@ ${selectors.join(",\n")} {
       // catalogue on the way out, so a stored blob missing a field, naming one this
       // build does not have, or holding none at all cannot reach a renderer.
       entry.fields ? enabledFields(prefs[entry.fields]) : undefined,
+      // And the bands, for the one export that has any. Read HERE, in the same one
+      // read as the shape and the field list, so `formatReport` stays a pure
+      // function of its arguments and a copy cannot be built from two different
+      // versions of the preferences (§2.15).
+      entry.bands ? entry.bands.map((key) => prefs[key]) : undefined,
     );
   }
 
@@ -2994,6 +3311,17 @@ ${selectors.join(",\n")} {
         assignee:
           typeof fields.assignee?.displayName === "string"
             ? cleanText(fields.assignee.displayName)
+            : "",
+        // GROUP BY `assigneeId`, LABEL BY `assignee`, the same split the team gets
+        // and for the same reason: two people can carry one display name, and an
+        // assignee band that merged them would be a WRONG report rather than an ugly
+        // one (§2.15, appendix C.4). It costs nothing to keep -- `accountId` arrives
+        // inside the assignee object the Cart already asks for, so there is no extra
+        // field in `DETAIL_FIELDS` and no extra request. Nothing below reaches
+        // storage, so it is not a migration either (§2.14).
+        assigneeId:
+          typeof fields.assignee?.accountId === "string"
+            ? fields.assignee.accountId
             : "",
         fixVersions: Array.isArray(fields.fixVersions)
           ? fields.fixVersions.map(named).filter(Boolean)
@@ -3622,6 +3950,21 @@ ${selectors.join(",\n")} {
   const tabButtonId = (id) => `gt-cart-tab-${id}`;
   const tabPanelId = (id) => `gt-cart-tabpanel-${id}`;
   const fieldListId = (id) => `gt-cart-fields-${id}`;
+  /* THE BAND DROPDOWNS' IDS, DERIVED FROM THE PREFERENCE KEY THEY WRITE, so a third
+     band would be one more entry in `SETTINGS_TABS` and nothing to name here. The
+     lowercase is only house style -- every other id in this file is lowercase -- and
+     it is derived rather than spelled out so there is no second name to keep in step
+     with `reportBand1`.
+
+     `render` finds them by id. What a CHANGE on one writes is carried by the
+     dataset attribute below instead of parsed back out of the id, which is the same
+     split the field rows already use: an id is for finding, an attribute is for
+     saying what a control is.
+
+     The note is per TAB and not per band, because it describes the pair. */
+  const bandSelectId = (key) => `gt-cart-pref-${key.toLowerCase()}`;
+  const bandNoteId = (id) => `gt-cart-bandnote-${id}`;
+  const BAND_KEY_ATTR = "gtBand";
 
   /* A FIELD ROW'S FOUR ATTRIBUTES. The first two say what the row IS, and they are
      on the row AND on its checkbox: the delegated `change` listener is handed the
@@ -3830,6 +4173,86 @@ ${selectors.join(",\n")} {
   // page on every render rather than remembered, so it is not a buffer that can
   // disagree with the page (§2.3).
   let liveAnchors = new Map();
+
+  /* ONE TAB'S BAND DROPDOWNS, BUILT ONCE AND NEVER REBUILT, like everything else on
+     this screen: `render` sets a value and a note, and replaces nothing (decision
+     25).
+
+     THE POSITION IS THE MEANING. `tab.bands` is an ORDERED list of preference keys,
+     so the first one is the band and every later one is a sub-band -- which is why
+     the first has no `None` and the rest do. That is decision 12 expressed as a
+     structure rather than as a literal `"reportBand1"` in here: a report with no
+     bands at all is 📋 Details spelled differently, so band 1 must be a field.
+
+     THE OPTIONS COME FROM `BANDS`, so a band added or dropped there moves both
+     dropdowns with it and there is no second list of names to keep in step -- the
+     same reason the tab bar is built from `SETTINGS_TABS` and the shape dropdown
+     from `SHAPES`. `Time remaining` is absent from both because it is absent from
+     `BANDS`, and the reason lives there.
+
+     THE PAIR MAY NOT NAME THE SAME FIELD -- reversed from use on 2026-08-25, having
+     shipped the other way. The argument for allowing it was that `Team` then `Team`
+     is a report where every sub-heading repeats the heading above it: useless,
+     truthful, and visible the moment it is pasted. The user pressed it and reported
+     it as a defect, and the argument had weighed the wrong thing -- nobody arrives at
+     that pair deliberately, they arrive at it by moving one dropdown and not noticing
+     the other.
+
+     THE OPTIONS ARE BUILT WHOLE HERE AND `renderBands` GREYS ONE OUT, rather than
+     this list being filtered: the panel is built once and never rebuilt, so an option
+     list that grew and shrank would be the one thing on this screen that is replaced.
+     `bandPatch` carries the other half of the rule, and `normalisePrefs` the half
+     that no click can reach. */
+  function bandControls(tab) {
+    const wrap = el("div", "gt-cart-bands");
+
+    tab.bands.forEach((key, at) => {
+      const row = el("label", "gt-cart-pref");
+      row.title =
+        at === 0
+          ? "Which field 📊 Report groups by. Its value becomes a heading, and the issues carrying it are listed under it."
+          : "A second heading inside each group. None gives a report with one level of headings.";
+      row.append(el("span", "gt-cart-pref-label", at === 0 ? "Group by" : "Then by"));
+      const node = select(
+        bandSelectId(key),
+        at === 0
+          ? "Which field 📊 Report groups by"
+          : "Which field 📊 Report groups by inside each group",
+        [
+          // Band 2's `None` is FIRST because it is the short answer to "and then?",
+          // not because it is the default -- the default is `team` and `render`
+          // reads that off storage like every other value on this screen.
+          ...(at === 0 ? [] : [[NO_BAND, "None"]]),
+          ...BANDS.map((band) => [band.id, band.label]),
+        ],
+      );
+      // WHAT A CHANGE WRITES, carried by the control rather than parsed back out of
+      // its id -- the same split the field checkboxes use, and the reason
+      // `onPrefsChange` needs one branch for however many bands a tab has.
+      node.dataset[BAND_KEY_ATTR] = key;
+      row.append(node);
+      wrap.append(row);
+    });
+
+    /* THE ONE PROPERTY A BAND CAN COST, said where the band is chosen. `fixv` is
+       multi-valued, so an issue in two releases is listed under both and the paste
+       then has a line per issue-and-band rather than per issue (decision 15). THAT
+       PROPERTY IS WHAT MAKES A PASTE VERIFIABLE AT A GLANCE -- count the lines,
+       count the items -- so losing it has to be said out loud rather than
+       discovered.
+
+       IT IS NOT A WARNING AND THERE IS NOTHING TO DISMISS. It is a description of
+       what the chosen pair produces, and it is DERIVED on every render from the
+       stored bands, so it appears when a fix-version band does and goes when it
+       goes. Empty until `render` fills it, and `:empty` hides it, so there is no
+       `hidden` attribute beside the text saying the same thing (see the field
+       rows' own note). */
+    const note = el("p", "gt-cart-band-note");
+    note.id = bandNoteId(tab.id);
+    wrap.append(note);
+
+    return wrap;
+  }
 
   /* ONE TAB'S FIELD LIST, BUILT ONCE AND NEVER REBUILT. Every catalogue field gets a
      row whether it is ticked or not, so a field is always findable and one click
@@ -4083,9 +4506,12 @@ ${selectors.join(",\n")} {
       panel.setAttribute("aria-labelledby", tabButtonId(tab.id));
       panel.hidden = true;
       if (tab.id === "appearance") panel.append(rightClick, layout, corner);
-      // Ticket 05's two band dropdowns go ABOVE the list on the report tab, because
-      // a band is what takes a field into a heading and the list is what says what
-      // is left on the row.
+      // THE BANDS GO ABOVE THE LIST, because a band is what takes a field into a
+      // heading and the list is what says what is left on the row -- so the panel
+      // reads in the order the document is built. Both are driven off
+      // `SETTINGS_TABS`, so a tab with bands and no field list, or the reverse,
+      // costs nothing here.
+      if (tab.bands) panel.append(bandControls(tab));
       if (tab.fields) panel.append(fieldList(tab));
       prefs.append(panel);
     }
@@ -4614,6 +5040,27 @@ ${selectors.join(",\n")} {
       savePrefs({ lineShape: input.value });
       return;
     }
+    /* A BAND. The dropdown carries the preference key it writes, so one branch
+       serves both of them and a third band would need no line here -- the same
+       reason the field checkboxes carry theirs.
+
+       NOT RANGE-CHECKED HERE, for the reason the line shape is not: `savePrefs`
+       normalises on the way in and `loadPrefs` again on the way out, so a value this
+       build does not know falls back to the default rather than reaching a renderer.
+       Band 1 has no `None` in its options, and `normalisePrefs` is what makes that a
+       rule rather than a fact about a dropdown (§2.4, ticket 01).
+
+       BEFORE THE FIELD TICK BELOW, because both are dataset-driven and this one is
+       the narrower test. */
+    const band = input.dataset[BAND_KEY_ATTR];
+    if (band) {
+      // ONE PRESS, SOMETIMES TWO KEYS -- `bandPatch` owns the rule and says why.
+      // Read-modify-write over the STORED pair rather than over what is on screen,
+      // for the reason the field ticks are: another tab may have moved a band since
+      // this panel was drawn (§2.5).
+      savePrefs(bandPatch(band, input.value, loadPrefs()));
+      return;
+    }
     /* A FIELD'S TICK. The checkbox carries the key it writes and the id it is, so
        one branch serves both lists and a third list would need no line here.
 
@@ -5071,6 +5518,7 @@ ${selectors.join(",\n")} {
     // itself renders, so it would be right again by the time you looked. A state
     // that is only ever wrong while nobody can see it is still a second value.
     for (const tab of SETTINGS_TABS) {
+      if (tab.bands) renderBands(tab, prefs);
       if (tab.fields) renderFieldList(tab, prefs);
     }
 
@@ -5089,6 +5537,80 @@ ${selectors.join(",\n")} {
         ? "Click again to put the line shape, both field lists and both bands back to what 1.1.0 emitted. There is no undo."
         : "Put the line shape, both field lists and both bands back to what 1.1.0 emitted. The appearance switches and the tab you are on are left alone.";
     }
+  }
+
+  /* ONE TAB'S BANDS, SET RATHER THAN REBUILT, and both things written here are a
+     function of storage: each dropdown's value, and whether the pair costs `lines
+     equals items`.
+
+     READ BACK OUT OF STORAGE ON EVERY RENDER, so `Restore export defaults` and
+     another tab's write both land on these controls without either of them having
+     to know they exist -- the same treatment `corner`, `layout` and the line shape
+     get. `normalisePrefs` has already turned an id this build does not know into the
+     default, so a dropdown can never be left showing nothing.
+
+     THE NOTE IS DERIVED AND NEVER REMEMBERED. A flag set when the dropdown changed
+     would be a second value that has to agree with the preference, and it would
+     disagree the moment another tab changed the band (principle 1). */
+  function renderBands(tab, prefs) {
+    /* WHICH FIELDS ARE ALREADY SPOKEN FOR, AND ONLY BY A BAND ABOVE THIS ONE. The two
+       bands may not name the same field (§2.15, reversed from use on 2026-08-25), and
+       this is one half of that rule; `bandPatch` is the other.
+
+       THE DIRECTION IS THE WHOLE DESIGN, so it is worth spelling out. A band greys
+       out what the bands ABOVE it hold and never what the bands below it hold -- so
+       `Then by` cannot be set to `Group by`'s field, while `Group by` still offers
+       all seven. That asymmetry is what leaves the SWAP reachable: moving `Group by`
+       onto the field `Then by` holds is how a report is reordered, and it takes one
+       press. Greying it in both directions would have cost three, through an
+       intermediate state, which is the version that was tried on paper and dropped.
+       It is also the same rule the labels already carry: position is the meaning, the
+       first band is the one that must be a field, and a later band is the one that
+       gives way.
+
+       DISABLED AND NOT REMOVED, for two reasons. The panel is built once and never
+       rebuilt, so an option list that grew and shrank on every render would be the
+       one thing on this screen that IS replaced -- and a greyed row that still reads
+       `Team` says WHY it cannot be chosen, where a row that quietly vanished would
+       leave somebody hunting for a field the dropdown had a moment ago.
+
+       AND IT IS A VETO WHERE THE FIELD LIST'S MARK IS ONLY A STATEMENT (decision 8),
+       which is not an inconsistency. That mark refuses to veto because §2.14 rule 4
+       gives a banded field a real use on the row: somebody who drags a line out of
+       its band in the pasted mail still wants the value readable. A duplicate BAND
+       has no such reading -- every sub-heading would repeat the heading above it --
+       so there is nothing to leave open. */
+    const claimed = tab.bands.map((key) => prefs[key]);
+
+    tab.bands.forEach((key, at) => {
+      const node = document.getElementById(bandSelectId(key));
+      if (!node) return;
+      const above = claimed.slice(0, at);
+      for (const option of node.children) {
+        // `none` is never claimed: it is not a field, and it is the answer to "and
+        // then?" rather than a field's name -- though only band 2 is offered it.
+        option.disabled =
+          option.value !== NO_BAND && above.includes(option.value);
+      }
+      // AFTER the disabling and not before. The value this control is SUPPOSED to
+      // show can never be one of the claimed ones -- `normalisePrefs` collapses a
+      // duplicate to `None` on the way out of storage -- and setting it last means a
+      // browser that declines to select a disabled option cannot leave the control
+      // showing whatever sat above it.
+      node.value = prefs[key];
+    });
+
+    const note = document.getElementById(bandNoteId(tab.id));
+    if (!note) return;
+    // Which of the bands is multi-valued is asked of `BANDS` rather than compared
+    // against a literal `"fixv"`, so a second multi-valued band would light this
+    // note up without a line changing here.
+    const multi = tab.bands
+      .map((key) => bandFor(prefs[key]))
+      .filter((band) => band?.multi);
+    note.textContent = multi.length
+      ? `An issue with two ${multi[0].label.toLowerCase()}s is listed under both, so this report has more lines than issues.`
+      : "";
   }
 
   /* ONE FIELD LIST, SET RATHER THAN REBUILT. Three things are written here and each
@@ -6286,6 +6808,29 @@ ${D} span.gt-cart-field-note {
    render, so an attribute beside it would be a second value saying the same thing,
    and the flex gap before an empty span is what it would exist to remove. */
 ${D} span.gt-cart-field-note:empty {
+  display: none;
+}
+
+/* THE TWO BAND DROPDOWNS AND WHAT THEIR PAIR COSTS. The rows are ordinary
+   gt-cart-pref labels, so they sit on the same grid as Sections, Corner and Issue
+   reference and cost no new rule; the wrapper exists only to keep the note with the
+   pair it describes. NO BACKTICK IN THIS SHEET -- it is a template literal, and one
+   here ends it (see the test README). */
+${D} div.gt-cart-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* IT WRAPS, where a field row's note ellipsises. A sentence about what the export
+   will do is worth two lines of the panel at the 300px floor -- it is read once,
+   when the band is chosen, and a truncated one would be worse than none. */
+${D} p.gt-cart-band-note {
+  margin: 0;
+  color: var(--gt-cart-muted);
+  font-size: 10px;
+  font-style: italic;
+}
+${D} p.gt-cart-band-note:empty {
   display: none;
 }
 

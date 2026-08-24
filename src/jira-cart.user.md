@@ -2693,6 +2693,124 @@ the most ordinary property in email HTML. **And `<p><strong>`, not `<h3>`** — 
 pasted heading joins the host document's outline, and a status mail should not add
 sections to somebody's page.
 
+> **Amended on 2026-08-25: WHICH TWO FIELDS BAND IS NOW A SETTING. Seven of them
+> may, and one of the seven can list an issue twice.** 1.2.0 gives 📊 Report two
+> dropdowns — `Group by` and `Then by` — on its own ⚙ tab, above its field list
+> (decision 12). Everything above stays true, and most of it stays true *by
+> default* rather than by construction; each paragraph below says which.
+>
+> **The *sixth export* reasoning STANDS, and restating it is the point of this
+> amendment.** A grouped document is still a different **document** from a flat
+> list, and what the two dropdowns configure is *that* document — they do not turn
+> one document into the other. That is why **band 1 has no `None`**: a report with
+> no bands at all is 📋 Details spelled differently, so offering it would be the
+> switch §2.8 warns about, arriving by the back door. Only band 2 may be `None`,
+> which gives a report with one level of headings. `format-smoke` asserts the
+> equivalence directly — a report with no resolvable band is byte for byte 📋
+> Details, given the same selection — so the reason the option is withheld is a
+> measurement rather than an assertion.
+>
+> **Seven fields band: priority, team, status category, assignee, type, fix version,
+> parent.** The catalogue has eight, and **time remaining is the one that may not**
+> (decision 14). Its band order would be string order over durations —
+> `"10m" < "2d" < "9h"` — which reads as a broken report rather than a configured
+> one. The reason is in a comment beside the list and in a check, because the next
+> session to look at it will otherwise add it back on the reasonable-sounding
+> grounds that a field is a field.
+>
+> **STATUS BANDS BY CATEGORY, NEVER BY NAME, AND IT CARRIES A THREE-ENTRY RANK.**
+> `item.category` is already fetched — `fields.status.statusCategory.key`, one of
+> Atlassian's fixed three — and it bands as `To do` / `In progress` / `Done` in that
+> order. **This does not reopen the no-rank-table decision above, and the difference
+> is what makes it safe.** That decision refused a rank for *priority* because
+> priority names are **this instance's own** and already sort correctly as strings,
+> so a table over them could only fall out of step with Jira. The three categories
+> are **Atlassian's vocabulary** — fixed, finite, and the only values the field
+> returns — and they do **not** sort meaningfully as strings in either direction.
+> Banding by status *name* would give `Dev In progress`, `Dev Resolved`, `To Do`:
+> alphabetical noise dressed as a workflow (decision 13). One list in the script
+> gives both the label and the rank, so a heading and its position cannot come to
+> disagree, and a category this build does not know ranks last — where every absent
+> value goes.
+>
+> **FIX VERSION MAY BAND, AND AN ISSUE IN TWO RELEASES APPEARS IN BOTH** (decision
+> 15). One issue yields one entry per band, except here, where it yields one per
+> version. That is the only reason to group by release at all: a per-release section
+> then lists what actually ships in that release. It costs a stated property and the
+> cost is limit 5 below — the exception is deliberate rather than discovered, and
+> the ⚙ panel says so beside the dropdown, in a note that appears only while such a
+> band is chosen. The two alternatives were weighed and are in §4.
+>
+> **GROUP BY ID, LABEL BY NAME, wherever the two are different things.** The team
+> paragraph above is the model and it now has two more cases. **The assignee bands
+> by `accountId`** — two people can carry one display name, and a heading that
+> merged them would be a *wrong* report rather than an ugly one, which is this
+> section's own argument applied where it also holds. It costs nothing: `accountId`
+> arrives inside the assignee object the Cart already requests, so there is no extra
+> field and no extra call. **The parent bands by the epic's key** and is labelled
+> `KEY Summary`, which is Jira's own issue header in Jira's own order. §2.14
+> rejected the epic's summary **on the row** and that rejection does not reach a
+> heading: its ground was *repetition* — 21 characters a line, identical on three of
+> six rows — and a heading says it once, for the whole group.
+>
+> **Everything else in this section is unchanged**, and it is unchanged for every
+> band rather than only for the two that shipped. An absent value sorts **last** and
+> is **named** — `No priority`, `No team`, `No status`, `Unassigned`, `No type`,
+> `No fix version`, `No epic` — never a blank heading, because a fact about the
+> issue must not read as a failure. Inside a group the collection's own order
+> survives. Headings stay `<p><strong>` and `<p><em>` — tags, not styled spans, and
+> not `<h3>`.
+>
+> **~~The pair may name the same field, and nothing forbids it.~~ REVERSED THE SAME
+> DAY, FROM USE.** It shipped allowed, on the reasoning that priority under priority
+> is one sub-heading repeating the heading above it — useless, truthful, and visible
+> the moment it is pasted — so refusing it was more machinery than the mistake was
+> worth. **The user pressed it, made `Team` then `Team`, and reported it as a
+> defect**, which is what it is. A report whose every sub-heading repeats the heading
+> above it is not a configuration anybody chose, and *you can see that it is wrong*
+> is not the same as *you meant it*. The original argument weighed the cost of the
+> machinery against the cost of the mistake and got the second number wrong: this is
+> not a state somebody arrives at deliberately, it is one they arrive at by moving
+> one dropdown and not noticing the other.
+>
+> **Two mechanisms enforce it and neither is enough alone, and the DIRECTION is the
+> whole design.**
+>
+> 1. **`Then by` never offers the field `Group by` holds** — greyed in place, not
+>    removed, so the row still reads `Team` and says *why* it cannot be chosen.
+>    A band greys out what the bands **above** it hold and never what the bands below
+>    it hold, which is the same rule the labels already carry: position is the
+>    meaning, the first band must be a field, and a later band is the one that gives
+>    way.
+> 2. **Moving `Group by` onto the field `Then by` holds SWAPS the two**, in one
+>    press. That asymmetry is the reason `Group by` still offers all seven: somebody
+>    asking to group by the field that was the sub-band is **reordering the report**,
+>    which is the one thing these two dropdowns exist to do.
+>
+> **It is the only place on this screen where a press moves a control other than the
+> one pressed**, so the reason it is not §2.15's own *the button you press is the
+> button that answers* defect is worth stating. That defect was a button walking
+> through a state ladder it had not been pressed for — a control **lying** about what
+> had happened to it. Here the second dropdown does not acquire a value nobody chose:
+> it receives the one the first dropdown just gave up, in the same gesture, visibly,
+> and pressing again puts both back.
+>
+> **A veto here, where the field list's mark is only a statement (decision 8), and
+> that is not an inconsistency.** The mark refuses to veto because §2.14 rule 4 gives
+> a banded field a real use on the row — somebody who drags a line out of its band in
+> the pasted mail still wants the value readable. A duplicate **band** has no such
+> reading, so there is nothing to leave open.
+>
+> **`normalisePrefs` carries the other half**, for the blob no click can produce: a
+> stored pair naming one field collapses **band 2** to `None`, never band 1, because
+> band 1 is required and band 2 is optional — so the optional one is the only one that
+> can yield to a state a click can also reach. That includes band 2's own *default*:
+> a blob naming `team` for band 1 and nonsense for band 2 must not have `team` put
+> back underneath itself.
+>
+> **The two alternatives, weighed and declined**, are in §4.
+
+
 **Stated limits.**
 
 1. **The team field id is instance-specific.** On another Jira the headings go quiet
@@ -2713,9 +2831,27 @@ sections to somebody's page.
    array (appendix C.4). So an item appears exactly once and *lines equals items*
    still holds across the whole document, even though it cannot be checked band by
    band.
+   > **Amended 2026-08-25: true of the TEAM band, and no longer true of the
+   > document.** It is a fact about `customfield_15541` and it stands as one. What
+   > it can no longer be read as is a promise about the report, because fix version
+   > can band and is multi-valued — see limit 5.
 4. **Nothing sorts by the collection's order across bands.** Reordering the pasted
    report by hand still works — §2.14 rule 4 is about a *field* whose meaning
    changes with position, and grouping is an order the user asked for.
+5. **With a multi-valued band, a paste has one line per issue-and-band, not per
+   issue, so *lines equals items* is not the check there.** Added 2026-08-25 with
+   the configurable bands. Fix version is the only such band today, and an issue in
+   two releases is listed under both (decision 15). The property matters because it
+   is what makes a paste verifiable at a glance — count the lines, count the items —
+   so losing it is stated rather than discovered, here and in the ⚙ panel beside the
+   dropdown.
+   **§2.14's *no format ever drops an item* still holds, and the two must not be
+   conflated.** Nothing vanishes; something repeats. Dropping is forbidden;
+   repeating is a consequence the user asked for by choosing the band, and
+   `format-smoke` asserts both at once — the line count is items **plus one** for a
+   sample carrying one two-release issue, and every item is still in the document.
+   Every other band keeps the property, which is what makes this the exception
+   rather than the new rule.
 
 ## 3. What the script gives the user
 
@@ -2843,6 +2979,12 @@ Notes on the controls:
 | **One long scroll for the settings panel** | Prototyped. Twenty-two controls in one column means the thing you came for is usually off-screen, and there is no landmark to scroll to |
 | **Collapsible groups with a remembered open set** | Prototyped, **chosen, and then reversed by use.** Every visit starts with a decision about which group to open, the remembered set is a second piece of state that can disagree with what is on screen, and a group added later arrives collapsed — where a new tab arrives visible (decision 21) |
 | **↑↓ buttons instead of a drag for the field lists** | Recommended, and declined by the user on 2026-08-24. The cost is stated rather than hidden: no harness in this repo can drive a drag, so `moveField` must be pure and covered, and §7 gains a browser step (decision 26) |
+| **A fix-version band named by the JOINED version string** | It keeps *lines equals items* exactly, which is the property the chosen answer spends — and it produces the heading `Flex 2026.6.x (LTS track), Flex 2026.9.0`, which groups only the issues carrying that exact pair. **So a release section does not list the release**, which is the only reason anybody groups by one. The property was worth less than the report (§2.15, decision 15) |
+| **A fix-version band on the FIRST version only** | Also keeps *lines equals items*, and it **drops a fact about the issue silently** — the issue really is in both releases and one section will not say so. Worse, *which* band it lands in depends on the order Jira happened to return the array, so the same collection can group differently on two presses with nothing to say why |
+| **Banding 📊 Report by the status NAME** | The names are this instance's own wording, so the band order is `Dev In progress`, `Dev Resolved`, `To Do` — alphabetical noise dressed as a workflow. The category is already fetched, it is Atlassian's fixed three, and it is what a rank can safely be written over (§2.15, decision 13) |
+| **Both band dropdowns greying out each other's field** | The tidiest-looking answer to the duplicate defect, and the one that never moves a control you did not press. It costs **three clicks to reorder a report** — `Then by` to `None`, `Group by` to the field, `Then by` back — through an intermediate state that exists only to get around the rule. Reordering is what the two dropdowns are FOR, so the version that makes it one press wins even though it moves a second control (§2.15, 2026-08-25) |
+| **A duplicate clearing `Then by` to `None`** | Simpler to explain than the swap and it throws a field away: the sub-band you had is gone and you re-pick it, which is two presses for the reorder and a value lost in between. The swap costs the same one moved control and keeps both fields |
+| **Time remaining as a band** | It is a field like the other seven and it is the one that may not band: the order would be string order over durations, and `"10m" < "2d" < "9h"` is a report that reads as broken rather than as configured (decision 14). It stays a row field, where a duration is read and never sorted |
 
 ---
 
@@ -3026,6 +3168,21 @@ These are not gaps in the design. Each was named, and each was left.
    sort by key. Note that a board card renders its parent epic's **summary text**,
    not its key, so grouping from the DOM would join on a display string. Take
    `parent` from `bulkfetch` instead.
+   **The GROUP-BY-EPIC half is CLOSED on 2026-08-25 — see §2.15.** `Parent` is one
+   of 📊 Report's seven bands: choose it in `Group by` and the report is sectioned
+   by epic, one heading per epic, sorted by the heading as a plain string like every
+   other band, with `No epic` last. **The warning
+   above is exactly why the band comes from `bulkfetch`.** Grouping read off a board
+   card would join on the epic's summary text, so two epics that happen to share a
+   summary would merge into one heading and one epic renamed mid-list would split
+   into two — a *wrong* report either way. The band groups by the epic's **key** and
+   only labels with the summary, which is the same group-by-id, label-by-name split
+   the team already had (appendix C.4).
+   **What is still open is everything about the COLLECTION itself**, and the
+   distinction is the point: §2.15 groups a *document built from* the collection,
+   which leaves the collection's own array untouched — its order still survives
+   inside every band, as it does in every other format. Manual reorder, sort by key,
+   and any grouping of the drawer's own list are unaffected by this and stay here.
 8. **Capture from Bitbucket and Confluence.** Out of scope for this effort, and
    **intended future work rather than a hypothetical** — the user's instruction.
    The store already reaches both, because it is per-script; Confluence Cloud also
@@ -3137,6 +3294,8 @@ replaced by something else.
 | 31, less its third and sixth items | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The field lists, used rather than read. The panel draws both lists, a tick takes, and **a row drags at the drawer's 300×215 floor** — which is the press decision 26 had been answered without, and it came back working, so nobody had to widen the drawer to reorder a list. **A drop from one list towards the other was refused**, which is the one behaviour in this effort that no harness can see at all: it is the platform's own refusal standing because `dragover` declines to `preventDefault`, so there is nothing in the file to assert about. And the two selections a click can now reach that 1.1.0 could not produce were both emitted — **every field unticked**, which gives the issue reference alone with no em dash, and **`Team` ticked**, which reaches 📋 Details for the first time. Team needed no separate paste check: it takes `detailChip`'s default branch, the same plain grey span assignee and fix version have used since A.9 pasted them |
 | 31, item 3 | **CONFIRMED IN A BROWSER, 2026-08-25, and half of it RETIRED to the harness** | Ticking, unticking and reordering were exercised repeatedly and reported **working well** — which is the ergonomic half of decision 26, and the opposite of the *fiddly* the decision was hedging against. The item's other half, that 🔗 Links is unaffected, **left this step**: it is bytes with no paint in it, so `format-smoke` holds it instead — a wild selection and an empty one, with all four unconfigurable exports required to come out byte-identical. Worth knowing why that check is not redundant: every other Links, Names, Keys and JQL check in the file runs with the DEFAULTS in place, so they say *these bytes are 1.1.0's* and never *these bytes do not move when a preference moves* |
 | 31, item 6 | **STILL WANTS A BROWSER, and it is the cheap one** | Ticking a field **while `📋 Copy` is armed**, to see the label survive it. `boot-smoke` drives it already, in this tab and from another one, so what is missing is only the paint. Listed rather than chased |
+| 32, less the fix-version paste | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira, AND IT IS THE STEP THAT FOUND A DEFECT** | 📊 Report's two bands, used rather than read. The dropdowns were pressed and the grouped reports came back **working**. **The duplicate pair was found HERE and by nothing else**: the ticket shipped `Team` then `Team` reachable and argued in writing that it was harmless — useless, truthful, visible on the paste — and one press said otherwise, which is the whole reason this step exists rather than a table of assertions. The answer, a greyed option plus a one-press swap, was pressed the same day and reported **working well**. Everything about the bytes is held outside a browser and it is the largest block in `format-smoke`: each of the seven as band 1 and again as band 2, every `No …` heading, empty-sorts-last in both bands, the status categories in Atlassian's order and not alphabetically, one non-default pair byte for byte in both flavours, the five paste rules over every pair, and the multi-valued line count — plus `bandPatch` directly, and a sweep proving no press on either dropdown from any starting pair can produce a duplicate |
+| 32's fix-version PASTE | **STILL WANTS A REAL MAIL, and it is the one worth chasing** | A report banded by fix version, on a collection holding an issue in two releases, **pasted into Outlook and Teams**. The harness proves the line count is items plus one and that the issue is under both headings; what it cannot say is whether a document that lists one issue twice **reads as intended rather than as a bug** to the team lead who receives it. It is the only output in this effort that breaks *lines equals items* on purpose, so it is the only one where the bytes being right is not the whole question. The other bullets of step 32 — the two rows at the 300px floor, the epic and `Unassigned` wording, and `Restore` putting both dropdowns back — have no report against them either way and are listed rather than claimed |
 | the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor was DECIDED rather than measured** (decision 26), so this step is the first time anybody will have put a pointer on it |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
@@ -3347,6 +3506,49 @@ pass each, and they are cheap.
       floor and the feature was reported working, so **the fallback was not needed**
       and the decision is now a measurement. The reasoning behind it still stands for
       the day the panel grows past eight rows.
+32. **📊 Report's two bands (§2.15).** `format-smoke` holds every byte a pair can
+    produce and `boot-smoke` drives both dropdowns; **what needs a browser is the
+    fit and the paste.**
+    **Run in a browser on 2026-08-25, and THIS IS THE STEP THAT FOUND A DEFECT** —
+    the duplicate pair, which the ticket had shipped reachable on a written argument
+    that it was harmless. Read that as the case for keeping steps like this one:
+    every byte of it was already asserted, and none of the assertions was the thing
+    that was wrong. Open ⚙ → `📊 Report` and:
+    - **At the 300px floor**, read the two rows. `Group by` and `Then by` sit on the
+      same grid as `Sections` and `Corner`, and their widest option is
+      `Status category` — shorter than the pinned row's widest, which step 30
+      already measured. If either wraps, the grid is what to change, not the labels.
+    - **Choose `Status category` and copy.** The headings must read `To do`,
+      `In progress`, `Done` — in that order, and not alphabetically. This is the one
+      rank table in the file and the harness holds the order; what a browser adds is
+      that a real collection's categories map onto the three.
+    - **Choose `Fix version` on a collection holding an issue in TWO releases, and
+      PASTE IT.** The issue must appear under both, and the note under the dropdowns
+      must be on screen saying so. This is the one output in the effort where the
+      line count deliberately exceeds the item count, and reading it in a real mail
+      is what says the repetition looks intended rather than like a bug.
+      **STILL UNPASTED as of 2026-08-25.** The bands were pressed that day and the
+      reports came back working, but nobody has yet put a fix-version report on a
+      clipboard and into Outlook or Teams. The bytes are held; the reading is not.
+    - **Choose `Parent`, then `Assignee` as the second band.** Epic headings must
+      read `KEY Summary` and unassigned rows must group under `Unassigned` — the
+      wording, at the size it will be read.
+    - **Set `Then by` to `None`.** One level of headings, and the sub-heading gone
+      rather than left blank.
+    - **Open `Then by` and look for the field `Group by` holds.** It must be there
+      and **greyed**, not missing — the point is that it says why it cannot be
+      chosen. `None` must never be greyed. Then **set `Group by` to the field
+      `Then by` holds**: the two must **swap**, in one press, with both dropdowns
+      showing the new pair and nothing lost. Press it again and they must go back.
+      This is the only control on this screen that moves another one, so it is the
+      one to look at rather than read about (§2.15, reversed from use 2026-08-25).
+      **PRESSED 2026-08-25 and reported working well** — which is what closed the
+      defect the rest of this step found.
+    - **Tick `Priority` on the same tab while it is the band.** It must appear on
+      the row **as well as** in the heading: the mark says `also a heading` and does
+      not veto the tick (decision 8).
+    - **Press ↺ `Restore export defaults`.** Both dropdowns must go back to
+      `Priority` and `Team`, and the report must emit 1.1.0's bytes again.
 
 ---
 

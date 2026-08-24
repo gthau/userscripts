@@ -71,6 +71,14 @@ the one place styling is written, and no preference can reach it.
 12. **Two dropdowns over seven bandable fields**: priority, team, status category,
     assignee, type, fix version, parent. Band 1 must be a field; only band 2 may be
     `None`. A report with no bands is 📋 Details.
+    **Amended 2026-08-25, from use: THE TWO MAY NOT NAME THE SAME FIELD.** 05 shipped
+    the pair free to duplicate, on the reasoning that `Team` then `Team` is useless,
+    truthful and visible the moment it is pasted — so refusing it was more machinery
+    than the mistake was worth. The user pressed it and reported it as a defect, and
+    it is one: nobody arrives at that pair deliberately, they arrive at it by moving
+    one dropdown and not noticing the other. `Then by` now greys out the field
+    `Group by` holds, and moving `Group by` onto `Then by`'s field **swaps** the two
+    in one press. §2.15 carries the reversal and §4 the two declined alternatives.
 13. **Status bands by CATEGORY, never by name.** `item.category` is already fetched.
     A three-entry rank is justified because the three are Atlassian's own
     vocabulary, not this instance's wording — which is exactly why §2.15 refused a

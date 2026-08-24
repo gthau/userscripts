@@ -30,7 +30,8 @@ function slice(head, end) {
 }
 
 const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys","formatJql","searchUrl","format",
-               "detailBit","detailBits","detailChip","formatDetails","byLabel","reportGroups","formatReport",
+               "detailBit","detailBits","detailChip","formatDetails","byLabel","bandFor","bandPatch","bandGroups",
+               "reportGroups","formatReport",
                "shapeFor","bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine",
                "clamp","defaultFieldList","enabledFields","moveField"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
@@ -58,13 +59,23 @@ const harness = `
   ${slice("const LIST_ITEM_STYLE =", "\n")}
   ${slice("const NO_PRIORITY =", "\n")}
   ${slice("const NO_TEAM =", "\n")}
+  /* THE BAND TABLE AND THE RANK BEHIND ONE OF ITS SEVEN, sliced in for the reason
+     the catalogue above is: section 17 asserts things ABOUT them -- that they name
+     the same ids as the preference's own vocabulary, that every one of them groups
+     something, and that the three status categories come out in Atlassian's order
+     and not in alphabetical one. A copy here would assert that a copy is right. */
+  ${slice("const STATUS_BANDS = [", "\n  ];")}
+  ${slice("const BANDS = [", "\n  ];")}
+  ${slice("const BAND_IDS = [", "\n  ];")}
+  ${slice("const BAND_ROW_FIELD =", "\n")}
+  ${slice("const NO_BAND =", "\n")}
   ${slice("const TEAM_FIELD =", "\n")}
   ${slice("const SUMMARY_FIELDS =", "\n")}
   ${slice("const DETAIL_FIELDS = [", "\n  ];")}
   return {${names.join(",")}, EXPORTS, SHAPES, LINE_SHAPE_IDS, SUMMARY_FIELDS, DETAIL_FIELDS,
           FIELD_CATALOGUE, SETTINGS_TABS, DEFAULT_PREFS,
           MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE,
-          NO_PRIORITY, NO_TEAM, TEAM_FIELD};
+          NO_PRIORITY, NO_TEAM, TEAM_FIELD, BANDS, BAND_IDS, BAND_ROW_FIELD, NO_BAND, STATUS_BANDS};
 `;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const location = { origin: "https://dalet.atlassian.net" };
@@ -487,11 +498,14 @@ is("no item is dropped", (report.text.match(/^- /gm) || []).length, 6);
 // The two fields that became headings must not also be on the row.
 is("priority is NOT repeated on the line", /· P1/.test(report.text), false);
 is("the type still is", /— Bug/.test(report.text), true);
+// The call moved to the generalised grouper at 1.2.0 and the CLAIM did not: the
+// shipped pair is still priority then team, and the sub-band is still joined on the
+// id. `reportGroups` takes the stored pair now because `format` reads it (§2.15).
 is("grouping is by teamId, so two teams with one name cannot merge",
   f.reportGroups([
     { key: "A", priority: "P1", team: "Same", teamId: "x" },
     { key: "B", priority: "P1", team: "Same", teamId: "y" },
-  ])[0].teams.length, 2);
+  ], ["priority", "team"])[0].groups.length, 2);
 
 // Rules 1 to 5 are properties of the paste target, so they hold here too -- the
 // chip renderer is shared with 📋 Details for exactly that reason.
@@ -992,6 +1006,392 @@ is("enabledFields keeps the stored order and drops the unticked",
 // hand-edited `on: "yes"` is proved not to tick anything.
 is("an empty selection is an empty list, never a default put back",
   f.enabledFields(listOf([])), []);
+
+// ---- 17. SEVEN BANDS, AND ONE OF THEM REPEATS AN ISSUE (ADR §2.15, decisions 12
+// to 15). Section 14 above is the SHIPPED PAIR and it is deliberately untouched:
+// every byte it asserts is 1.1.0's, and the whole requirement of making the bands
+// settable is that those bytes do not move. This section is everything the other
+// pairs do.
+//
+// `reportBand1 = "none"` CANNOT ARRIVE HERE. `normalisePrefs` range-checks both keys
+// against `BAND_IDS` on the way in and on the way out and band 1 has no `none` in
+// its vocabulary, which `store-smoke` holds. What this file holds is what the
+// RENDERER does if one somehow reaches it, which is a different question and is
+// asserted below.
+const withBands = (pair, run) =>
+  withPrefs({ reportBand1: pair[0], reportBand2: pair[1] }, run);
+const banded = (pair, items) =>
+  withBands(pair, () => f.format("report", items, "collection"));
+// The two heading levels, read back out of the plain flavour. `**P1**` and `*Core*`
+// are told apart by the second character, which is what makes a band heading and a
+// sub-band heading two different things rather than one nested one.
+const heads = (text) => text.split("\n").filter((l) => /^\*\*/.test(l)).map((l) => l.slice(2, -2));
+const subs = (text) => text.split("\n").filter((l) => /^\*[^*]/.test(l)).map((l) => l.slice(1, -1));
+const rowsIn = (text) => (text.match(/^- /gm) || []).length;
+
+// -- 17a. THE TABLE AND THE VOCABULARY MUST NAME THE SAME IDS, held the way 15a
+// holds the shapes and 16b holds the catalogue. A band this table lacks is a
+// preference that groups nothing; one `BAND_IDS` lacks is a band no dropdown can
+// reach and no stored value can name.
+is("the band table and the preference's vocabulary name the same ids, in the same order",
+  f.BANDS.map((band) => band.id), f.BAND_IDS);
+is("seven bands over eight catalogue fields", [f.BANDS.length, f.FIELD_CATALOGUE.length], [7, 8]);
+// TIME REMAINING MAY NOT BAND (decision 14). Its band order would be string order
+// over durations, and "10m" < "2d" < "9h" reads as a broken report rather than a
+// configured one. This is the assertion that says so out loud, so that adding it
+// back breaks a check with the reason written beside it.
+// Resolved through `BAND_ROW_FIELD` first, or `status` would read as unbandable
+// when what is true of it is narrower: it bands, by its CATEGORY and never by its
+// name, which is the next assertion down.
+const bandedRowFields = new Set(f.BANDS.map((band) => f.BAND_ROW_FIELD[band.id] ?? band.id));
+is("and time remaining is the one field that may not band",
+  f.FIELD_CATALOGUE.map((one) => one.id).filter((id) => !bandedRowFields.has(id)), ["remaining"]);
+// STATUS BANDS BY CATEGORY AND NEVER BY NAME (decision 13), which is why this one id
+// is not a field id. `Dev In progress` < `Dev Resolved` < `To Do` is alphabetical
+// noise dressed as a workflow, and it is what a band on the row field would give.
+is("the one band that is not a field is the status CATEGORY, and there is no band on the name",
+  f.BAND_IDS.filter((id) => !f.FIELD_CATALOGUE.some((one) => one.id === id)), ["category"]);
+is("but every band still knows which row field it is, so the ⚙ panel can mark it",
+  f.BANDS.map((band) => f.BAND_ROW_FIELD[band.id] ?? band.id)
+    .filter((id) => !f.FIELD_CATALOGUE.some((one) => one.id === id)), []);
+is("every band names an absent value rather than leaving a blank heading",
+  f.BANDS.filter((band) => typeof band.empty === "string" && band.empty).length, 7);
+// The two tables that name the two band keys, held together the way 16c holds the
+// two that name the field lists. A key a TAB edits and no EXPORT reads is a dropdown
+// that changes nothing; a key an export reads and no tab edits is a preference with
+// no way to reach it.
+is("the tab that edits the bands and the export that reads them name the same keys",
+  f.SETTINGS_TABS.flatMap((one) => one.bands ?? []),
+  f.EXPORTS.flatMap((one) => one.bands ?? []));
+is("and 📊 Report is the only export with any, because it is the only one with headings",
+  f.EXPORTS.filter((one) => one.bands).map((one) => one.kind), ["report"]);
+is("both keys hold a real band id, so a fresh install groups by something",
+  f.EXPORTS.flatMap((one) => one.bands ?? []).map((key) => f.BAND_IDS.includes(f.DEFAULT_PREFS[key])),
+  [true, true]);
+is("and the shipped pair is still priority then team, which is what keeps 1.1.0's bytes",
+  [f.DEFAULT_PREFS.reportBand1, f.DEFAULT_PREFS.reportBand2], ["priority", "team"]);
+// Section 14 asserts the default pair without naming it. This says the two are the
+// same thing, so neither can drift into asserting something the other does not.
+is("section 14's report IS the pair named explicitly, and not a shape that happens to agree",
+  banded(["priority", "team"], REPORT), f.format("report", REPORT, "collection"));
+
+// -- 17b. THE THREE STATUS CATEGORIES, AND THE ONE RANK TABLE IN THE FILE. It does
+// not reopen §2.15's refusal of a rank for PRIORITY: priority names are this
+// instance's own and already sort correctly as strings, so a table over them could
+// only fall out of step with Jira. These three are Atlassian's fixed vocabulary and
+// they do not sort meaningfully as strings in either direction.
+is("the rank is Atlassian's own three, in Atlassian's order",
+  f.STATUS_BANDS.map(([key]) => key), ["new", "indeterminate", "done"]);
+is("and one list gives both the label and the rank, so a heading and its place cannot disagree",
+  f.STATUS_BANDS.map(([, label]) => label), ["To do", "In progress", "Done"]);
+const CATS = [
+  { key: "RDC-1", summary: "a", category: "done" },
+  { key: "RDC-2", summary: "b", category: "new" },
+  { key: "RDC-3", summary: "c", category: "indeterminate" },
+  { key: "RDC-4", summary: "d" },
+];
+const cats = heads(banded(["category", f.NO_BAND], CATS).text);
+is("status bands come out in workflow order, absent last", cats,
+  ["To do", "In progress", "Done", "No status"]);
+is("and alphabetical order is a DIFFERENT answer, which is the whole reason for the rank",
+  [...cats].sort(), ["Done", "In progress", "No status", "To do"]);
+is("a category this build does not know ranks last, where every absent value goes",
+  heads(banded(["category", f.NO_BAND], [
+    { key: "A", summary: "a", category: "unheard-of" },
+    { key: "B", summary: "b", category: "new" },
+  ]).text), ["To do", "No status"]);
+
+// -- 17c. EACH OF THE SEVEN AS BAND 1, WITH BAND 2 = None. One item carrying every
+// field and one Jira said nothing about, so each band is asserted twice over: the
+// real value becomes the heading, and the absent one is NAMED and sorts LAST.
+const FULL = {
+  key: "RDC-1513", summary: "Markers [7] Dev (player)",
+  type: "Bug", status: "Dev In progress", category: "indeterminate", priority: "P1",
+  assignee: "Ann Archer", assigneeId: "u-ann", team: "Planning", teamId: "t-plan",
+  fixVersions: ["Flex 2026.9.0"], remaining: "2d",
+  parent: { key: "RDC-100", summary: "Markers panel" },
+};
+const NOTHING = { key: "GLX-402", summary: "" };
+const REAL = {
+  priority: "P1", team: "Planning", category: "In progress", assignee: "Ann Archer",
+  type: "Bug", fixv: "Flex 2026.9.0", parent: "RDC-100 Markers panel",
+};
+for (const band of f.BANDS) {
+  const out = banded([band.id, f.NO_BAND], [FULL, NOTHING]).text;
+  is(`band 1 = ${band.id} · the value is the heading, and the absent one is named and last`,
+    heads(out), [REAL[band.id], band.empty]);
+  is(`band 1 = ${band.id} · band 2 = None means no sub-heading at all`, subs(out), []);
+  is(`band 1 = ${band.id} · and no heading is ever blank`, heads(out).every(Boolean), true);
+}
+
+// -- 17d. AND EACH OF THE SEVEN AS BAND 2, because empty-sorts-last has to hold in
+// both bands and only the inner one is nested inside a group.
+const PAIRED = [{ ...FULL, priority: "P1" }, { ...NOTHING, priority: "P1" }];
+for (const band of f.BANDS) {
+  const out = banded(["priority", band.id], PAIRED).text;
+  is(`band 2 = ${band.id} · one band above it, whatever it is`, heads(out), ["P1"]);
+  is(`band 2 = ${band.id} · the absent value is named and last inside the group too`,
+    subs(out),
+    // A DUPLICATE PAIR CANNOT ARRIVE FROM A CLICK OR FROM STORAGE any more -- 17k
+    // and `store-smoke` hold the three mechanisms that stop it, after the user pressed
+    // `Team` then `Team` on 2026-08-25 and reported it. What the RENDERER does with
+    // one is a separate question from whether it can happen, and it is asserted here
+    // for the reason 17g asserts an unresolvable band 1: a preference reaching a
+    // renderer must never THROW on the copy path. One sub-heading repeating the
+    // heading above it is the answer, and it is harmless.
+    band.id === "priority" ? ["P1"] : [REAL[band.id], band.empty]);
+}
+
+// -- 17e. FIX VERSION BANDS, AND THE ONE PROPERTY THEY COST. An issue in two
+// releases is listed under BOTH, so a paste has one line per issue-and-band rather
+// than per issue -- and *lines equals items* is not the check there (decision 15).
+// §2.14's "no format ever drops an item" is untouched: nothing vanishes, something
+// repeats, and the two must not be conflated.
+//
+// The sample is A.9's, and the two-fix-version issue in it is the only kind that can
+// expose this -- the same row that exposed the original separator bug.
+const fixv = banded(["fixv", f.NO_BAND], DETAILED);
+is("fix version bands are the releases themselves, absent last", heads(fixv.text),
+  ["Flex 2026.6.x (LTS track)", "Flex 2026.9.0", "Pyr 2026.8.0 (Release - Active)", "No fix version"]);
+is("the line count is items PLUS ONE, because one issue is in two releases",
+  rowsIn(fixv.text), DETAILED.length + 1);
+is("and it is that issue that appears twice, under both of its releases",
+  (fixv.text.match(/\[RDC-28369\]/g) || []).length, 2);
+is("NOTHING IS DROPPED, which is the rule the exception must not be read as touching",
+  DETAILED.every((one) => new RegExp(`\\[${one.key}\\]`).test(fixv.text)), true);
+is("both flavours agree about the extra line", (fixv.html.match(/<li /g) || []).length,
+  DETAILED.length + 1);
+// The same exception inside a group, because a sub-band is a band.
+is("a multi-valued SUB-band repeats an issue too",
+  rowsIn(banded(["priority", "fixv"], DETAILED).text), DETAILED.length + 1);
+// EVERY OTHER BAND KEEPS THE PROPERTY, which is what makes fix version the stated
+// exception rather than the new rule.
+for (const band of f.BANDS.filter((one) => !one.multi)) {
+  is(`band ${band.id} · lines still equals items`,
+    rowsIn(banded([band.id, f.NO_BAND], DETAILED).text), DETAILED.length);
+}
+is("and fix version is the only band that carries the flag saying it does not",
+  f.BANDS.filter((one) => one.multi).map((one) => one.id), ["fixv"]);
+
+// -- 17f. GROUP BY ID, LABEL BY NAME. Two teams can be given the same name and a
+// heading that merged them would be a WRONG report rather than an ugly one (appendix
+// C.4). The same is true of two people, and of two epics with the same summary --
+// which is §6 item 7's warning about grouping from the DOM, and the reason the band
+// comes from `bulkfetch`'s `parent` rather than from a board card's display string.
+const twice = (band, items) => f.reportGroups(items, [band, f.NO_BAND]).map((one) => one.heading);
+is("two teams with one name are two bands, and the heading says the name twice",
+  twice("team", [
+    { key: "A", team: "Same", teamId: "x" },
+    { key: "B", team: "Same", teamId: "y" },
+  ]), ["Same", "Same"]);
+is("two people with one display name are two bands as well",
+  twice("assignee", [
+    { key: "A", assignee: "Sam Lee", assigneeId: "u1" },
+    { key: "B", assignee: "Sam Lee", assigneeId: "u2" },
+  ]), ["Sam Lee", "Sam Lee"]);
+is("and two epics with one summary are two bands, joined on the key and not the words",
+  twice("parent", [
+    { key: "A", parent: { key: "RDC-1", summary: "Same words" } },
+    { key: "B", parent: { key: "RDC-2", summary: "Same words" } },
+  ]), ["RDC-1 Same words", "RDC-2 Same words"]);
+is("an epic with no summary is its key alone, rather than a heading with a space in it",
+  twice("parent", [{ key: "A", parent: { key: "RDC-1", summary: "" } }]), ["RDC-1"]);
+// A team that came back with a name and no id still gets its own group rather than
+// joining the nameless one. Two items with no team at all share the one empty group.
+is("a named team with no id is its own band, and the nameless ones share one",
+  twice("team", [
+    { key: "A", team: "Named", teamId: "" },
+    { key: "B" },
+    { key: "C" },
+  ]), ["Named", "No team"]);
+// readIssues keeps the id the assignee band joins on. It costs no extra request:
+// `accountId` arrives inside the assignee object the Cart already asks for.
+const assigned = f.readIssues([{ id: "1", key: "RDC-11", fields: { summary: "x",
+  assignee: { displayName: "William CHUANG", accountId: "5b10a2c8" } } }]).get("RDC-11");
+is("readIssues keeps the assignee's account id, which is what the band joins on",
+  assigned.assigneeId, "5b10a2c8");
+is("and an absent one is empty, not undefined", bare.assigneeId, "");
+
+// -- 17g. A BAND 1 THIS BUILD CANNOT RESOLVE DEGRADES TO A FLAT LIST. It cannot
+// arrive -- `normalisePrefs` range-checks both keys and band 1 has no `none` -- but
+// what the renderer does with one is a separate question from whether it can happen,
+// and a copy that THREW would be the failure §2.8's scar is about. So it takes the
+// same path `None` takes in band 2: one group, no heading.
+const flat = banded([f.NO_BAND, f.NO_BAND], DETAILED);
+is("no resolvable band is no heading at all, rather than a throw on the copy path",
+  [heads(flat.text), subs(flat.text)], [[], []]);
+is("an id this build does not know goes the same way, because both are just unresolved",
+  banded(["haiku", "haiku"], DETAILED), flat);
+// AND THAT IS WHY BAND 1 HAS NO `None` (decision 12): a report with no bands is not
+// a report, it is 📋 Details spelled differently -- byte for byte, given the same
+// selection, because both build their rows from the same line shape and the same
+// `detailBits`.
+is("a report with no bands IS 📋 Details, which is exactly why the option is not offered",
+  flat.text,
+  withFields("detailsFields", f.enabledFields(f.DEFAULT_PREFS.reportFields),
+    "details", DETAILED).text);
+
+// -- 17h. A REPRESENTATIVE HANDFUL OF PAIRS, BOTH FLAVOURS. The two versions must
+// agree about what the document IS -- the same headings in the same order and the
+// same number of rows -- exactly as §2.8 already requires of Links and Details.
+const FOUR = [
+  FULL,
+  { key: "RDC-28369", summary: "Full screen mode doesnt show any player controls",
+    type: "Bug", status: "To Do", category: "new", priority: "P1",
+    assignee: "Rajesh KRISHNAPPA", assigneeId: "u-raj", team: "", teamId: "",
+    fixVersions: ["Flex 2026.6.x (LTS track)", "Flex 2026.9.0"], remaining: "0m", parent: null },
+  { key: "RDC-1517", summary: "Markers [4] Dev (front-end) - Select Markers",
+    type: "Story", status: "Done", category: "done", priority: "P2",
+    assignee: "", assigneeId: "", team: "Core", teamId: "t-core",
+    fixVersions: [], remaining: "0m", parent: { key: "RDC-100", summary: "Markers panel" } },
+  NOTHING,
+];
+const PAIRS = [
+  ["category", "team"], ["fixv", "priority"], ["parent", "assignee"],
+  ["team", "category"], ["type", "fixv"], ["assignee", f.NO_BAND],
+  ["priority", "team"], [f.NO_BAND, f.NO_BAND],
+];
+for (const pair of PAIRS) {
+  const out = banded(pair, FOUR);
+  const name = pair.join(" then ");
+  // No heading in this sample carries a character `escapeHtml` would move, which is
+  // what lets the two flavours be compared as strings at all.
+  is(`${name} · the two flavours agree about the bands`,
+    [...out.html.matchAll(/<strong>([^<]*)<\/strong>/g)].map((m) => m[1]), heads(out.text));
+  is(`${name} · and about the sub-bands`,
+    [...out.html.matchAll(/<em>([^<]*)<\/em>/g)].map((m) => m[1]), subs(out.text));
+  is(`${name} · and about how many rows there are`,
+    (out.html.match(/<li /g) || []).length, rowsIn(out.text));
+  is(`${name} · no heading is blank in either flavour`,
+    [...heads(out.text), ...subs(out.text)].every(Boolean), true);
+  is(`${name} · every item is still in the document`,
+    FOUR.every((one) => new RegExp(`\\[${one.key}\\]`).test(out.text)), true);
+  is(`${name} · no trailing space on any line`, /[ \t]$/m.test(out.text), false);
+  // -- THE FIVE PASTE RULES, on byte strings 1.1.0 could not emit. Each is a
+  // measurement from a real paste into Outlook and Teams (§2.14, appendix A.9), and
+  // each is a change a later session would otherwise make on reasonable instinct.
+  is(`${name} · rule 5: no font-size anywhere`, /font-size/.test(out.html), false);
+  is(`${name} · rule 2: nothing depends on opacity`, /opacity/.test(out.html), false);
+  is(`${name} · rule 1: no separator is a box`, /border:/.test(out.html), false);
+  is(`${name} · rule 3: every background is one of the pale lozenge grounds`,
+    [...out.html.matchAll(/background:(#[0-9a-f]{6})/gi)].map((m) => m[1])
+      .every((one) => pale.includes(one)), true);
+  is(`${name} · rule 3: no colour the palette does not name`,
+    [...out.html.matchAll(/color:(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
+      .every((one) => allowed.has(one)), true);
+  // -- RULE 4 AND THE HEADINGS. A tag cannot be flattened the way a styled span can,
+  // and a pasted `<h3>` would join the host document's outline.
+  is(`${name} · headings are tags and not styled spans`,
+    /<(strong|em) style/.test(out.html), false);
+  is(`${name} · and never <h1> to <h6>`, /<h[1-6]/.test(out.html), false);
+}
+
+// -- 17i. ONE NON-DEFAULT PAIR, BYTE FOR BYTE, because everything above asserts a
+// shape and something has to assert the bytes. Status category then assignee, over
+// the shipped report field list.
+const TWO = [
+  { key: "RDC-1", summary: "one", type: "Bug", status: "To Do", category: "new",
+    priority: "P1", assignee: "Ann", assigneeId: "u1", team: "Planning", teamId: "t1",
+    fixVersions: [], remaining: "", parent: null },
+  { key: "RDC-2", summary: "two", type: "Story", status: "Done", category: "done",
+    priority: "P2", assignee: "", assigneeId: "", team: "", teamId: "",
+    fixVersions: [], remaining: "", parent: null },
+];
+is("status category then assignee, byte for byte", banded(["category", "assignee"], TWO).text,
+  [
+    "**To do**",
+    "",
+    "*Ann*",
+    `- [RDC-1](${URL}/RDC-1) one — Bug · To Do · Ann`,
+    "",
+    "**Done**",
+    "",
+    "*Unassigned*",
+    `- [RDC-2](${URL}/RDC-2) two — Story · Done`,
+  ].join("\n"));
+is("and the same document in the flavour Outlook and Teams read",
+  banded(["category", "assignee"], TWO).html,
+  '<p style="margin:14px 0 2px"><strong>To do</strong></p>' +
+  '<p style="margin:8px 0 2px"><em>Ann</em></p>' +
+  `<ul><li style="${f.LIST_ITEM_STYLE}">` +
+  `<a href="${URL}/RDC-1" style="font-weight:600">RDC-1</a>&nbsp;one` +
+  `<span style="color:${f.MUTED_INK}"> — </span>` +
+  `<span style="color:${f.MUTED_INK};font-weight:600">Bug</span>` +
+  `<span style="color:${f.MUTED_INK}"> · </span>` +
+  `<span style="background:${f.LOZENGE.new.bg};color:${f.LOZENGE.new.fg};border-radius:3px;padding:0 6px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">To Do</span>` +
+  `<span style="color:${f.MUTED_INK}"> · </span>` +
+  `<span style="color:${f.MUTED_INK}">Ann</span>` +
+  "</li></ul>" +
+  '<p style="margin:14px 0 2px"><strong>Done</strong></p>' +
+  '<p style="margin:8px 0 2px"><em>Unassigned</em></p>' +
+  `<ul><li style="${f.LIST_ITEM_STYLE}">` +
+  `<a href="${URL}/RDC-2" style="font-weight:600">RDC-2</a>&nbsp;two` +
+  `<span style="color:${f.MUTED_INK}"> — </span>` +
+  `<span style="color:${f.MUTED_INK};font-weight:600">Story</span>` +
+  `<span style="color:${f.MUTED_INK}"> · </span>` +
+  `<span style="background:${f.LOZENGE.done.bg};color:${f.LOZENGE.done.fg};border-radius:3px;padding:0 6px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Done</span>` +
+  "</li></ul>");
+
+// -- 17j. A TICKED FIELD IS PRINTED, BAND OR NOT (decision 8), and the band does not
+// veto it. The shipped defaults leave priority and team unticked, which is why the
+// bytes above have neither on the row -- but that is a DEFAULT and not a rule, and
+// §2.14 rule 4 is the ground: a field that appears only in a heading is a field whose
+// meaning depends on the row's position, and these lists are reshuffled by hand.
+is("the default report list leaves the two banded fields off the row",
+  f.enabledFields(f.DEFAULT_PREFS.reportFields).filter((id) => ["priority", "team"].includes(id)), []);
+is("but ticking a banded field puts it on the row as well as in the heading",
+  withPrefs({ reportBand1: "priority", reportBand2: f.NO_BAND, reportFields: listOf(["priority"]) },
+    () => f.format("report", [TWO[0]], "collection")).text,
+  ["**P1**", "", `- [RDC-1](${URL}/RDC-1) one — P1`].join("\n"));
+
+/* -- 17k. THE TWO BANDS MAY NOT NAME THE SAME FIELD, and `bandPatch` is the half of
+   that rule a press reaches. Held DIRECTLY, the way `moveField` is and for the same
+   reason: it is a whole rule behind one control, so the handler stays one line and
+   the rule is covered without a click.
+
+   REVERSED FROM USE ON 2026-08-25. Ticket 05 shipped the pair free to duplicate, on
+   the reasoning that `Team` under `Team` is useless, truthful, and visible the moment
+   it is pasted -- so refusing it was more machinery than the mistake was worth. The
+   user pressed it and reported it as a defect, which is what it is: a report whose
+   every sub-heading repeats the heading above it is not a configuration anybody
+   chose, and "you can see that it is wrong" is not the same as "you meant it". */
+const PAIR = { reportBand1: "priority", reportBand2: "team" };
+is("an ordinary change is one key, and the other band is left alone",
+  f.bandPatch("reportBand1", "type", PAIR), { reportBand1: "type" });
+is("and so is an ordinary change to band 2",
+  f.bandPatch("reportBand2", "fixv", PAIR), { reportBand2: "fixv" });
+// THE SWAP. Asking to group by the field that was the sub-band is a reorder, which is
+// the one thing the two dropdowns exist to do -- so it is one press and nothing is
+// thrown away. Band 2 does not acquire a value nobody chose: it receives the one band
+// 1 just gave up, in the same gesture.
+is("moving band 1 onto band 2's field SWAPS the two, in one press",
+  f.bandPatch("reportBand1", "team", PAIR), { reportBand1: "team", reportBand2: "priority" });
+is("and it swaps from the other side too, so the rule is not a fact about one control",
+  f.bandPatch("reportBand2", "priority", PAIR), { reportBand2: "priority", reportBand1: "team" });
+// BAND 1 MAY NEVER RECEIVE `none`. This cannot arise from a click -- band 2's
+// dropdown does not offer band 1's field -- and the guard is here so that the rule is
+// a property of the function rather than of an options list a later session can edit.
+is("but band 1 never receives none, because a report with no bands is 📋 Details",
+  f.bandPatch("reportBand2", "priority", { reportBand1: "priority", reportBand2: f.NO_BAND }),
+  { reportBand2: "priority" });
+is("choosing None is always just the one key",
+  f.bandPatch("reportBand2", f.NO_BAND, PAIR), { reportBand2: f.NO_BAND });
+// Setting a band to what it already holds is a no-op that still writes the one key --
+// there is no OTHER band holding it, so there is nothing to swap with.
+is("setting a band to what it already holds swaps nothing",
+  f.bandPatch("reportBand1", "priority", PAIR), { reportBand1: "priority" });
+is("a key no tab names writes itself and nothing else, rather than throwing",
+  f.bandPatch("haiku", "team", PAIR), { haiku: "team" });
+// NO PAIR IT CAN PRODUCE IS A DUPLICATE, swept rather than argued: every band, from
+// every starting pair, against both keys.
+for (const key of ["reportBand1", "reportBand2"]) {
+  for (const from of f.BAND_IDS) {
+    const start = { reportBand1: from, reportBand2: from === "team" ? "priority" : "team" };
+    const bad = f.BAND_IDS.map((to) => ({ ...start, ...f.bandPatch(key, to, start) }))
+      .filter((next) => next.reportBand1 === next.reportBand2);
+    is(`no press on ${key} from ${from} can produce a duplicate`, bad, []);
+  }
+}
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

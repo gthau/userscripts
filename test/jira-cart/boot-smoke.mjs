@@ -966,6 +966,165 @@ is("and it says so in words", fieldNote("report", "priority"), "also a heading")
 is("📋 Details marks nothing, because it has no headings at all",
   fieldIds("details").filter((id) => fieldNote("details", id)), []);
 
+/* ---- TICKET 05'S TWO BAND DROPDOWNS. `format-smoke` holds every byte they can
+   produce; what is here is the CONTROL -- that it exists on the tab that owns the
+   headings and nowhere else, that its options are the script's own band vocabulary,
+   that a change writes the preference, and that the `also a heading` marks beside it
+   MOVE when a band does. That last one is the reason this section sits here rather
+   than in `format-smoke`: it is one preference redrawing a control that reads a
+   different one, which is exactly the kind of thing a pure-function harness cannot
+   see.
+
+   The comment above says the preferences with no control yet are poked into the
+   store. From here on the bands have one, so they are driven by a real change event
+   like every other control on this screen. */
+const bandSelect = (key) => byId.get(`gt-cart-pref-${key.toLowerCase()}`);
+const BAND_IDS = ["priority", "team", "category", "assignee", "type", "fixv", "parent"];
+
+is("both band dropdowns are on the settings screen",
+  [!!bandSelect("reportBand1"), !!bandSelect("reportBand2")], [true, true]);
+// ON THE TAB THAT OWNS THE HEADINGS, and nowhere else. 📋 Details has no headings at
+// all, and the pinned `Issue reference` row is pinned because it governs all three
+// exports -- a band governs one, so it belongs under that one's tab.
+is("and both are on 📊 Report's tab, because it is the only export with headings",
+  ["reportBand1", "reportBand2"].map((key) => bandSelect(key).closest("#gt-cart-tabpanel-report") === tabPanel("report")),
+  [true, true]);
+is("they sit ABOVE the field list, because a band is what takes a field into a heading",
+  tabPanel("report").children.indexOf(bandSelect("reportBand1").closest(".gt-cart-bands")) <
+    tabPanel("report").children.indexOf(byId.get("gt-cart-fields-report")), true);
+// BUILT FROM `BANDS`, so a band added or dropped there moves both dropdowns with it.
+// A second list of names here is a value that can disagree with the headings.
+is("band 1's options are the seven bandable fields, in the script's own order",
+  bandSelect("reportBand1").children.map((option) => option.value), BAND_IDS);
+is("band 2's are the same seven with None in front, and only band 2 has it",
+  bandSelect("reportBand2").children.map((option) => option.value), ["none", ...BAND_IDS]);
+is("and they are shown by their labels, not their ids",
+  bandSelect("reportBand1").children.map((option) => option.textContent),
+  ["Priority", "Team", "Status category", "Assignee", "Type", "Fix version", "Parent"]);
+// TIME REMAINING IS NOT THERE (decision 14). Its band order would be string order
+// over durations, and "10m" < "2d" < "9h" reads as a broken report.
+is("time remaining is offered as a row field and never as a band",
+  [fieldIds("report").includes("remaining"), BAND_IDS.includes("remaining")], [true, false]);
+is("both carry what storage says",
+  ["reportBand1", "reportBand2"].map((key) => bandSelect(key).value), ["priority", "team"]);
+
+/* ---- THE TWO BANDS MAY NOT NAME THE SAME FIELD (§2.15, REVERSED FROM USE ON
+   2026-08-25). It shipped allowed, on the reasoning that `Team` under `Team` is
+   useless, truthful and visible the moment it is pasted. The user pressed it and
+   reported it as a defect. `format-smoke` holds `bandPatch` directly and
+   `store-smoke` holds the blob that arrives duplicated; what is here is the two
+   controls, driven by real change events, because the rule lives in BOTH of them and
+   neither half is the whole of it. */
+const optionsOf = (key) => bandSelect(key).children
+  .filter((option) => !option.disabled).map((option) => option.value);
+
+is("`Group by` offers all seven, always, which is what leaves the swap reachable",
+  optionsOf("reportBand1"), BAND_IDS);
+is("but `Then by` does not offer the field `Group by` holds",
+  optionsOf("reportBand2"), ["none", ...BAND_IDS.filter((id) => id !== "priority")]);
+is("and None is never greyed, because it is not a field",
+  bandSelect("reportBand2").children.find((option) => option.value === "none").disabled, false);
+
+// THE GREYED ONE FOLLOWS BAND 1, because it is derived on every render rather than
+// written when the dropdown changed -- a flag would disagree the moment another tab
+// moved the band.
+setPrefs({ reportBand1: "fixv", reportBand2: "team" });
+is("the greyed option follows `Group by` when it moves",
+  optionsOf("reportBand2"), ["none", ...BAND_IDS.filter((id) => id !== "fixv")]);
+is("and `Group by` is still ungreyed all the way across",
+  optionsOf("reportBand1"), BAND_IDS);
+
+// ---- THE SWAP, THROUGH A REAL PRESS. Asking to group by the field that was the
+// sub-band is a REORDER, which is the one thing these two dropdowns exist to do -- so
+// it is one press and nothing is thrown away. It is the only place on this screen
+// where a press moves a control other than the one pressed, and what band 2 receives
+// is not a value nobody chose: it is the one band 1 just gave up.
+setPrefs({ reportBand1: "priority", reportBand2: "team" });
+bandSelect("reportBand1").value = "team";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("moving `Group by` onto `Then by`'s field SWAPS the two, in one press",
+  [prefsOf().reportBand1, prefsOf().reportBand2], ["team", "priority"]);
+is("and both controls say so after the render it caused",
+  [bandSelect("reportBand1").value, bandSelect("reportBand2").value], ["team", "priority"]);
+is("the greying swapped with them", optionsOf("reportBand2"),
+  ["none", ...BAND_IDS.filter((id) => id !== "team")]);
+is("and the `also a heading` marks are still the same two fields, in the new order",
+  fieldIds("report").filter((id) => fieldNote("report", id)).sort(), ["priority", "team"]);
+// PRESSING IT AGAIN PUTS IT BACK, which is what makes the swap a gesture rather than
+// a one-way door.
+bandSelect("reportBand1").value = "priority";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("pressing it again swaps them back", [prefsOf().reportBand1, prefsOf().reportBand2],
+  ["priority", "team"]);
+// AN ORDINARY CHANGE IS STILL ONE KEY. The swap must not fire when there is nothing
+// to swap with, or every press would move both controls.
+bandSelect("reportBand1").value = "type";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("an ordinary change leaves the other band exactly alone",
+  [prefsOf().reportBand1, prefsOf().reportBand2], ["type", "team"]);
+// Back to the shipped pair, so the section below is a real change rather than a write
+// of the value that was already there -- see this repo's test README on why a check
+// that cannot fail is worse than no check.
+setPrefs({ reportBand1: "priority", reportBand2: "team" });
+
+// ---- CHOOSING A BAND IS A WRITE, and the marks beside it follow.
+bandSelect("reportBand1").value = "type";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("choosing a band writes the preference", prefsOf().reportBand1, "type");
+is("and the control still says what storage says after the render it caused",
+  bandSelect("reportBand1").value, "type");
+// THE MARK IS A FUNCTION OF THE STORED BANDS, which is why moving a band moves it
+// with no line in `renderFieldList` naming a band by hand.
+is("the `also a heading` mark followed the band off priority and onto type",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["type", "team"]);
+is("and 📋 Details still marks nothing, because a band belongs to one export",
+  fieldIds("details").filter((id) => fieldNote("details", id)), []);
+
+// ---- `None` IS BAND 2's ALONE, and it takes the second heading away.
+bandSelect("reportBand2").value = "none";
+dispatch(bandSelect("reportBand2"), "change");
+flush();
+is("None on band 2 writes it too", prefsOf().reportBand2, "none");
+is("and the field it used to band stops being marked",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["type"]);
+
+// ---- THE NOTE THAT SAYS WHAT A FIX-VERSION BAND COSTS. It is DERIVED on every
+// render from the stored bands, so it appears when the band does and goes when it
+// goes -- a flag set on the change would be a second value, and it would disagree the
+// moment another tab moved the band (principle 1). It is a description and not a
+// warning: there is nothing to dismiss.
+const bandNote = () => byId.get("gt-cart-bandnote-report").textContent;
+is("no note while both bands are single-valued", bandNote(), "");
+bandSelect("reportBand2").value = "fixv";
+dispatch(bandSelect("reportBand2"), "change");
+flush();
+is("a fix-version band says out loud that the report has more lines than issues",
+  bandNote(),
+  "An issue with two fix versions is listed under both, so this report has more lines than issues.");
+is("and the note appears for band 1 as well, because it describes the pair",
+  (() => {
+    setPrefs({ reportBand1: "fixv", reportBand2: "none" });
+    return bandNote();
+  })(),
+  "An issue with two fix versions is listed under both, so this report has more lines than issues.");
+// ANOTHER TAB'S WRITE LANDS ON THESE CONTROLS without either of them knowing about
+// it, because every render reads storage -- the same treatment the line shape gets.
+setPrefs({ reportBand1: "assignee", reportBand2: "category" });
+is("a band written from outside this panel lands on both dropdowns and clears the note",
+  [bandSelect("reportBand1").value, bandSelect("reportBand2").value, bandNote()],
+  ["assignee", "category", ""]);
+is("and the marks moved with it, status because the band is its CATEGORY",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["status", "assignee"]);
+
+// Back to the shipped pair, so nothing below reads a band it did not set.
+setPrefs({ reportBand1: "priority", reportBand2: "team" });
+is("and back to the pair 1.1.0 emitted",
+  [bandSelect("reportBand1").value, bandSelect("reportBand2").value], ["priority", "team"]);
+
 // ---- TICKING A FIELD IS A WRITE, and the panel reads it back out of storage.
 const teamBox = fieldBox("details", "team");
 teamBox.checked = true;
