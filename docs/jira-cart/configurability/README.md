@@ -377,20 +377,41 @@ three are things nothing in this repository could ever assert about:
   It needed no separate paste check: it takes `detailChip`'s default branch, the same
   plain grey span assignee and fix version have used since A.9 pasted them.
 
-**What was NOT reached: items 3 and 6** — pressing the three exports *after* a
-reorder, and ticking a field *while* `📋 Copy` is armed. Both are already held
-outside a browser, so what is missing is only the paint. Listed rather than chased.
+**Item 3 was reached too, and half of it then LEFT the step.** Ticking, unticking and
+reordering were exercised repeatedly and the tail came out in the stored order. Its
+other half — *"🔗 Links must be unaffected"* — turned out to want no browser at all:
+it is bytes with no paint in it, so `format-smoke` holds it now. **That check is not
+redundant, and the reason is worth keeping:** every other Links, Names, Keys and JQL
+check in the file runs with the DEFAULTS in place, so all of them say *these bytes are
+1.1.0's* and none says *these bytes do not move when a preference moves*. A
+configurable build newly needs the second claim, and it did not have it.
+
+**Recorded because it was tried and did NOT fail:** dropping `format`'s
+`entry.fields ?` guard, so every export is handed a selection, changes no byte
+anywhere. `formatLinks` takes three parameters and JavaScript discards a fourth in
+silence — so the guard is documentation, and what actually keeps a selection out of
+those four is that their builders have no parameter to put it in. The same shape as
+`css-smoke`'s first backtick check, which could not fail either.
+
+**What was NOT reached: item 6** — ticking a field *while* `📋 Copy` is armed.
+`boot-smoke` drives it in this tab and from another one, so only the paint is
+missing. Listed rather than chased.
 
 **41. THE 300px QUESTION IS NOW MEASURED, AND THE DECISION HELD.** A row was dragged
 with the drawer at its 300×215 floor and the feature came back working. **The
 fallback decision 26 leaned on was not needed** — nobody had to widen the drawer to
-reorder a list. Decision 26 is not deleted and 39 is kept above it, because *the
+reorder a list. **And the second report was *"works well"***, which is the half the
+word *fiddly* was actually about: a drag can function and still be miserable at
+300px, and this one is not. That is the finding, not a pleasantry — it is the only
+evidence the record will ever have about the ergonomics, because no harness has a
+pointer. Decision 26 is not deleted and 39 is kept above it, because *the
 standing of a claim* is what this record tracks and for one day this one was an
 argument. The reasoning is still the right answer for the day the panel grows past
 eight rows or a label past `Time remaining`; the panel is a scroller and the grip is
 still right there. §2.14 carries the amendment in place, dated, with the original.
 
-**Twenty-one mutations were confirmed able to fail** in a scratch copy: the catalogue
+**Twenty-two mutations were confirmed able to fail, and one was tried and could not**
+— see the note on `format`'s guard above. The twenty-two include the catalogue
 seam, `moveField`'s downward off-by-one and its non-integer guard, both shipped
 defaults, the em dash on an empty selection, the selection not being handed down at
 all, the panel rebuilding instead of moving and not reordering at all, a tick sending

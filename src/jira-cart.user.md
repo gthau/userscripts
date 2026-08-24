@@ -2531,12 +2531,17 @@ later session does not read it as a press that happened.
 > decision leaned on was not needed** — nobody had to widen the drawer to reorder a
 > list.
 >
+> **AND IT WAS USABLE, NOT MERELY WORKING.** The user's second report was that
+> ticking, unticking and reordering *"works well"*, which is the half of the question
+> the word "fiddly" was actually about. A drag can function and still be miserable at
+> 300px; this one is not, and that is the finding rather than a pleasantry.
+>
 > **What that closes and what it does not.** It closes the question decision 26 was
 > answered by fiat: the drag is usable at the floor. It does **not** retire the
 > reasoning, which is still the right answer if the drawer ever gets more rows than
 > eight or a longer label than `Time remaining` — the panel is a scroller and the
-> grip is still right there. And it says nothing about the two §7 step 31 items the
-> same session did not reach.
+> grip is still right there. And it says nothing about §7 step 31's sixth item, which
+> the same session did not reach.
 
 #### What it is not
 
@@ -3130,7 +3135,8 @@ replaced by something else.
 | the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
 | 30 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira. Whole** | The line shapes, used rather than read. The pinned `Issue reference` row is above the tab bar with its five options; **all five shapes were pressed on all three exports** and each line's head took the shape chosen; and **the pinned row and its dropdown fit and read at the drawer's 300px floor**, which is the one thing no harness here can see — its widest label is shorter than `Automatic (side by side when wide)`, and that reasoning now has a press behind it. The harness holds the rest: every shape's bytes in both flavours with a summary and without, that the shape table names the same ids as the preference's own vocabulary, and that a stored shape is read **at the press** rather than held in a variable. **The shapes themselves were pasted on 2026-08-24** (appendix A.9.1). And **`Restore export defaults` puts the dropdown back**, pressed the same day — the half worth running separately, because it is a render reading storage rather than a value the handler wrote, which is what a fake DOM models least well |
 | 31, less its third and sixth items | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The field lists, used rather than read. The panel draws both lists, a tick takes, and **a row drags at the drawer's 300×215 floor** — which is the press decision 26 had been answered without, and it came back working, so nobody had to widen the drawer to reorder a list. **A drop from one list towards the other was refused**, which is the one behaviour in this effort that no harness can see at all: it is the platform's own refusal standing because `dragover` declines to `preventDefault`, so there is nothing in the file to assert about. And the two selections a click can now reach that 1.1.0 could not produce were both emitted — **every field unticked**, which gives the issue reference alone with no em dash, and **`Team` ticked**, which reaches 📋 Details for the first time. Team needed no separate paste check: it takes `detailChip`'s default branch, the same plain grey span assignee and fix version have used since A.9 pasted them |
-| 31, items 3 and 6 | **STILL WANT A BROWSER, and they are the cheap two** | Pressing the three exports **after** a reorder, to see the tail come out in the stored order with 🔗 Links unaffected; and ticking a field **while `📋 Copy` is armed**, to see the label survive it. Both are held outside a browser already — `format-smoke` pins the emitted order and `boot-smoke` drives the armed case in this tab and from another one — so what is missing is only the paint. That is why they are listed rather than chased |
+| 31, item 3 | **CONFIRMED IN A BROWSER, 2026-08-25, and half of it RETIRED to the harness** | Ticking, unticking and reordering were exercised repeatedly and reported **working well** — which is the ergonomic half of decision 26, and the opposite of the *fiddly* the decision was hedging against. The item's other half, that 🔗 Links is unaffected, **left this step**: it is bytes with no paint in it, so `format-smoke` holds it instead — a wild selection and an empty one, with all four unconfigurable exports required to come out byte-identical. Worth knowing why that check is not redundant: every other Links, Names, Keys and JQL check in the file runs with the DEFAULTS in place, so they say *these bytes are 1.1.0's* and never *these bytes do not move when a preference moves* |
+| 31, item 6 | **STILL WANTS A BROWSER, and it is the cheap one** | Ticking a field **while `📋 Copy` is armed**, to see the label survive it. `boot-smoke` drives it already, in this tab and from another one, so what is missing is only the paint. Listed rather than chased |
 | the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor was DECIDED rather than measured** (decision 26), so this step is the first time anybody will have put a pointer on it |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
@@ -3298,10 +3304,10 @@ pass each, and they are cheap.
     TOUCH.** `boot-smoke` has no layout and no paint, so it cannot put a pointer in
     the top half of a row; `format-smoke` covers `moveField` directly and this step
     covers everything between the pointer and it.
-    **Run in a browser on 2026-08-25, less the third and sixth items**, which are the
-    two whose state a harness already holds. What the pass added is everything a
-    harness cannot see: the paint, the refusal, and the floor. Open ⚙ →
-    `📋 Details` and:
+    **Run in a browser on 2026-08-25, less the sixth item.** What the pass added is
+    everything a harness cannot see: the paint, the refusal, and the floor — and it
+    also retired half of item 3 into the harness, which is the better outcome than
+    pressing it for ever. Open ⚙ → `📋 Details` and:
     - **Drag a row up and drop it in the TOP half of another row.** It must land
       *above* that row. Drop in the **bottom** half and it must land *below*. The
       indicator must appear on the edge it is going to land on, and the row must not
@@ -3312,8 +3318,16 @@ pass each, and they are cheap.
       **PRESSED 2026-08-25: refused.** This is the one behaviour in the effort with
       nothing in the file to assert about — the refusal is the platform's own,
       standing because `onFieldOver` declines to call `preventDefault`.
-    - **Press 🔗 Links, 📋 Details and 📊 Report after the reorder.** The tail must
-      come out in the order the list stands in, and 🔗 Links must be unaffected.
+    - **Press 📋 Details and 📊 Report after the reorder.** The tail must come out in
+      the order the list stands in. **PRESSED 2026-08-25**, alongside repeated
+      ticking and unticking, and reported working well. ~~and 🔗 Links must be
+      unaffected~~ — **that half LEFT this step on 2026-08-25 and went to the
+      harness**, where it belongs: it is bytes and there is no paint in it.
+      `format-smoke` now stores a wild selection and an empty one and requires
+      🔗 Links, 📃 Names, 🔑 Keys and 🔍 Search to come out byte-identical. That is a
+      different claim from every other check on those four, which all run with the
+      DEFAULTS in place and so only ever said "these bytes are 1.1.0's" — never
+      "these bytes do not move when a preference moves".
     - **Untick every field on the `📋 Details` tab and copy.** Each line must be the
       issue reference alone, with no em dash — the same bytes 🔗 Links emits, which
       is decision 9's stated cost. **PRESSED 2026-08-25.**

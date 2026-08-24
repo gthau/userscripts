@@ -796,6 +796,41 @@ is("the tab that has bands names preferences that exist",
 is("and it is the report tab, which is the only one with headings",
   f.SETTINGS_TABS.filter((one) => one.bands).map((one) => one.fields), ["reportFields"]);
 
+/* THE OTHER FOUR EXPORTS DO NOT VARY WITH A FIELD LIST. This began as a browser step
+   -- "press 🔗 Links after a reorder and check it did not move" -- and it needs no
+   browser, because there is no paint involved: it is bytes, and bytes are what this
+   file is for.
+
+   WHAT THIS HOLDS, EXACTLY, because it is narrower than it first reads and the
+   difference was measured rather than assumed. Every other Links, Names, Keys and
+   JQL check in this file runs with the DEFAULTS in place, so all of them say "these
+   bytes are 1.1.0's". None of them says "these bytes do not MOVE when a preference
+   moves", and that is the claim a configurable build newly needs. This is that claim,
+   and a wild selection plus an empty one are the two states a click can reach that
+   1.1.0 could not.
+
+   WHAT IT DOES NOT HOLD, recorded because it was tried and did not fail. Making
+   `format` hand the selection to EVERY entry -- dropping the `entry.fields ?` guard
+   -- changes nothing here and nothing anywhere else, because `formatLinks` takes
+   three parameters and JavaScript discards a fourth in silence. The guard is
+   therefore documentation, not enforcement, and the thing that actually keeps a
+   selection out of those four is that their builders have no parameter to put it in.
+   `css-smoke`'s first backtick check had the same shape; see this repo's test README
+   on why a check that cannot fail is worse than no check. */
+const WILD = ["parent", "team"];
+for (const kind of ["links", "names", "keys", "jql"]) {
+  is(`a field list cannot reach ${kind}, whatever it says`,
+    withPrefs({ detailsFields: listOf(WILD), reportFields: listOf(WILD) },
+      () => f.format(kind, DETAILED, "collection")),
+    f.format(kind, DETAILED, "collection"));
+}
+// And an empty one cannot either, which is the state decision 9 makes reachable by a
+// click: 🔗 Links has no field tail to lose, so it must not lose anything.
+is("nor can an empty one, which is the state a click can now produce",
+  withPrefs({ detailsFields: listOf([]), reportFields: listOf([]) },
+    () => f.format("links", DETAILED, "collection")),
+  f.format("links", DETAILED, "collection"));
+
 // -- 16d. A REORDERED LIST EMITS IN THE STORED ORDER. The catalogue's order is the
 // default and nothing more; what a document prints is what the preference says.
 const KEY_OF = { details: "detailsFields", report: "reportFields" };
