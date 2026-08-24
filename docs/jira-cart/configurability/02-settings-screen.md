@@ -9,9 +9,14 @@ appearance switches that already exist; tickets 03, 04 and 05 fill the rest.
 **Read first:** ADR **§2.9** (the drawer and its two sections), **§2.11 rule 1**
 (one scroller per section), **§2.3** (scanning is not an action — the *"there is no
 third drawer mode"* sentence), **§3** (the `⌫` → `Empty 3?` convention), and
-**§2.14**'s paragraph on the foot's reserved label ladder. In the code: the drawer
-builder around `src/jira-cart.user.js:3130-3330`, `renderFoot` at 4229, the prefs
-render at 3888, and the stylesheet from 4740.
+**§2.14**'s paragraph on the foot's reserved label ladder. In the code, and these
+numbers were re-read on 2026-08-25 because 1.2.0's own commits moved every one of
+them: `ensureDrawer` builds the drawer at `src/jira-cart.user.js:3392-3645`,
+`onDrawerAction` handles every press at 3649, `renderDrawer` at 4138 — the ⚙'s own
+state and the prefs area are synced at 4187 — `renderFoot` at 4531, and the
+stylesheet is one template literal from 4785. **Check them before trusting them**;
+a `grep -n "function renderFoot"` costs nothing and this file has been wrong once
+already.
 
 **Prototype:** `test/jira-cart/config-prototype.html`, published at
 <https://claude.ai/code/artifact/bd8a1916-a814-472d-9a06-f801c0ba144e>. It is a
