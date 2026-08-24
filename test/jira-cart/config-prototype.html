@@ -738,6 +738,11 @@
     <div class="cart" id="cart">
       <div class="cart-head">
         <span class="cart-title">🛒 Sprint review 2608-01 7</span>
+        <!-- THIS HEAD IS NOW WRONG, and deliberately left alone. The user decided on
+             2026-08-24 that the head reads "⚙ Settings" while the panel is up and
+             goes back to naming the Cart once it is down, because the label IS the
+             state (ADR §2.14, §3). The shipped script does that; this stage does
+             not, and rebuilding the stage would answer a question already closed. -->
         <button class="cart-btn" type="button" id="gearBtn" aria-pressed="false"
                 title="Settings. Press again to go back to the collection">⚙</button>
         <button class="cart-btn" type="button" title="Close the drawer (mock — ✕ keeps one meaning on both screens)">✕</button>

@@ -704,8 +704,21 @@
      export tab stays at about eight rows, which is the only structure that fits the
      drawer's 215px floor without scrolling. The cost, stated rather than hidden:
      `appearance` sits as a peer of two export tabs, which is not a clean taxonomy.
-     Changing the structure is changing this list and nothing else. */
-  const SETTINGS_TAB_IDS = ["appearance", "details", "report"];
+     Changing the structure is changing this list and nothing else.
+
+     `exports` says whether the tab holds anything `Restore export defaults` reaches,
+     and it is what decides where that button shows. On the appearance tab it would
+     be an offer to reset something you are not looking at (decision 22). */
+  const SETTINGS_TABS = [
+    { id: "appearance", label: "Appearance", exports: false },
+    { id: "details", label: "📋 Details", exports: true },
+    { id: "report", label: "📊 Report", exports: true },
+  ];
+
+  // DERIVED, so the vocabulary `normalisePrefs` range-checks against cannot name a
+  // tab the bar does not draw. The list above is the only place the structure is
+  // written down.
+  const SETTINGS_TAB_IDS = SETTINGS_TABS.map((tab) => tab.id);
 
   // ------------------------------------------------------------ preferences
 
@@ -765,6 +778,25 @@
   };
 
   const LAYOUTS = ["auto", "stacked", "split"];
+
+  /* WHAT `Restore export defaults` REACHES, and it is a list rather than five
+     literals in the handler so that a seventh export preference is one entry here
+     and nothing to remember (decision 22).
+
+     What it deliberately leaves alone, each for its own reason. The three
+     APPEARANCE switches, because the drawer's size is in the same key and a dragged
+     size is only recoverable by dragging the grip again (risk 10) -- so a control
+     called "restore" that silently resized the drawer would be the worst kind of
+     surprise. And `settingsTab`, because which tab you are on is not an export
+     setting: throwing you to another tab because you reset a field list would be a
+     second change you did not ask for. */
+  const EXPORT_PREF_KEYS = [
+    "lineShape",
+    "detailsFields",
+    "reportFields",
+    "reportBand1",
+    "reportBand2",
+  ];
 
   /* WHETHER THE DRAWER IS OPEN IS A STORED PREFERENCE. Reversed on 2026-08-18, at
      the user's request, after using 0.4.0.
@@ -3206,13 +3238,22 @@ ${selectors.join(",\n")} {
      following it, which is how the ⚙ was already inert for two versions (§2.11).
      Interpolated into the sheet, so one edit moves both.
 
-     `aria-expanded` and not `aria-pressed`: today the button shows and hides a
-     REGION inside the drawer and carries `aria-controls` naming it, which is a
-     disclosure. When ⚙ becomes a mode that replaces the drawer's body, the panel
-     stops being a region beside the content and becomes the content -- then this
-     becomes `aria-pressed`, `aria-controls` goes, and both the render and the sheet
-     follow this line. */
-  const PREFS_STATE_ATTR = "aria-expanded";
+     `aria-pressed`, AND IT WAS `aria-expanded` UNTIL 1.2.0. The line above is why
+     the change cost one edit: while ⚙ showed and hid a strip inside the drawer it
+     was a disclosure, and it carried an `aria-controls` naming the region. Now it
+     replaces the drawer's body, so the panel is not a region BESIDE the content --
+     it IS the content, which is a mode toggle. `aria-controls` went with the
+     rename, because there is no longer a region beside the button to name. */
+  const PREFS_STATE_ATTR = "aria-pressed";
+
+  const TITLE_ID = "gt-cart-head-title";
+  const TABS_ID = "gt-cart-tabs";
+  const RESTORE_ID = "gt-cart-restore";
+  // One place each of the panel's per-tab ids is spelled, so the bar's
+  // `aria-controls` and the panel's `aria-labelledby` cannot come to name different
+  // elements as tabs are added.
+  const tabButtonId = (id) => `gt-cart-tab-${id}`;
+  const tabPanelId = (id) => `gt-cart-tabpanel-${id}`;
 
   const BODY_ID = "gt-cart-body";
   const LIVE_HEAD_ID = "gt-cart-live-head";
@@ -3355,10 +3396,23 @@ ${selectors.join(",\n")} {
      pre-click warning the floating button and the live row already give, in the
      one shape a heading and a chip can carry (§2.7, §2.9).
      
-     Only one thing is ever armed, so there is no pair of flags that can disagree. */
-  let armedEmpty = false;
-  let armedDelete = null;
+     ONLY ONE THING IS EVER ARMED, AND SINCE 1.2.0 THAT IS LITERALLY ONE VARIABLE.
+     It was a boolean beside a nullable id, kept exclusive by `arm` -- which worked,
+     and which principle 1 says not to write: two values that must agree. The third
+     armed control (`↺ Restore export defaults`, §2.9) is what made the pair a
+     triple and paid for the change. It holds `null`, `"empty"`, `"restore"`, or a
+     collection's id, and a collection id is a `crypto.randomUUID()`, so neither
+     word can ever collide with one. */
+  let armed = null;
   let armTimer = null;
+
+  // The three controls whose FIRST click arms rather than acts. Every other click
+  // inside the drawer disarms, which is how walking away works (§2.9).
+  const ARMING_ACTIONS = new Set([
+    "empty-collection",
+    "delete-collection",
+    "restore-exports",
+  ]);
 
   // Long enough to read the question, short enough that a forgotten armed button
   // cannot be committed by a click you meant for something else half a minute
@@ -3366,8 +3420,7 @@ ${selectors.join(",\n")} {
   const ARM_TIMEOUT_MS = 6_000;
 
   function arm(what) {
-    armedEmpty = what === "empty";
-    armedDelete = what === "empty" ? null : what;
+    armed = what;
     if (armTimer !== null) clearTimeout(armTimer);
     armTimer = setTimeout(() => guard(disarm), ARM_TIMEOUT_MS);
     render();
@@ -3378,9 +3431,8 @@ ${selectors.join(",\n")} {
       clearTimeout(armTimer);
       armTimer = null;
     }
-    if (!armedEmpty && armedDelete === null) return;
-    armedEmpty = false;
-    armedDelete = null;
+    if (armed === null) return;
+    armed = null;
     scheduleRender();
   }
 
@@ -3388,6 +3440,13 @@ ${selectors.join(",\n")} {
   // page on every render rather than remembered, so it is not a buffer that can
   // disagree with the page (§2.3).
   let liveAnchors = new Map();
+
+  // SCAFFOLDING, and all four of these go as tickets 03, 04 and 05 land their
+  // controls. A group that draws nothing at all reads as a broken screen rather than
+  // an empty one, and the ⚙ has already been reported once for looking like chrome.
+  function emptyGroupNote() {
+    return el("p", "gt-cart-note", "Nothing to configure here yet.");
+  }
 
   function ensureDrawer() {
     const existing = document.getElementById(DRAWER_ID);
@@ -3415,18 +3474,27 @@ ${selectors.join(",\n")} {
     const head = el("div", "gt-cart-head");
     head.id = HEAD_ID;
     const controls = el("div", "gt-cart-head-controls");
-    const prefsButton = actionButton(
-      "gt-cart-icon",
-      "prefs",
-      "Preferences",
-    );
+    // No `aria-controls`, and no title written here: both are `render`'s. The
+    // button is a MODE TOGGLE since 1.2.0 -- it does not disclose a region beside
+    // the content, it swaps what the content is -- so there is nothing beside it to
+    // name, and its tooltip is a function of state like every other label (§2.8).
+    const prefsButton = actionButton("gt-cart-icon", "prefs");
     prefsButton.id = PREFS_BUTTON_ID;
     prefsButton.textContent = "⚙";
-    prefsButton.setAttribute("aria-controls", PREFS_ID);
+    // ✕ KEEPS EXACTLY ONE MEANING ON BOTH SCREENS: close the drawer. A ✕ that went
+    // back from the settings instead would be two values that disagree wearing a
+    // different hat, and it would leave no way to close the Cart from the settings
+    // screen at all (§2.9).
     const closeButton = actionButton("gt-cart-icon", "close", "Close the Cart");
     closeButton.textContent = "✕";
     controls.append(prefsButton, closeButton);
-    head.append(el("span", "gt-cart-title", "🛒 Cart"), controls);
+    // The words are `render`'s, because the head NAMES THE SCREEN YOU ARE ON: it
+    // reads `⚙ Settings` while the panel is up and `🛒 Cart` once it is down. The
+    // repo's convention is that the label IS the state (§2.14, §3), and that won
+    // over the argument that a head is an identity rather than a state.
+    const title = el("span", "gt-cart-title");
+    title.id = TITLE_ID;
+    head.append(title, controls);
 
     // -- the line that carries a failure. A tooltip alone was rejected: an add
     // that silently did nothing is the outcome that rule exists to prevent (§2.9).
@@ -3434,10 +3502,12 @@ ${selectors.join(",\n")} {
     alert.id = ALERT_ID;
     alert.hidden = true;
 
-    // -- the preferences. A settings home rather than a loose checkbox, because
-    // more of these are coming -- keyboard shortcuts are still open -- and because
-    // the two standing sections should hold nothing that is not a link or an item
-    // (§2.9).
+    // -- ⚙ IS A SCREEN, NOT A STRIP (§2.9, decision 17). It was three checkboxes
+    // above the sections until 1.2.0; the configurable exports bring about twenty-
+    // two controls, and this drawer can be 300x215 with every container on
+    // `overflow: clip`, so a panel sharing the box with the sections would be
+    // SILENTLY TRUNCATED with no scrollbar to say so. That is a measurement rather
+    // than a preference, and it is what makes this a mode over the whole body.
     const prefs = el("div", "gt-cart-prefs");
     prefs.id = PREFS_ID;
     prefs.hidden = true;
@@ -3489,7 +3559,65 @@ ${selectors.join(",\n")} {
       ]),
     );
 
-    prefs.append(rightClick, layout, corner);
+    /* THE PANEL IS BUILT ONCE AND NEVER REBUILT, and that is a rule rather than an
+       optimisation. Every add re-renders the drawer -- including an add made from
+       the page while ⚙ is up, which decision 25 requires to keep working -- so a
+       panel that rebuilt itself on render would take the focus off the select you
+       were using, and would destroy ticket 04's field-list drag mid-gesture. What
+       `render` does instead is SET: an attribute per tab, `hidden` per panel, and a
+       value per control. Nothing in here is replaced.
+
+       PINNED ABOVE THE BAR: `Issue reference` governs all three exports, so a tab
+       that owned it would tell a small lie about its scope (decision 29). Ticket 03
+       puts the control in; the slot is here so that it lands above the bar rather
+       than inside a tab. */
+    const pinned = el("div", "gt-cart-group");
+    pinned.append(el("div", "gt-cart-group-head", "Every export"));
+    pinned.append(emptyGroupNote());
+    prefs.append(pinned);
+
+    // The bar shows EVERY tab whether it has ever been pressed or not, so there is
+    // no open/closed set to store and a tab added later is visible the moment it
+    // exists (decision 20). That is the whole difference from the collapsible
+    // layout the prototype tried and use reversed.
+    const bar = el("div", "gt-cart-tabs");
+    bar.id = TABS_ID;
+    bar.setAttribute("role", "tablist");
+    bar.setAttribute("aria-label", "Settings sections");
+    for (const tab of SETTINGS_TABS) {
+      const button = actionButton("gt-cart-tab", "settings-tab");
+      button.id = tabButtonId(tab.id);
+      button.dataset.gtTab = tab.id;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-controls", tabPanelId(tab.id));
+      button.textContent = tab.label;
+      bar.append(button);
+    }
+    prefs.append(bar);
+
+    // A GROUP HEADING ONLY WHERE A TAB HOLDS MORE THAN ONE GROUP. All three hold
+    // exactly one today, so a heading would repeat the tab label immediately below
+    // it. The pinned group above keeps its heading because it is NOT under a tab.
+    for (const tab of SETTINGS_TABS) {
+      const panel = el("div", "gt-cart-tabpanel");
+      panel.id = tabPanelId(tab.id);
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tabButtonId(tab.id));
+      panel.hidden = true;
+      if (tab.id === "appearance") panel.append(rightClick, layout, corner);
+      else panel.append(emptyGroupNote());
+      prefs.append(panel);
+    }
+
+    /* ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention --
+       ⌫ becomes `Empty 3?` before it will empty anything. Its label and its armed
+       state are derived in `render` for the reason every other label is: one
+       written on the click is a value that has to agree with `armed` and can stop
+       agreeing (§2.8). */
+    const restore = actionButton("gt-cart-restore", "restore-exports");
+    restore.id = RESTORE_ID;
+    restore.hidden = true;
+    prefs.append(restore);
 
     // -- the two standing sections. There is no third drawer mode and no scan
     // button: SCANNING IS NOT AN ACTION (§2.3).
@@ -3623,10 +3751,10 @@ ${selectors.join(",\n")} {
         const action = target?.disabled ? null : target?.dataset.gtAction;
         // Disarmed HERE rather than inside `onDrawerAction`, so that a click on a
         // heading, on a row's dead space, or on a disabled control counts as
-        // walking away as well. Only the two arming controls survive it.
-        if (action !== "empty-collection" && action !== "delete-collection") {
-          disarm();
-        }
+        // walking away as well. Only the three arming controls survive it, and they
+        // are a named set rather than a chain of `!==` because the third one is
+        // what made the chain worth reading twice.
+        if (!ARMING_ACTIONS.has(action)) disarm();
         if (!action) return;
         onDrawerAction(action, target);
       }),
@@ -3649,7 +3777,7 @@ ${selectors.join(",\n")} {
   function onDrawerAction(action, node) {
     switch (action) {
       case "empty-collection":
-        if (armedEmpty) {
+        if (armed === "empty") {
           disarm();
           emptyActive();
         } else {
@@ -3657,7 +3785,7 @@ ${selectors.join(",\n")} {
         }
         return;
       case "delete-collection":
-        if (armedDelete === node.dataset.gtId) {
+        if (armed === node.dataset.gtId) {
           disarm();
           deleteCollection(node.dataset.gtId);
         } else {
@@ -3670,6 +3798,20 @@ ${selectors.join(",\n")} {
       case "prefs":
         prefsOpen = !prefsOpen;
         render();
+        return;
+      case "settings-tab":
+        // THE WRITE IS WHAT MAKES IT REAL, here as everywhere else: nothing holds a
+        // copy of which tab is open, `render` reads it back out of storage, and
+        // `savePrefs` schedules that render (§2.5, principle 1).
+        savePrefs({ settingsTab: node.dataset.gtTab });
+        return;
+      case "restore-exports":
+        if (armed === "restore") {
+          disarm();
+          restoreExportDefaults();
+        } else {
+          arm("restore");
+        }
         return;
       case "toggle-item":
         toggleKey(node.dataset.gtKey);
@@ -3701,6 +3843,24 @@ ${selectors.join(",\n")} {
       default:
         return;
     }
+  }
+
+  /**
+   * `Restore export defaults`, committed. It reaches EXACTLY the keys
+   * `EXPORT_PREF_KEYS` names -- the line shape, both field lists and both bands --
+   * and the list is there so that this function does not have to be the place a
+   * seventh export preference is remembered.
+   *
+   * One `savePrefs`, so one read-modify-write and one value-change event: a tab
+   * that has been open since this morning cannot write a stale appearance switch
+   * over one changed since (§2.5). And `settingsTab` is not in the patch, so the
+   * panel does not move out from under the press that restored.
+   */
+  function restoreExportDefaults() {
+    savePrefs(
+      Object.fromEntries(EXPORT_PREF_KEYS.map((key) => [key, DEFAULT_PREFS[key]])),
+    );
+    logger.log("the export settings are back at their defaults");
   }
 
   function setDrawerOpen(open) {
@@ -4171,8 +4331,49 @@ ${selectors.join(",\n")} {
       alert.hidden = line === "";
     }
 
+    renderSettings(prefs);
+    renderLiveList(state, scan);
+    renderCollection(state);
+    renderChips(state);
+    renderFoot(state);
+  }
+
+  /**
+   * ⚙ IS A MODE OVER THE DRAWER'S BODY, NOT A THIRD SECTION (§2.9, decision 17).
+   *
+   * ONE BOOLEAN MOVES EVERYTHING, which is the whole reason the button's state
+   * cannot disagree with what is on screen. And it costs one `hidden` rather than
+   * three, because the foot is a child of the collection section and the sections
+   * are children of the body: hiding the body takes the two standing sections and
+   * all six foot buttons with it. The foot going too is deliberate -- six buttons
+   * and a border is about 40px, a fifth of the drawer at `MIN_BLOCK`, and none of
+   * them can act on anything while the panel is up. The accepted cost is one press
+   * to get back.
+   *
+   * WHAT IS STILL RUNNING BEHIND IT: collecting from the page. `renderToggle` reads
+   * the hovered anchor and the active collection and nothing about the drawer's
+   * body, so the floating `+`, the badge count, the right-click entry and the page
+   * decoration all keep working while ⚙ is up (decision 25). An add re-renders the
+   * drawer, and because this function only SETS -- it never rebuilds the panel --
+   * the add lands without closing the panel or moving the tab.
+   *
+   * `prefsOpen` STAYS IN MEMORY, and that is deliberate against §2.9's precedent
+   * for the drawer's own `open`, which use moved into storage. A reload landing you
+   * in Settings would be wrong, because Settings is not where you work. Do not
+   * "fix" the inconsistency.
+   */
+  function renderSettings(prefs) {
+    // THE HEAD NAMES THE SCREEN YOU ARE ON. The repo's convention is that the label
+    // IS the state (§2.14, §3), and it won over the argument that a head is an
+    // identity -- `jira-ux`'s toolbar does not rename itself when its padlock is on.
+    // The stated cost: while the panel is up the drawer stops naming the collection
+    // you are collecting into. THE BADGE STILL DOES, which is what makes it
+    // acceptable (decision 24, 2026-08-24).
+    const title = document.getElementById(TITLE_ID);
+    if (title) title.textContent = prefsOpen ? "⚙ Settings" : "🛒 Cart";
+
     /* THE BUTTON SAYS WHETHER THE SETTINGS ARE OPEN, and it says it HERE -- on the
-       line above the one that hides the area, so the two cannot drift apart. Added
+       line above the one that hides the body, so the two cannot drift apart. Added
        on 2026-08-25 from a use report, and the report is worth keeping because the
        diagnosis is not what it looks like: the ⚙ appeared to be "bordered in blue
        after clicking", which read as a state and was not one. It was the FOCUS ring,
@@ -4183,27 +4384,56 @@ ${selectors.join(",\n")} {
        So the fix is not to the ring. It is that the state now exists on the button,
        and the stylesheet paints it with the same pair the active collection chip
        uses (see the sheet). A label being a function of state is §2.8's rule; this
-       is the same rule applied to an attribute. */
+       is the same rule applied to an attribute -- and to the tooltip below it. */
     const prefsButton = document.getElementById(PREFS_BUTTON_ID);
-    prefsButton?.setAttribute(PREFS_STATE_ATTR, String(prefsOpen));
-
-    const prefsArea = document.getElementById(PREFS_ID);
-    if (prefsArea) {
-      prefsArea.hidden = !prefsOpen;
-      // Set, not rebuilt: a rebuild would take the focus off the control being
-      // used, and these three are the controls most likely to be mid-interaction.
-      const rightClick = document.getElementById(PREF_RIGHT_CLICK_ID);
-      if (rightClick) rightClick.checked = prefs.rightClickMenu;
-      const layout = document.getElementById(PREF_LAYOUT_ID);
-      if (layout) layout.value = prefs.layout;
-      const corner = document.getElementById(PREF_CORNER_ID);
-      if (corner) corner.value = prefs.corner;
+    if (prefsButton) {
+      prefsButton.setAttribute(PREFS_STATE_ATTR, String(prefsOpen));
+      prefsButton.title = prefsOpen
+        ? "Settings. Press again to go back to the collection"
+        : "Settings";
     }
 
-    renderLiveList(state, scan);
-    renderCollection(state);
-    renderChips(state);
-    renderFoot(state);
+    const panel = document.getElementById(PREFS_ID);
+    if (panel) panel.hidden = !prefsOpen;
+    const body = document.getElementById(BODY_ID);
+    if (body) body.hidden = prefsOpen;
+
+    // Set, not rebuilt: a rebuild would take the focus off the control being used,
+    // and these three are the controls most likely to be mid-interaction.
+    const rightClick = document.getElementById(PREF_RIGHT_CLICK_ID);
+    if (rightClick) rightClick.checked = prefs.rightClickMenu;
+    const layout = document.getElementById(PREF_LAYOUT_ID);
+    if (layout) layout.value = prefs.layout;
+    const corner = document.getElementById(PREF_CORNER_ID);
+    if (corner) corner.value = prefs.corner;
+
+    // WHICH TAB, READ BACK OUT OF STORAGE on every render, so nothing holds a copy
+    // that could disagree with it -- the same treatment `corner` and `layout` get.
+    // `normalisePrefs` has already turned an id this build does not know into the
+    // first tab, so the panel can never be blank (decision 20).
+    const current = prefs.settingsTab;
+    for (const tab of SETTINGS_TABS) {
+      const button = document.getElementById(tabButtonId(tab.id));
+      if (button) button.setAttribute("aria-selected", String(tab.id === current));
+      const tabPanel = document.getElementById(tabPanelId(tab.id));
+      if (tabPanel) tabPanel.hidden = tab.id !== current;
+    }
+
+    const restore = document.getElementById(RESTORE_ID);
+    if (restore) {
+      // ON THE TABS THAT HOLD EXPORT SETTINGS AND NOWHERE ELSE. On the appearance
+      // tab it is an offer to reset something you are not looking at (decision 22).
+      restore.hidden = !SETTINGS_TABS.find((tab) => tab.id === current)?.exports;
+      // The label IS the state, disarmed an offer and armed the question, exactly
+      // as ⌫ becomes `Empty 3?` (§3). Derived here, so the armed state cannot
+      // outlive a render that should have cleared it.
+      const armedNow = armed === "restore";
+      restore.textContent = armedNow ? "Restore?" : "↺ Restore export defaults";
+      restore.dataset.gtArmed = String(armedNow);
+      restore.title = armedNow
+        ? "Click again to put the line shape, both field lists and both bands back to what 1.1.0 emitted. There is no undo."
+        : "Put the line shape, both field lists and both bands back to what 1.1.0 emitted. The appearance switches and the tab you are on are left alone.";
+    }
   }
 
   function setBasis(drawer, which, value) {
@@ -4364,10 +4594,11 @@ ${selectors.join(",\n")} {
       const count = collection.items.length;
       // The label IS the state, which is the convention this repository uses
       // everywhere: disarmed it is an icon, armed it is the question (§3).
-      empty.textContent = armedEmpty ? `Empty ${count}?` : "⌫";
-      empty.dataset.gtArmed = String(armedEmpty);
+      const armedNow = armed === "empty";
+      empty.textContent = armedNow ? `Empty ${count}?` : "⌫";
+      empty.dataset.gtArmed = String(armedNow);
       empty.disabled = !state.writable || count === 0;
-      empty.title = armedEmpty
+      empty.title = armedNow
         ? `Click again to remove all ${count} item${count === 1 ? "" : "s"}. There is no undo.`
         : `Remove every item from ${collection.name}. The collection and its name stay.`;
     }
@@ -4473,7 +4704,7 @@ ${selectors.join(",\n")} {
       name: one.name,
       count: one.items.length,
       active: at === 0,
-      armed: armedDelete === one.id,
+      armed: armed === one.id,
       // §2.4: `collections` is never empty, so deleting the last one empties it
       // instead of removing it. The chip says which of the two its ✕ will do.
       only: state.collections.length === 1,
@@ -5127,7 +5358,6 @@ ${D} [hidden] {
    min-height with no magic number (§2.11 defect 3). */
 ${D} div#${HEAD_ID},
 ${D} p.gt-cart-alert,
-${D} div#${PREFS_ID},
 ${D} h2.gt-cart-section-head,
 ${D} div#${DIVIDER_ID},
 ${D} div.gt-cart-chips,
@@ -5170,13 +5400,135 @@ ${D} p.gt-cart-alert {
 ${D} div#${PREFS_ID}[hidden] {
   display: none;
 }
+/* THE SETTINGS PANEL IS THE DRAWER'S ONE SCROLLER WHILE IT IS UP. §2.11 rule 1 is
+   unchanged and holds exactly as written -- one scroller, a different occupant --
+   and the drawer around it stays overflow: clip, NOT hidden, because hidden is
+   still programmatically scrollable.
+
+   IT IS A SCROLLER BECAUSE IT WAS MEASURED, not because a scroll was preferred.
+   About twenty-two controls go in here, and the drawer can be 300x215 with every
+   container on overflow: clip -- so a panel that shared the box with the sections
+   would be truncated with NO SCROLLBAR TO SAY SO. That is the whole reason a strip
+   became a screen (§2.9, decision 17).
+
+   It was flex: none above with a bottom border until 1.2.0. Both are gone: it is
+   the flexible child now, and there is nothing below it to be divided from. */
 ${D} div#${PREFS_ID} {
+  flex: 1;
+  min-block-size: 0;
+  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 10px 12px;
+  font-size: 12px;
+}
+
+/* A group of settings, and its heading. THE HEADING APPEARS ONLY WHERE A TAB HOLDS
+   MORE THAN ONE GROUP -- with one group it would repeat the tab label immediately
+   below it -- so today the only one is the pinned group above the bar. */
+${D} div.gt-cart-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+${D} div.gt-cart-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gt-cart-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+${D} div.gt-cart-group-head::after {
+  content: "";
+  flex: 1;
+  block-size: 1px;
+  background: var(--gt-cart-border);
+}
+
+/* THE BAR SHOWS EVERY TAB, PRESSED OR NOT, which is why there is no open/closed set
+   to store and why a tab added later is visible the moment it exists (decision 20).
+   flex: none, because it is a fixed part of the panel and the panel is the
+   scroller: a tab bar that scrolled away would be a bar you cannot get back to. */
+${D} div#${TABS_ID} {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  border-block-end: 1px solid var(--gt-cart-border);
+}
+${D} button.gt-cart-tab {
+  padding: 3px 9px;
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: none;
+  color: var(--gt-cart-muted);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+${D} button.gt-cart-tab:hover:not(:disabled) {
+  color: var(--gt-cart-text);
+}
+/* The selected tab wears the same pair as the active collection chip and the open
+   ⚙: this is the Cart's one word for "this is the one that is on". It has to beat
+   the hover rule above, which is (1,3,2), or the selected tab would go quiet under
+   the pointer -- the same trap the ⚙'s own state rule hit, so the selector is
+   repeated with :hover here for the same reason and css-smoke asserts the win. */
+${D} button.gt-cart-tab[aria-selected="true"],
+${D} button.gt-cart-tab[aria-selected="true"]:hover:not(:disabled) {
+  border-block-end-color: var(--gt-cart-selected-text);
+  color: var(--gt-cart-selected-text);
+  font-weight: 600;
+}
+
+/* The pair again, and for the same reason: this rule sets display, so the generic
+   [hidden] rule at (1,1,1) cannot reach it and the panel needs the attribute in its
+   own selector. That is the trap that left the ⚙ inert at 0.3.0 (§2.11). */
+${D} div.gt-cart-tabpanel[hidden] {
+  display: none;
+}
+${D} div.gt-cart-tabpanel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 10px;
-  border-block-end: 1px solid var(--gt-cart-border);
-  font-size: 12px;
+}
+${D} p.gt-cart-note {
+  margin: 0;
+  color: var(--gt-cart-muted);
+  font-size: 11px;
+}
+
+/* ↺ Restore export defaults. Armed it carries the same red the armed ⌫ and the
+   armed chip carry, because it is the same gesture at a different scope (§2.9). */
+${D} button.gt-cart-restore[hidden] {
+  display: none;
+}
+${D} button.gt-cart-restore {
+  display: inline-block;
+  align-self: start;
+  padding: 2px 8px;
+  border: 1px solid var(--gt-cart-border);
+  border-radius: 3px;
+  background: var(--gt-cart-input-bg);
+  color: var(--gt-cart-text);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+${D} button.gt-cart-restore:hover:not(:disabled) {
+  background: var(--gt-cart-hover);
+}
+${D} button.gt-cart-restore[data-gt-armed="true"],
+${D} button.gt-cart-restore[data-gt-armed="true"]:hover:not(:disabled) {
+  border-color: var(--gt-cart-remove);
+  background: var(--gt-cart-remove);
+  color: var(--gt-cart-on-bold);
+  font-weight: 600;
 }
 ${D} label.gt-cart-pref {
   display: flex;
@@ -5199,6 +5551,13 @@ ${D} label.gt-cart-pref select {
   font: inherit;
 }
 
+/* THE PAIR ONE MORE TIME. ⚙ replaces the whole body, so the body is now something
+   that gets hidden -- and its own rule below sets display: flex, which beats the
+   generic [hidden] rule. Without this line pressing ⚙ would draw the settings panel
+   and leave the two sections underneath it (§2.11). */
+${D} div#${BODY_ID}[hidden] {
+  display: none;
+}
 ${D} div#${BODY_ID} {
   flex: 1;
   min-block-size: 0;

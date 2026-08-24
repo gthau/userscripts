@@ -69,6 +69,7 @@ const beats = (x, y) => {
 const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
   .map((m) => ({ sel: m[1].trim().replace(/\s+/g, " "), body: m[2] }))
   .filter((r) => !r.sel.startsWith("@") && !r.sel.startsWith(":root"));
+const drawerRuleEarly = rules.find((r) => r.sel === "aside#gt-cart-drawer");
 
 // The elements the script actually hides. The list is explicit because mapping a
 // JavaScript variable back to a selector is guesswork -- and the count below is
@@ -81,9 +82,16 @@ const HIDDEN_ABLE = [
   "aside#gt-cart-drawer div#gt-cart-prefs",
   "aside#gt-cart-drawer input#gt-cart-rename",
   "aside#gt-cart-drawer button.gt-cart-name",
+  // Four more since 1.2.0, and they are the whole of the ⚙ mode. The BODY is the
+  // one that matters most: ⚙ replaces it, its own rule sets display: flex, and
+  // without the attribute in its own selector pressing ⚙ would draw the settings
+  // panel with the two sections still underneath it.
+  "aside#gt-cart-drawer div#gt-cart-body",
+  "aside#gt-cart-drawer div.gt-cart-tabpanel",
+  "aside#gt-cart-drawer button.gt-cart-restore",
 ];
 is("the script still hides exactly the elements this list names",
-   (src.match(/\.hidden = /g) || []).length, 10);
+   (src.match(/\.hidden = /g) || []).length, 15);
 
 const hidingRules = rules.filter((r) => /display:\s*none/.test(r.body));
 const showsDisplay = (sel) =>
@@ -160,6 +168,63 @@ is("and keeps them under the pointer, so an open gear does not go quiet on hover
 // stays behind -- which is how the ⚙ was inert for two versions.
 is("the state selector names the attribute the script writes",
    stateSel?.sel.includes(`[${ids.PREFS_STATE_ATTR}="true"]`), true);
+
+// The rename at 1.2.0: the ⚙ stopped disclosing a region beside the content and
+// became a mode toggle over it, so the attribute is `aria-pressed` and the
+// `aria-controls` that named the region is gone. Both halves are asserted, because
+// the constant makes the first one free and the second one is a deletion that
+// nothing else would notice.
+is("the state the sheet paints is a pressed state, not an expanded one",
+   ids.PREFS_STATE_ATTR, "aria-pressed");
+is("and the ⚙ no longer claims to control a region beside it",
+   /aria-controls",\s*PREFS_ID/.test(src), false);
+
+// ---- 2e. ⚙ IS A SCREEN, AND THE SCREEN IS THE DRAWER'S ONE SCROLLER. §2.11 rule 1
+// is unchanged -- one scroller, a different occupant -- and these are the two halves
+// of it that a stylesheet edit can quietly break.
+const panelRule = rules.find((r) => r.sel === `aside#gt-cart-drawer div#${ids.PREFS_ID}`);
+// TWO SCROLLING RULES IN THE WHOLE SHEET AND NO MORE, and they can never be on
+// screen together: `div.gt-cart-list` is the sections' -- one per section, rule 1 --
+// and the panel is the one while ⚙ is up, because ⚙ hides the body the sections
+// live in. A third name in this list means something else in the drawer started
+// scrolling, which is what rule 1 forbids.
+const scrollers = rules.filter((r) => /overflow:\s*hidden auto/.test(r.body)).map((r) => r.sel).sort();
+is("the panel and the section lists are the only things in the drawer that scroll",
+   scrollers,
+   ["aside#gt-cart-drawer div.gt-cart-list", `aside#gt-cart-drawer div#${ids.PREFS_ID}`].sort());
+// A scroller inside a box that cannot grow needs both, or rule 1's first defect is
+// back: the panel wants to be taller than the room left and is CLIPPED instead.
+is("and it can actually shrink, or it is clipped rather than scrolled",
+   [/(^|;)\s*flex:\s*1/.test(panelRule?.body ?? ""), /min-block-size:\s*0/.test(panelRule?.body ?? "")],
+   [true, true]);
+// clip, NOT hidden. `hidden` is still PROGRAMMATICALLY scrollable, and that is the
+// bug §2.11 removed by construction rather than by patching.
+is("the drawer around it is still overflow: clip, never hidden",
+   /(^|;)\s*overflow:\s*clip/.test(drawerRuleEarly?.body ?? ""), true);
+is("and there is still no scrollIntoView anywhere in the file",
+   /scrollIntoView/.test(src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")), false);
+
+// THE BODY MUST BE HIDEABLE, and this is the check that would have caught the
+// version where ⚙ drew the panel over two sections that were still there. Its own
+// rule sets display: flex at (1,1,1)+id, so the generic [hidden] rule cannot reach
+// it -- the exact trap that left the ⚙ inert at 0.3.0. Section 2 above sweeps for
+// this generically; this names the element, so the failure says which one.
+const bodyHider = rules.find((r) => r.sel === `aside#gt-cart-drawer div#${ids.BODY_ID}[hidden]`);
+is("⚙ can actually hide the two sections and the foot with them",
+   /display:\s*none/.test(bodyHider?.body ?? ""), true);
+
+// The selected tab wears the same "this one is on" pair as the ⚙ and the active
+// chip, and it has to beat its own hover rule for the same reason the ⚙ does --
+// otherwise the tab you are on goes quiet under the pointer.
+const tabHover = rules.find((r) => r.sel === "aside#gt-cart-drawer button.gt-cart-tab:hover:not(:disabled)");
+const tabOn = rules.find((r) => /button\.gt-cart-tab\[aria-selected="true"\]/.test(r.sel));
+is("the selected tab is painted from the Cart's own selected tokens, not a new blue",
+   ["border-block-end-color", "color"].map((prop) =>
+     new RegExp(`(^|;)\\s*${prop}:\\s*var\\(--gt-cart-selected`).test(tabOn?.body ?? "")),
+   [true, true]);
+const tabOnHover = tabOn?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("and keeps them under the pointer, so the tab you are on does not go quiet",
+   beats(spec(tabOnHover ?? ""), spec(tabHover?.sel ?? "")), true);
 
 // ---- 2d. THE DRAWER OWNS ITS FOCUS APPEARANCE. Atlassian's sheet may style a
 // focused button inside the Cart, and a host rule on :focus paints on a MOUSE click
@@ -239,7 +304,11 @@ is("and each strictly beats the yielding rule",
 const fixedRule = rules.find((r) => /flex:\s*none/.test(r.body) && r.sel.includes("gt-cart-section-head"));
 const fixedParts = (fixedRule?.sel ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 console.log(`     ${fixedParts.length} unshrinkable parts; the yield reserves ${css.match(/calc\(100% - (\d+)px\)/)?.[1]}px for the four in the collection`);
-is("the unshrinkable list is the length the constant was counted against", fixedParts.length, 8);
+// SEVEN since 1.2.0, and it was eight: the settings panel LEFT this list when ⚙
+// became a screen. It is the drawer's one scroller while it is up, so it is the
+// flexible child now -- `flex: none` on it would be rule 1's defect back, a box
+// sized by its own content inside a box that cannot grow.
+is("the unshrinkable list is the length the constant was counted against", fixedParts.length, 7);
 // The four the constant pays for, by name. A rename breaks this loudly, which is
 // the point.
 is("and it still names the collection's four",

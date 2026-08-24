@@ -725,51 +725,220 @@ is("adding from it stores the key AND the title",
 is("and the debug line names tier 1, which is how §7 step 5 is read",
   logs.some(([l, m]) => l === "debug" && m.includes("RDC-21069") && m.includes("(tier 1)")), true);
 
-// ---- THE ⚙, which was INERT FOR TWO VERSIONS. A rule at (2,0,2) beat the hiding
-// rule at (1,1,1), so the area was permanently visible and the button toggled an
-// attribute that changed nothing (§2.11). `css-smoke` proves the cascade; this
-// proves the attribute flips and the switch writes.
+// ---- ⚙ IS A SCREEN, NOT A STRIP (1.2.0, decision 17). It was three checkboxes in
+// a strip above the sections; the configurable exports bring about twenty-two
+// controls, and this drawer can be 300x215 with every container on `overflow: clip`,
+// so a panel sharing the box would be SILENTLY TRUNCATED. It is now a MODE over the
+// whole body.
+//
+// The ⚙ was also INERT FOR TWO VERSIONS: a rule at (2,0,2) beat the hiding rule at
+// (1,1,1), so the area was permanently visible and the button toggled an attribute
+// that changed nothing (§2.11). `css-smoke` proves the cascade; this proves the
+// attributes flip, the controls write, and the body really goes.
 const gear = () => byId.get("gt-cart-head").querySelector('[data-gt-action="prefs"]');
-const prefsArea = () => byId.get("gt-cart-prefs");
-is("the preferences area starts hidden", prefsArea().hidden, true);
+const panel = () => byId.get("gt-cart-prefs");
+const drawerBody = () => byId.get("gt-cart-body");
+const headTitle = () => byId.get("gt-cart-head-title");
+const closeButton = () => byId.get("gt-cart-head").querySelector('[data-gt-action="close"]');
+const tabButton = (id) => byId.get(`gt-cart-tab-${id}`);
+const tabPanel = (id) => byId.get(`gt-cart-tabpanel-${id}`);
+const restoreButton = () => byId.get("gt-cart-restore");
+const prefsOf = () => JSON.parse(store["gt-jira-cart.prefs"]);
+// A RENDER FROM A CAUSE THAT IS NOT A CLICK: the mount animation, which is the
+// script's real signal that React built something (§2.10). `visibilitychange` will
+// NOT do -- it compares the collections blob with the last one parsed and returns
+// early when it has not changed, so a preference poked into the store would never
+// be re-read and the check would pass while measuring nothing.
+const rerender = () => {
+  dispatch(document, "animationstart", { animationName: "gt-cart-mount" });
+  flush();
+};
+// Preferences with no control yet -- ticket 03's line shape, 05's bands -- are put
+// there by poking the store and letting the next render read it back out.
+const setPrefs = (patch) => {
+  store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), ...patch });
+  rerender();
+};
+
+is("the settings panel starts hidden", panel().hidden, true);
+is("and the two standing sections are what is on screen", drawerBody().hidden, false);
+is("the head names the Cart", headTitle().textContent, "🛒 Cart");
 // THE BUTTON SAYS SO TOO, and it did not until 1.2.0. A use report said the ⚙ was
 // "bordered in blue after clicking" whether the click had opened the settings or
 // closed them -- that was the FOCUS ring standing in for a state that did not exist,
 // and clicking anywhere else took it away. `css-smoke` proves the paint; this proves
 // the attribute it paints from follows the panel.
-is("and the ⚙ says it is closed before anything is pressed",
-  gear().getAttribute("aria-expanded"), "false");
+//
+// `aria-pressed` and no longer `aria-expanded`: once ⚙ replaces the body the panel
+// is not a region BESIDE the content, it IS the content, which is a mode toggle
+// rather than a disclosure. One constant moved both the render and the sheet.
+is("and the ⚙ says it is not pressed before anything is pressed",
+  gear().getAttribute("aria-pressed"), "false");
+is("it no longer claims to control a region beside it", gear().getAttribute("aria-controls"), null);
+
 dispatch(gear(), "click");
 flush();
-is("THE ⚙ OPENS IT", prefsArea().hidden, false);
-is("and the button now says it is open", gear().getAttribute("aria-expanded"), "true");
+is("THE ⚙ OPENS THE SETTINGS SCREEN", panel().hidden, false);
+is("and it REPLACES the two standing sections, rather than sitting above them",
+  drawerBody().hidden, true);
+// ONE BOOLEAN MOVES ALL THREE, and it costs one `hidden` because the foot is a child
+// of the collection section, which is a child of the body. Six buttons and a border
+// is about 40px, a fifth of the drawer at MIN_BLOCK, and none of them can act on
+// anything while the panel is up.
+is("so the six foot buttons go with them, because the foot is inside the body",
+  byId.get("gt-cart-foot").closest("#gt-cart-body") === drawerBody(), true);
+is("and the button now says it is pressed", gear().getAttribute("aria-pressed"), "true");
+is("the head names the screen you are on", headTitle().textContent, "⚙ Settings");
+is("and the ⚙'s own tooltip says what the next press does",
+  /go back to the collection/.test(gear().title), true);
+
+// The three switches did not move house: they are the appearance tab's contents now.
 is("all three switches are there, not just the one 08 specified",
   [byId.get("gt-cart-pref-right-click"), byId.get("gt-cart-pref-layout"), byId.get("gt-cart-pref-corner")].map((n) => !!n),
+  [true, true, true]);
+is("and they live on the appearance tab",
+  [byId.get("gt-cart-pref-right-click"), byId.get("gt-cart-pref-layout"), byId.get("gt-cart-pref-corner")]
+    .map((n) => n.closest("#gt-cart-tabpanel-appearance") === tabPanel("appearance")),
   [true, true, true]);
 is("and each carries what storage says",
   [byId.get("gt-cart-pref-right-click").checked, byId.get("gt-cart-pref-layout").value, byId.get("gt-cart-pref-corner").value],
   [false, "auto", "bottom-right"]);
 is("the right-click switch ships OFF", byId.get("gt-cart-pref-right-click").checked, false);
 
-// Flipping one writes the preference and nothing else.
-byId.get("gt-cart-pref-right-click").checked = true;
-dispatch(byId.get("gt-cart-pref-right-click"), "change");
+// THE BAR SHOWS EVERY TAB whether it has been pressed or not, so there is no
+// open/closed set to store and a tab added later is visible the moment it exists
+// (decision 20). That is the whole difference from the collapsible layout the
+// prototype tried and use reversed.
+is("the bar is a real tablist", byId.get("gt-cart-tabs").attrs.role, "tablist");
+is("with three tabs, and each one is a tab", 
+  byId.get("gt-cart-tabs").children.map((b) => b.attrs.role), ["tab", "tab", "tab"]);
+is("Appearance beside the two exports it is a peer of",
+  byId.get("gt-cart-tabs").children.map((b) => b.textContent),
+  ["Appearance", "📋 Details", "📊 Report"]);
+is("a fresh install opens on the first tab",
+  ["appearance", "details", "report"].map((id) => tabButton(id).attrs["aria-selected"]),
+  ["true", "false", "false"]);
+is("and exactly one panel is on screen",
+  ["appearance", "details", "report"].map((id) => tabPanel(id).hidden), [false, true, true]);
+// ON THE TABS THAT HOLD EXPORT SETTINGS AND NOWHERE ELSE (decision 22). On the
+// appearance tab it is an offer to reset something you are not looking at.
+is("the restore is not offered on the appearance tab", restoreButton().hidden, true);
+
+// ---- SWITCHING TAB IS A WRITE, and nothing holds a copy of which tab is open.
+dispatch(tabButton("details"), "click");
 flush();
-is("the switch wrote the preference", JSON.parse(store["gt-jira-cart.prefs"]).rightClickMenu, true);
-is("and left the collections alone", JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.length, 1);
-byId.get("gt-cart-pref-corner").value = "bottom-left";
-dispatch(byId.get("gt-cart-pref-corner"), "change");
+is("switching tab writes the preference", prefsOf().settingsTab, "details");
+is("the bar says which one", 
+  ["appearance", "details", "report"].map((id) => tabButton(id).attrs["aria-selected"]),
+  ["false", "true", "false"]);
+is("and the panels swapped", 
+  ["appearance", "details", "report"].map((id) => tabPanel(id).hidden), [true, false, true]);
+is("the restore appears on a tab that holds export settings", restoreButton().hidden, false);
+is("and it is an offer before it is a question", restoreButton().textContent, "↺ Restore export defaults");
+
+// ---- COLLECTING FROM THE PAGE KEEPS WORKING WHILE ⚙ IS UP (decision 25). What ⚙
+// replaces is the inside of the DRAWER; the floating `+` beside a hovered issue link
+// is a different element on the page, and `renderToggle` reads only the hovered
+// anchor and the active collection. The two things that had to be checked rather
+// than read are that the add lands, and that the render it causes does not close the
+// panel or move the tab -- which is what makes the panel a pure function of
+// `prefsOpen` rather than something a re-render can take away.
+const floating = () => byId.get("gt-cart-toggle");
+const keysNow = () => JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.map((i) => i.key);
+is("the collection holds one item before the add", keysNow(), ["RDC-21069"]);
+dispatch(card.children[0], "pointerover");
 flush();
-is("the corner is a preference a control can set", html.dataset.gtCartCorner, "bottom-left");
-byId.get("gt-cart-pref-corner").value = "bottom-right";
-dispatch(byId.get("gt-cart-pref-corner"), "change");
-byId.get("gt-cart-pref-right-click").checked = false;
-dispatch(byId.get("gt-cart-pref-right-click"), "change");
+is("hovering an issue link on the page still summons the floating +, panel or no panel",
+  floating().hidden, false);
+dispatch(floating(), "click");
+flush();
+is("AN ADD FROM THE PAGE LANDS WHILE ⚙ IS UP", keysNow(), ["RDC-21069", "RDC-77"]);
+is("the badge counts it, which is where you see it now", badge.textContent, "🛒 Scratch 2 ▾");
+is("and the panel is still up, on the same tab",
+  [panel().hidden, prefsOf().settingsTab, tabPanel("details").hidden], [false, "details", false]);
+
+// The same again from OUTSIDE this tab: the store is poked directly and the script
+// is told to re-read it, which is what another tab's write looks like from here.
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [{ key: "RDC-1" }] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("another tab's write re-renders the drawer under the panel", badge.textContent, "🛒 Scratch 1 ▾");
+is("and does not close it either", [panel().hidden, tabPanel("details").hidden], [false, false]);
+
+// ---- ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention:
+// ⌫ becomes `Empty 3?` before it will empty anything.
+setPrefs({ lineShape: "plain", reportBand2: "none", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
+is("five export settings are away from their defaults",
+  [prefsOf().lineShape, prefsOf().reportBand2], ["plain", "none"]);
+dispatch(restoreButton(), "click");
+flush();
+is("ONE PRESS ARMS IT and the label becomes the question", restoreButton().textContent, "Restore?");
+is("and writes nothing", [prefsOf().lineShape, prefsOf().reportBand2], ["plain", "none"]);
+is("the tooltip says there is no undo", /no undo/.test(restoreButton().title), true);
+// A render is not a click. The armed state is derived from `armed` inside `render`,
+// so a re-render REBUILDS the question rather than wiping it -- which is the same
+// treatment ⌫ gets, and the reason the label is derived rather than written on the
+// click. Anything that is a click walks away; see below.
+rerender();
+is("a re-render leaves it armed, because the label is derived and not written",
+  restoreButton().textContent, "Restore?");
+dispatch(byId.get("gt-cart-tabs"), "click");
+flush();
+is("but a click on the panel's dead space disarms it", restoreButton().textContent, "↺ Restore export defaults");
+is("and still nothing was written", prefsOf().lineShape, "plain");
+
+dispatch(restoreButton(), "click");
+dispatch(restoreButton(), "click");
+flush();
+is("TWO PRESSES PUT THE FIVE EXPORT SETTINGS BACK",
+  [prefsOf().lineShape, prefsOf().reportBand1, prefsOf().reportBand2],
+  ["markdown", "priority", "team"]);
+is("both field lists with them", 
+  [prefsOf().detailsFields.filter((f) => f.on).map((f) => f.id),
+   prefsOf().reportFields.filter((f) => f.on).map((f) => f.id)],
+  [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"],
+   ["type", "status", "assignee", "fixv", "remaining", "parent"]]);
+// IT IS AN EXPORT RESTORE AND NOTHING ELSE (decision 22). A dragged size is only
+// recoverable by dragging the grip again (risk 10), and being thrown to another tab
+// because you reset a field list would be a second change nobody asked for.
+is("and it leaves the appearance switches and the tab you are on exactly alone",
+  [prefsOf().settingsTab, prefsOf().corner, prefsOf().layout, prefsOf().rightClickMenu],
+  ["details", "bottom-left", "split", true]);
+is("the panel did not move out from under the press", tabPanel("details").hidden, false);
+setPrefs({ corner: "bottom-right", layout: "auto", rightClickMenu: false });
+
+// ---- A STORED TAB THIS BUILD DOES NOT KNOW must not leave the panel blank
+// (decision 20). `store-smoke` proves `normalisePrefs` folds it to the first tab;
+// this proves the panel that reads it actually draws something.
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), open: true, settingsTab: "haiku" });
+rerender();
+is("an unrecognised tab lands on the first one", tabButton("appearance").attrs["aria-selected"], "true");
+is("and the panel is not blank", tabPanel("appearance").hidden, false);
+is("nor is the stored value rewritten by merely reading it", prefsOf().settingsTab, "haiku");
+
+// ---- ✕ KEEPS EXACTLY ONE MEANING ON BOTH SCREENS: close the drawer. A ✕ that went
+// back from the settings instead would leave no way to close the Cart from this
+// screen at all.
+dispatch(closeButton(), "click");
+flush();
+is("✕ closes the drawer from the settings screen", html.dataset.gtCartOpen, "false");
+is("and it did not quietly mean go back", panel().hidden, false);
+dispatch(badge, "click");
+flush();
+// STATED RATHER THAN INCIDENTAL: `prefsOpen` is in memory and ✕ does not touch it,
+// so re-opening inside the same sitting lands where you left. A RELOAD does not,
+// because the flag is not stored -- which is the whole reason it is not (§2.9).
+is("re-opening in the same sitting comes back to the settings", panel().hidden, false);
+
 dispatch(gear(), "click");
 flush();
-is("and the ⚙ closes it again", prefsArea().hidden, true);
+is("and the ⚙ puts the collection back", [panel().hidden, drawerBody().hidden], [true, false]);
+is("the head names the Cart again", headTitle().textContent, "🛒 Cart");
 is("and says so, so the state cannot outlive the panel",
-  gear().getAttribute("aria-expanded"), "false");
+  gear().getAttribute("aria-pressed"), "false");
 
 // ---- 🔍 SEARCH SHOWS EXACTLY THE COLLECTION (§7 step 14), with three items and
 // one of them summary-less -- which is the step's own setup. A format that dropped

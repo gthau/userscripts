@@ -1563,6 +1563,148 @@ is not a user interface. A preference no control can set is a preference that do
 not exist, and it is worse than no preference: the code carries it, and the reader
 believes it works. The cost is two rows in the ⚙ area.
 
+**⚙ IS A SCREEN, NOT A STRIP, AND IT IS A MODE OVER THE TWO STANDING SECTIONS.
+Added on 2026-08-25, for 1.2.0's configurable exports (decision 17).**
+
+The area above was three checkboxes above the sections. The configurable exports
+bring about **twenty-two** controls, and this drawer can be 300×215 with every
+container on `overflow: clip` — so a panel sharing the box with the sections would
+be **silently truncated, with no scrollbar to say so**. That is a measurement rather
+than a preference, and it is the whole reason a strip became a screen.
+
+So ⚙ now **replaces the drawer's body**. **"There are exactly two standing sections"
+still stands**: this is a mode over them, not a third one, and §4's rejection of a
+third drawer mode for scan results is untouched. What changed is that the body has
+two occupants and only ever one of them at a time.
+
+**The foot goes with the sections, and it costs one `hidden` rather than three**,
+because the foot is a child of the collection section and the sections are children
+of the body. One boolean moves all three, so the button's state cannot disagree with
+what is on screen. It goes because six buttons and a border is about 40 pixels — a
+fifth of the drawer at its 215px floor — and **none of them can act on anything
+while the panel is up**. The accepted cost is one press to get back to a copy button.
+
+**COLLECTING FROM THE PAGE KEEPS WORKING WHILE ⚙ IS UP** (decision 25, 2026-08-24).
+What ⚙ replaces is the inside of the *drawer*; the floating `+` beside a hovered
+issue link is a different element on the page, and `renderToggle` reads only the
+hovered anchor and the active collection. So the gesture, the badge count, the
+right-click entry and the page decoration all keep working, and **an add while the
+panel is up lands without closing it**. That holds because the panel is a pure
+function of the in-memory `prefsOpen` flag and because `render` only ever *sets* the
+panel — it never rebuilds it, which is what will also let a field-list drag survive
+a re-render it did not ask for.
+
+**What is NOT available while ⚙ is up, stated as the accepted cost rather than left
+to be found:** the live list, the collection list and all six foot buttons. An item
+added from the page while the panel is up lands, and **you see it in the badge
+rather than in the drawer**.
+
+**`prefsOpen` STAYS IN MEMORY, deliberately against this section's own precedent for
+`open`.** A reload landing you in Settings would be wrong, because Settings is not
+where you work. It is not an inconsistency waiting to be tidied away. ✕ does not
+touch it either, so re-opening the drawer *within the same sitting* comes back to
+the settings — which follows from ✕ having exactly one meaning, below.
+
+**✕ KEEPS EXACTLY ONE MEANING ON BOTH SCREENS: close the drawer.** A ✕ that
+sometimes went back instead is two values that disagree wearing a different hat, and
+it would leave no way to close the Cart from the settings screen at all.
+
+**THE HEAD READS `⚙ Settings` WHILE THE PANEL IS UP, and `🛒 Cart` once it is down.
+Decided by the user on 2026-08-24** (decision 24). The repository's convention wins
+over the argument for identity: **the label IS the state** (§2.14, §3). Against it
+was that a head is the drawer's identity, and `jira-ux-improvements`' toolbar does
+not rename itself when its padlock is on. **The cost:** while the panel is up the
+drawer stops naming the collection you are collecting into — the collection's own
+heading is inside the body ⚙ replaced. **The badge still names it**, which is what
+makes that acceptable.
+
+**THE PANEL IS TABS, AND THERE ARE THREE OF THEM: `Appearance` · `📋 Details` ·
+`📊 Report`, with `Issue reference` pinned above the bar. Decided by the user on
+2026-08-24** (decisions 18 and 29). Three layouts were prototyped before tabs won —
+one long scroll, and collapsible groups with a remembered open set, which was chosen
+and then reversed by use (§4).
+
+| Structure | Where `Issue reference` goes | Why not |
+| --- | --- | --- |
+| Two — `Appearance` · `Exports` | Inside `Exports` | The cleaner split by kind, and it costs one scroller of about 22 rows holding two near-identical field lists, which invites editing the wrong one |
+| **Three — CHOSEN** | **Pinned above the tab bar** | — |
+| Four — `🔗 Line` · `📋 Details` · `📊 Report` · `⚙ Look` | Its own tab | Four labels inside a 300px bar, plus a `🔗 Line` tab that owns a setting governing all three exports |
+
+Three is the only structure where the shared setting is not misfiled: `Issue
+reference` governs all three exports, so a tab that owned it would tell a small lie
+about its scope. It also keeps each export tab to one group of about ten rows. **The
+cost is real: `Appearance` sits as a peer of two export tabs, which is not a clean
+taxonomy.**
+
+**The last tab is a stored preference** (decision 19), on this section's own
+precedent for `open`: a reload is not the end of a sitting. **An unrecognised id
+falls back to the first tab, never a blank screen** (decision 20), exactly as
+`layout` and `corner` already do. **Tabs need no open/closed set** — a bar shows
+every tab whether it has ever been pressed or not, so a tab added later is visible
+the moment it exists. That is the whole difference from the collapsible layout, and
+it is why **a new tab arrives visible where a new field arrives off** (decision 21):
+a tab appearing changes nothing about what a button emits.
+
+**A group heading appears only where a tab holds more than one group.** With exactly
+one, the heading would repeat the tab label immediately below it. The pinned group
+keeps its heading because it is not under a tab.
+
+**`↺ Restore export defaults` reaches the export settings and nothing else**
+(decision 22): the line shape, both field lists, both bands. **Not the appearance
+switches** — the remembered size is in the same key, and a dragged size is only
+recoverable by dragging the grip again (risk 10), so a "restore" that silently
+resized the drawer would be the worst kind of surprise. **And not which tab you are
+on**, because being thrown to another tab for resetting a field list is a second
+change nobody asked for. It **confirms in place**, `↺ Restore export defaults` →
+`Restore?`, by the same convention `⌫` uses (§3), and it shows **on the tabs that
+hold export settings and nowhere else** — on the appearance tab it is an offer to
+reset something you are not looking at.
+
+**THE THREE ARMED CONTROLS ARE NOW ONE VARIABLE.** The restore is the third, and a
+boolean beside a nullable id beside a third flag is the shape principle 1 exists to
+delete. One value holds `null`, `"empty"`, `"restore"` or a collection's id, and a
+collection id is a `crypto.randomUUID()`, so neither word can collide with one.
+
+**THE ⚙ SAYS WHETHER THE SETTINGS ARE OPEN, AND THAT LANDED EARLY — on 2026-08-25,
+from use, ahead of the ticket that was going to build it.** It was reported as bad
+UX and it was: the button appeared "bordered in blue after clicking", the blue
+arrived **whether the click had opened the settings or closed them**, and a click
+anywhere else took it away.
+
+**The diagnosis is the part worth keeping, because the symptom named the wrong
+thing.** That blue was the **focus ring**, not a state. `prefsOpen` lived in memory
+and *nothing on screen was a function of it* — the ⚙ carried no state at all, so a
+focus indicator was the only thing that ever changed on it. This is §2.8's rule
+about labels applied to an attribute, and the ⚙ was the one control in the drawer
+that broke it. It is the same class of finding as §2.14's label ladder: **a control
+that reports its own state**.
+
+- **One constant, `PREFS_STATE_ATTR`, interpolated into both** the `setAttribute` in
+  `render` and the stylesheet's selector. Two literals are two values that can
+  disagree, and they disagree *silently* — the attribute keeps flipping while the
+  paint stops following it, which is exactly how the ⚙ was inert for two versions
+  (§2.11). It reads **`aria-pressed`** since ⚙ became a mode: the panel is no longer
+  a region beside the content, it *is* the content, so this is a toggle rather than
+  a disclosure, and the `aria-controls` that named the region went with the rename.
+- **The active collection chip's three declarations**, not a new blue. That token
+  pair is already the Cart's word for "this one is on", and `jira-ux`'s locked
+  padlock uses it too. The selected tab now wears it as well. Each selector is
+  repeated with `:hover`, because the plain hover rule is (1,3,2) and would
+  otherwise make an open gear — or the tab you are on — go quiet under the pointer.
+- **The glyph is 16px in a 22px box, and the box may not grow** (decision 30). A
+  beta tester on 1.1.0 did not find the button at all: 13px of grey pictograph in a
+  transparent box, beside a ✕. The head's height is that 22px plus its own padding
+  and border, and `css-smoke` derives the 215px floor from a 35px head, so a taller
+  button re-derives `MIN_BLOCK` (§2.11 rule 7). **If the button is still missed now
+  that it also carries a pressed state, a `⚙ Settings` label is the next thing to
+  try**, and appendix A.9's `■` finding is the argument for it.
+- **The drawer clears `:focus` and puts its own ring back on `:focus-visible`.** The
+  Cart is not in a shadow root, so Atlassian's stylesheet has every right to paint a
+  focused button inside it — and a host rule on `:focus` paints on a **mouse** click,
+  where the Cart's own ring deliberately does not. The reset stays scoped to the
+  drawer so the badge and the floating toggle keep their rings, and every ring inside
+  the drawer must strictly out-specify it or a keyboard user loses their place.
+
 **The drawer's own numbers, all chosen by the build session on 2026-08-18 and none
 of them measured.** The default is **380 by 520 pixels**, with the height capped at
 `70vh` until a drag lifts the cap (§2.11). 380 is the width this section already
@@ -1661,6 +1803,21 @@ wanted to be taller than the space left after the head, and **a grid row sizes t
 its content and does not shrink**, so the surplus was hidden by the container's own
 overflow. Flex shrinks. Every box from the drawer down to the list can now go below
 its content size, and the section heading can never be pushed out.
+
+**RESTATED AT 1.2.0, NOT REWRITTEN: still one scroller, and while ⚙ is up the
+settings panel is it.** The rule is about what may not scroll, and that is unchanged
+— the drawer, the head and the body are still `overflow: clip`, and the panel gets
+the same `flex: 1; min-block-size: 0` the lists have, for the same reason: a
+scroller inside a box that cannot grow is CLIPPED unless every box above it can
+shrink. The two sections' scrollers and the panel can never be on screen together,
+because ⚙ hides the body the sections live in (§2.9). `css-smoke` asserts that the
+sheet holds exactly those two scrolling rules and no third.
+
+**`clip` and not `hidden` is load-bearing here too.** `hidden` is still
+programmatically scrollable, which is the hazard at the end of this section — and
+the panel is the first thing in the drawer with enough content to make a stray
+`scrollIntoView` tempting. There is none anywhere in the file, and a harness check
+says so.
 
 **2. The sections do not compete by content size.**
 
@@ -2319,13 +2476,15 @@ follows the hovered issue link. Everything else is inside the drawer.
 | 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. A copy spends it, and any change to the collection drops it (§2.14) |
 | 📊 Report | drawer, the foot | **Two presses**, sharing 📋 Details' fetch. Copies the collection grouped by priority and then by team, which is the shape the Technology Portfolio Office sends to team leads (§2.15) |
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
-| ⚙ | drawer, the head | Opens the preferences: the right-click switch, the section layout, and which bottom corner the Cart takes |
-| Sections | drawer, the preferences | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
-| Corner | drawer, the preferences | Bottom right or bottom left. The drawer's chrome mirrors it |
-| ✕ | drawer, the head | Closes the drawer |
+| ⚙ | drawer, the head | **A state button.** Opens the settings screen, which REPLACES the two sections and the foot. It stays lit while it is up, and the head reads `⚙ Settings`. Press it again to go back |
+| A settings tab | drawer, the settings screen | `Appearance`, `📋 Details` or `📊 Report`, with `Issue reference` pinned above the bar. Which tab you were last on is remembered |
+| Sections | drawer, `Appearance` | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
+| Corner | drawer, `Appearance` | Bottom right or bottom left. The drawer's chrome mirrors it |
+| ↺ Restore export defaults | drawer, the export tabs | Puts the line shape, both field lists and both bands back to what 1.1.0 emitted. Click once to arm it — the label becomes `Restore?` — and again to commit. It leaves the appearance switches and the tab you are on alone |
+| ✕ | drawer, the head | Closes the drawer. **The same on both screens**: it never means "go back" |
 | The grip | drawer, the free corner | Drag to resize. Double-click to let the drawer size itself again |
 | The divider | drawer, between the sections | Drag to give one section more room. Double-click to hand it back |
-| Right-click an issue link | the page | **Off by default.** A preference. When on, it opens the Cart's own menu instead of the browser's |
+| Right-click an issue link | the page | **Off by default.** A preference, on the `Appearance` tab. When on, it opens the Cart's own menu instead of the browser's |
 
 Notes on the controls:
 
@@ -2408,6 +2567,12 @@ Notes on the controls:
 | **Reserving room for the item count** | Keeps `Copy 12 items` and stays stable, at the price of both buttons sitting about 100px wide for ever, which wraps the foot at almost any drawer width. The count is on the collection's heading two lines above, so the label is not where it has to live |
 | **One fetch arming both stepped buttons** | Shipped for a day and reversed from use. The held result really does describe the collection rather than a button, and that argument is still right about the DATA -- it was wrong about the CONTROL, because pressing one button and watching another change state is broken however correct the state is. Per-button arming costs one extra request when both are pressed in turn, and deleted the render-before-flash it had required (§2.15) |
 | **A column picker for the detailed export** | A setting that silently changes what a button produces is what §2.8 warns about, and a fixed output is checkable. If a second shape is ever wanted it is a second entry, not a switch |
+| **A settings panel sharing the box with the two sections** | Measured, not argued. About 22 controls in a drawer that can be 300×215, where every container is `overflow: clip`, so the surplus is **silently truncated with no scrollbar to say so**. That measurement is what turned a strip into a screen (§2.9) |
+| **A drawer that grows when ⚙ opens** | It reflows on a press, which is the defect §2.14 spent a day removing from the foot — and the growth would have to be undone on the press that closes it, so pressing the button twice would move the drawer twice |
+| **✕ meaning "go back" on the settings screen** | Two values that disagree wearing a different hat, and it leaves no way to close the Cart from that screen at all. ⚙ is the way back, and it is the button that put you there |
+| **One long scroll for the settings panel** | Prototyped. Twenty-two controls in one column means the thing you came for is usually off-screen, and there is no landmark to scroll to |
+| **Collapsible groups with a remembered open set** | Prototyped, **chosen, and then reversed by use.** Every visit starts with a decision about which group to open, the remembered set is a second piece of state that can disagree with what is on screen, and a group added later arrives collapsed — where a new tab arrives visible (decision 21) |
+| **↑↓ buttons instead of a drag for the field lists** | Recommended, and declined by the user on 2026-08-24. The cost is stated rather than hidden: no harness in this repo can drive a drag, so `moveField` must be pure and covered, and §7 gains a browser step (decision 26) |
 
 ---
 
@@ -2688,6 +2853,8 @@ replaced by something else.
 | 13 (reload), 16 | **Mechanism confirmed outside a browser** | The script run TWICE over one store: a drawer left open comes back open with its size, and a stale tab that adds one item does not write away the five it never saw. **All six are there** |
 | 1, 5, 7 | **Needs a live visit to each of the eight views** | Nothing but Jira has eight views |
 | 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
+| 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its three labels do not wrap inside 300px; the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
+| the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
 
@@ -2819,6 +2986,26 @@ pass each, and they are cheap.
     active, and the badge follows. On your last remaining collection the ✕ must
     **empty it and not remove it** (§2.4). Leave one armed and wait: after a few
     seconds it must disarm by itself.
+27. **The ⚙ screen at the drawer's floor, which is the one thing no harness here can
+    see.** Drag the drawer down to its 300×215 minimum and press ⚙. The panel must
+    **scroll** rather than clip — put the pointer in it and turn the wheel, and check
+    that the bottom of the last tab's content is reachable. The tab bar must stay put
+    while it scrolls, and its three labels must not wrap inside 300px. Press ⚙ again:
+    the two sections and all six foot buttons must come back with nothing clipped,
+    which is risk 10's arithmetic meeting a real layout on the other screen.
+28. **The ⚙ says which screen you are on, and the head agrees with it.** Press ⚙: the
+    button must stay lit while the panel is up — not only while it has the focus —
+    and the head must read `⚙ Settings`. Click elsewhere in the drawer: the button
+    must stay lit. Press ⚙ again and the light and the name must both go. **If a blue
+    ring still appears on the click that CLOSES the settings**, that is the browser's
+    own `:focus-visible` heuristic firing on a mouse click rather than Atlassian's
+    sheet, and the remaining fix is to suppress the mouse path's focus on that button
+    alone (§2.9).
+29. **Collecting keeps working while ⚙ is up.** With the panel open, hover an issue
+    link on the page: the floating `+` must appear and adding must work. The badge's
+    count must go up, the panel must **stay open on the same tab**, and nothing may
+    flicker back to the collection. This is decision 25, and the harness proves the
+    state; only a browser proves the paint.
 
 ---
 

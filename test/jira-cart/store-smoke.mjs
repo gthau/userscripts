@@ -44,7 +44,9 @@ const constants = `
   ${slice("const LINE_SHAPE_IDS = [", "\n  ];")}
   ${slice("const BAND_IDS = [", "\n  ];")}
   ${slice("const NO_BAND =", "\n")}
+  ${slice("const SETTINGS_TABS = [", "\n  ];")}
   ${slice("const SETTINGS_TAB_IDS =", "\n")}
+  ${slice("const EXPORT_PREF_KEYS = [", "\n  ];")}
   ${slice("const DEFAULT_PREFS = {", "\n  };")}
 `;
 
@@ -60,7 +62,8 @@ const harness = `
   return {
     ${names.join(",")},
     DEFAULT_PREFS, LAYOUTS, MIN_INLINE, MIN_BLOCK, BASIS_MIN, BASIS_MAX,
-    FIELD_CATALOGUE, LINE_SHAPE_IDS, BAND_IDS, NO_BAND, SETTINGS_TAB_IDS,
+    FIELD_CATALOGUE, LINE_SHAPE_IDS, BAND_IDS, NO_BAND,
+    SETTINGS_TABS, SETTINGS_TAB_IDS, EXPORT_PREF_KEYS,
     state: () => ({ lastRaw, writeFailed, renders }),
     resetSession: () => { lastRaw = null; writeFailed = false; firstRunDefault = null; },
   };
@@ -292,6 +295,38 @@ is("band 1 cannot be none", storedAs({ reportBand1: tab.NO_BAND }).reportBand1, 
 is("band 2 can", storedAs({ reportBand2: tab.NO_BAND }).reportBand2, tab.NO_BAND);
 is("an unknown tab lands on the first one", storedAs({ settingsTab: "haiku" }).settingsTab, tab.SETTINGS_TAB_IDS[0]);
 is("and never on a blank screen", typeof storedAs({ settingsTab: "" }).settingsTab === "string" && storedAs({ settingsTab: "" }).settingsTab.length > 0, true);
+
+// 14b. THE TAB VOCABULARY IS DERIVED FROM THE BAR, added at 1.2.0 with the panel.
+// The ids `normalisePrefs` range-checks against are `SETTINGS_TABS.map(...)`, so a
+// tab renamed in the bar and not in the check is unrepresentable -- which is the
+// whole reason the structure is one list and this is what says so.
+is("the ids the store honours are exactly the tabs the bar draws",
+   tab.SETTINGS_TAB_IDS, tab.SETTINGS_TABS.map((one) => one.id));
+is("every tab carries a label, so none can draw as an empty button",
+   tab.SETTINGS_TABS.filter((one) => typeof one.label === "string" && one.label.length > 0).length,
+   tab.SETTINGS_TABS.length);
+// `Appearance` sits as a peer of two export tabs and that cost is in the ADR. What
+// matters here is that it is NOT an export tab, because that is what keeps
+// `Restore export defaults` off it (decision 22).
+is("appearance is the first tab and the only one that holds no export settings",
+   [tab.SETTINGS_TABS[0].id, tab.SETTINGS_TABS.filter((one) => !one.exports).map((one) => one.id)],
+   ["appearance", ["appearance"]]);
+
+// 14c. WHAT `Restore export defaults` REACHES. The list is what the handler builds
+// its patch from, so a seventh export preference that is not in it would be silently
+// out of reach of the only control that resets anything.
+is("the restore names every export preference and nothing else",
+   tab.EXPORT_PREF_KEYS,
+   ["lineShape", "detailsFields", "reportFields", "reportBand1", "reportBand2"]);
+is("every key it names is a real preference with a default",
+   tab.EXPORT_PREF_KEYS.filter((key) => key in tab.DEFAULT_PREFS).length, tab.EXPORT_PREF_KEYS.length);
+// THE THREE APPEARANCE SWITCHES, THE REMEMBERED SIZE AND THE CURRENT TAB ARE NOT IN
+// IT, each for its own reason (decision 22): a dragged size is only recoverable by
+// dragging the grip again (risk 10), and being thrown to another tab because you
+// reset a field list would be a second change nobody asked for.
+is("and reaches neither the appearance switches, the size, nor the tab you are on",
+   ["corner", "layout", "rightClickMenu", "size", "basisStacked", "basisSplit", "settingsTab", "open"]
+     .filter((key) => tab.EXPORT_PREF_KEYS.includes(key)), []);
 
 // 15. The two field lists, and they are ONE FUNCTION, so every check runs against
 // both keys. A STORED LIST MAY DISAGREE WITH THE CATALOGUE AND THE CODE WINS: this
