@@ -366,6 +366,33 @@ await Promise.resolve();
 is("Links wrote both flavours", Object.keys(clipboard.at(-1)), ["text/plain", "text/html"]);
 is("nothing threw on a copy", errors(), []);
 
+/* ---- THE LINE SHAPE REACHES THE CLIPBOARD, and it is read AT THE PRESS.
+   `format-smoke` asserts the bytes of all five shapes; what only this harness can
+   say is that the stored preference is what a real click actually consults. The
+   store is poked with no re-render on purpose -- if `format` held the shape in a
+   variable instead of reading it at the press, this check would go on copying the
+   default and would be measuring nothing (§2.8, decision 5). */
+const prefsRaw = () => JSON.parse(store["gt-jira-cart.prefs"]);
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "url" });
+dispatch(copy("links"), "click");
+await Promise.resolve();
+is("a stored shape is what the press copies, both flavours",
+  [clipboard.at(-1)["text/plain"].text, clipboard.at(-1)["text/html"].text],
+  ["- https://dalet.atlassian.net/browse/RDC-77",
+   '<ul><li style="line-height:1.5;margin-bottom:8px">' +
+   '<a href="https://dalet.atlassian.net/browse/RDC-77">https://dalet.atlassian.net/browse/RDC-77</a></li></ul>']);
+// A SHAPE THIS BUILD DOES NOT KNOW MUST NOT REACH A FORMATTER. `normalisePrefs`
+// sends it back to `markdown` on the way out of the store, which is the opposite of
+// what a malformed COLLECTION gets, and the whole reason the two live in different
+// keys (§2.4).
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "haiku" });
+dispatch(copy("links"), "click");
+await Promise.resolve();
+is("an unknown shape id copies the default rather than nothing",
+  clipboard.at(-1)["text/plain"].text,
+  "- [RDC-77](https://dalet.atlassian.net/browse/RDC-77) The linked issue's own summary");
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "markdown" });
+
 // The fourth button does not copy. It opens Jira's search on the collection.
 is("its label says so", copy("jql").textContent, "🔍 Search");
 const wrote = clipboard.length;
@@ -753,8 +780,8 @@ const rerender = () => {
   dispatch(document, "animationstart", { animationName: "gt-cart-mount" });
   flush();
 };
-// Preferences with no control yet -- ticket 03's line shape, 05's bands -- are put
-// there by poking the store and letting the next render read it back out.
+// Preferences with no control yet -- ticket 05's bands, ticket 04's field lists --
+// are put there by poking the store and letting the next render read it back out.
 const setPrefs = (patch) => {
   store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), ...patch });
   rerender();
@@ -804,6 +831,40 @@ is("and each carries what storage says",
   [byId.get("gt-cart-pref-right-click").checked, byId.get("gt-cart-pref-layout").value, byId.get("gt-cart-pref-corner").value],
   [false, "auto", "bottom-right"]);
 is("the right-click switch ships OFF", byId.get("gt-cart-pref-right-click").checked, false);
+
+/* ---- `Issue reference` IS PINNED ABOVE THE BAR (decision 29). It governs all
+   three exports, so a tab that owned it would tell a small lie about its scope --
+   which is the only reason this screen has three tabs and not four. */
+const shapeSelect = () => byId.get("gt-cart-pref-shape");
+is("the line-shape control is on the settings screen", !!shapeSelect(), true);
+is("and it is pinned, not filed under one of the three tabs",
+  ["appearance", "details", "report"]
+    .some((id) => shapeSelect().closest(`#gt-cart-tabpanel-${id}`) === tabPanel(id)), false);
+// BUILT FROM `SHAPES`, so a shape added or dropped there moves this dropdown with
+// it. A second list of names here is a value that can disagree with the bytes.
+is("its options are the shape table, in the shape table's order",
+  shapeSelect().children.map((option) => option.value),
+  ["markdown", "markdown-key", "key-summary-url", "key-url", "url"]);
+is("and they are shown by their labels, not their ids",
+  shapeSelect().children.map((option) => option.textContent),
+  ["Markdown link on the key", "Markdown link, no summary", "Key, summary, then the URL",
+   "Key and URL, no summary", "URL only"]);
+is("it carries what storage says", shapeSelect().value, "markdown");
+is("and the pinned group has lost its placeholder note",
+  byId.get("gt-cart-prefs").querySelector(".gt-cart-group").children
+    .some((child) => child.className === "gt-cart-note"), false);
+
+shapeSelect().value = "key-summary-url";
+dispatch(shapeSelect(), "change");
+flush();
+is("choosing a shape writes the preference", prefsOf().lineShape, "key-summary-url");
+is("and the control still says what storage says after the render it caused",
+  shapeSelect().value, "key-summary-url");
+// Back to the default, so nothing below this line is reading a shape it did not set.
+shapeSelect().value = "markdown";
+dispatch(shapeSelect(), "change");
+flush();
+is("and back again", prefsOf().lineShape, "markdown");
 
 // THE BAR SHOWS EVERY TAB whether it has been pressed or not, so there is no
 // open/closed set to store and a tab added later is visible the moment it exists
@@ -870,13 +931,16 @@ is("and does not close it either", [panel().hidden, tabPanel("details").hidden],
 
 // ---- ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention:
 // ⌫ becomes `Empty 3?` before it will empty anything.
-setPrefs({ lineShape: "plain", reportBand2: "none", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
+// `url` and not a made-up id: since ticket 03 the shapes are real, and a restore
+// that only ever put back a value the UI could not produce would be measuring less
+// than it looks like it is.
+setPrefs({ lineShape: "url", reportBand2: "none", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
 is("five export settings are away from their defaults",
-  [prefsOf().lineShape, prefsOf().reportBand2], ["plain", "none"]);
+  [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
 dispatch(restoreButton(), "click");
 flush();
 is("ONE PRESS ARMS IT and the label becomes the question", restoreButton().textContent, "Restore?");
-is("and writes nothing", [prefsOf().lineShape, prefsOf().reportBand2], ["plain", "none"]);
+is("and writes nothing", [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
 is("the tooltip says there is no undo", /no undo/.test(restoreButton().title), true);
 // A render is not a click. The armed state is derived from `armed` inside `render`,
 // so a re-render REBUILDS the question rather than wiping it -- which is the same
@@ -888,7 +952,7 @@ is("a re-render leaves it armed, because the label is derived and not written",
 dispatch(byId.get("gt-cart-tabs"), "click");
 flush();
 is("but a click on the panel's dead space disarms it", restoreButton().textContent, "↺ Restore export defaults");
-is("and still nothing was written", prefsOf().lineShape, "plain");
+is("and still nothing was written", prefsOf().lineShape, "url");
 
 dispatch(restoreButton(), "click");
 dispatch(restoreButton(), "click");

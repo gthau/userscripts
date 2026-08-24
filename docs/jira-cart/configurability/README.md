@@ -281,6 +281,20 @@ path's focus on that button alone. It is deliberately not written on a guess.
 
 ---
 
+### Landed on 2026-08-25, by ticket 03
+
+**32. The fifth shape's label is `Markdown link, no summary`.** Decision 27 left it
+open. Chosen against the user's own words *"markdown url"* and confirmed by them: it
+reads as a pair with `Markdown link on the key` above it and `Key and URL, no summary`
+below it, so the dropdown explains itself. The stated cost is that somebody looking
+for the words they used will not find them.
+
+**33. The two heads stay different, and §2.14 says so instead of denying it.** See the
+correction below. The `bold` flag is the whole of the difference and it is a
+one-argument change in either direction if a paste ever says otherwise.
+
+---
+
 **Nothing is open. Tickets 02, 03, 04 and 05 can each be run from their own file, and
 06 records what they land.**
 
@@ -307,7 +321,12 @@ be fixed by whichever ticket touches that section.
 
 1. **§2.14 claims Details' head "is §2.8's Links line, unchanged".** True of
    `text/plain` only. On the HTML side `formatDetails` puts `font-weight:600` on the
-   key's anchor and `formatLinks` does not. Ticket 03.
+   key's anchor and `formatLinks` does not. Ticket 03. — **FIXED on 2026-08-25**, and
+   the question it opened was answered rather than left: **the two heads stay
+   different**, because the bold marks where an issue starts on a line that carries a
+   field tail and 🔗 Links has no tail. Converging either way would change bytes 1.1.0
+   has been putting on the clipboard, and nobody has pasted a Details line with an
+   unbolded key. The shared shape carries a `bold` flag; §2.14 says so, dated.
 2. **`formatReport`'s docblock still says one press arms both stepped buttons.**
    §2.15 reversed that on 2026-08-21 and the comment never caught up. Ticket 05.
 

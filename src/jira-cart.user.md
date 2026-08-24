@@ -1080,6 +1080,56 @@ are worth keeping: the link column is short and uniform, so a pasted list is
 scanned down its keys; and the summary stays ordinary text, so it can be edited in
 the email you pasted it into without fighting a link boundary.
 
+> **Amended on 2026-08-25: THE HEAD OF A LINE IS A PREFERENCE, AND THERE ARE FIVE
+> SHAPES.** The line above is one of them, it is the default, and **a default install
+> emits 1.1.0's bytes exactly** — that is the whole requirement of these defaults, and
+> every worked example in this section is still asserted unchanged. The paragraph
+> stays because its reasoning is still what shapes two of the five: markdown cannot
+> nest square brackets, so the key goes inside them and everything else stays outside.
+>
+> **ONE PREFERENCE, THREE CONSUMERS, ONE READ.** `format` reads `lineShape` once per
+> copy and hands the shape to 🔗 Links, 📋 Details and 📊 Report, so §2.14's promise
+> that the three agree about what a collected issue looks like holds by construction
+> — there is no second read to fall out of step. A **per-export override** is left in
+> §6 and costs one nullable key each (decision 5).
+>
+> | Shape | `text/plain` | What it is for |
+> | --- | --- | --- |
+> | `markdown` — *Markdown link on the key* | `[RDC-1513](url) Summary` | What 1.1.0 shipped. The default |
+> | `markdown-key` — *Markdown link, no summary* | `[RDC-1513](url)` | A link column and nothing else |
+> | `key-summary-url` — *Key, summary, then the URL* | `RDC-1513: Summary - url` | A destination that does not render markdown |
+> | `key-url` — *Key and URL, no summary* | `RDC-1513 - url` | The same, with the summaries left off |
+> | `url` — *URL only* | `url` | The same again, where a link is all that is wanted |
+>
+> **EVERY SHAPE DEFINES BOTH FLAVOURS** (decision 6). One that changed only
+> `text/plain` would silently do nothing in Outlook, Word, Teams and Confluence, which
+> all take the HTML — a setting that quietly fails to apply, which is what §2.14 warns
+> about. The three URL-bearing shapes make the URL the **anchor's own visible label**,
+> so the choice takes effect whichever flavour the destination takes.
+>
+> **ALL FIVE WERE PASTED, on 2026-08-24, and the paste decided two things this
+> document could not** (appendix A.9.1). A visible URL survives and arrives
+> **clickable**, so the URL-bearing shapes are available on **all three** exports
+> rather than on 🔗 Links alone. And the paste **asked for a shape the prototype did
+> not offer** — `markdown-key` — so the count is five rather than four.
+>
+> **THE EM DASH COLLISION IS ACCEPTED, and the ground is the transferable part.** This
+> section invented the em dash because *"a summary can contain dashes"*. `RDC-1513`'s
+> real summary contains ` - ` itself, so `key-summary-url`'s URL separator is a
+> character the summary uses, and §2.14's em dash then lands after 45 characters of
+> link — the exact defect the em dash exists to prevent, reintroduced by the preset.
+> The user's reason for accepting it: **these documents are read and never parsed.**
+> Nothing regex-parses a pasted report, so the ambiguity costs a machine and not a
+> reader, and the em dash still marks where the metadata starts. The two alternatives
+> — a different separator before the URL, and withholding the plain shapes from the
+> two exports that carry a field tail — are **DECLINED rather than untried**
+> (decision 28).
+>
+> **THE SEPARATOR STILL GOES WITH ITS VALUE, in every shape and both flavours.**
+> `GLX-402` has no summary, so `key-summary-url` emits `GLX-402 - url` and never
+> `GLX-402: - url`. That is the oldest rule in this section, and it is why each shape
+> carries its own conditional instead of joining a list of parts.
+
 **JQL keeps its slot on utility.** It is the query slot in the spanning set, and it
 is the way to turn a collection back into something Jira can filter, bulk-edit,
 save and share. An earlier argument — that it makes the data durable *inside* Jira
@@ -1279,6 +1329,27 @@ setting switched on** (`06` §7). One more reason to record while it is in view:
 user-written templates mean user-written HTML reaching the clipboard, which is a
 different safety question than any fixed format faces.
 
+> **Amended on 2026-08-25: UPHELD, and 1.2.0 is what tested it.** The exports became
+> configurable and this paragraph did not have to move, because **a preset list is not
+> a template**. A shape is a pair of functions in this file, so no user-written string
+> reaches the clipboard, and `detailChip` keeps being the one place styling is written
+> — which is what makes the five measured rules of §2.14 enforceable at all. A
+> preference can say *which* shape, and nothing else.
+>
+> What a template would have to express got **larger** rather than smaller. Every
+> claim above still holds — Names' summary-less line is a different line shape, the
+> second output channel with its own escaping, the bullet that appears only at list
+> scope, JQL having no single-item form — and §2.14 adds a lozenge whose colour comes
+> from a status *category*, a colour that applies to two of five priorities, and a
+> separator that must not be a box. **User-editable templates are still a rewrite of
+> this layer** (§6 item 10).
+>
+> The seam that was real is the **dispatch table below**, and 1.2.0 puts a **second
+> table beside it** rather than a hole inside it: `SHAPES`, five entries, each with an
+> id, a label and one function per flavour. Adding a shape is one entry. Deleting one
+> sends every stored blob naming it back to the default on the next read, with nothing
+> else to change.
+
 **What is real is a dispatch table**, and it should be called that and nothing
 more:
 
@@ -1292,6 +1363,13 @@ names its destination, so the table is not named after copying.
 Adding a fifth format means adding one entry to a list, which is how
 [`jira-ux`'s `BUTTONS` array](jira-ux-improvements.user.js#L404-L463) already
 works.
+
+> **Amended on 2026-08-25: the signature gained a third parameter,
+> `(items, scope, shape)`.** The shape ARRIVES as an argument and is never read by a
+> builder, which is what makes the three heads one setting rather than three reads of
+> one setting. It also keeps every builder a pure function of its arguments, which is
+> what lets the harness assert all five shapes' bytes with no store to stand up. The
+> three formats that have no head ignore it, the same way they already ignore `scope`.
 
 > **Amended on 2026-08-20: that last sentence was wrong, and §2.14 is the
 > counter-example.** The dispatch table did take exactly one entry. The **two-step
@@ -2131,6 +2209,32 @@ about what a collected issue looks like. What follows the em dash is the new par
 The em dash earns its place: without it the fields run into the summary with only a
 `·` between them, and a summary can contain dashes.
 
+> **Corrected on 2026-08-25: "unchanged" is TRUE of `text/plain` and has been FALSE
+> of the HTML since the day this format shipped.** `formatDetails` writes
+> `<a … style="font-weight:600">` on the key and `formatLinks` writes a bare `<a>`.
+> The text sides are byte-identical; the HTML sides never were. The sentence is kept
+> because its *intent* — that the two formats agree about what a collected issue is —
+> is now true by construction: since 1.2.0 there is **one** line-shape preference,
+> read once per copy and handed to all three exports (§2.8, decision 5), so the two
+> cannot disagree about anything except this one declaration.
+>
+> **AND THE TWO SHOULD STAY DIFFERENT. Decided, not inherited.** The bold has a job
+> here that it does not have on 🔗 Links: this line carries a field tail and runs
+> long, so the bold key is what marks where one issue starts. Links' line is a key
+> and a summary, so there is nothing to find. The shared shape therefore carries a
+> `bold` flag, which is the whole of the difference.
+>
+> **What convergence would have cost, stated because it was the other option.**
+> Either direction changes bytes that 1.1.0 has been putting on somebody's clipboard
+> for days — bolding Links changes 🔗 Links, un-bolding changes 📋 Details and
+> 📊 Report — and every default in this effort exists so that an install that never
+> opens ⚙ cannot tell the configurability shipped. On top of that, nobody has ever
+> pasted a Details line with an unbolded key, and this section's own rule is that the
+> paste decides. **Neither is ruled out for ever**; both are a one-argument change,
+> and the flag is where it would be made.
+>
+> The `url` shape is the one with no key to bold, so its two heads are identical.
+
 **One issue is ONE LINE, and that is a requirement rather than a preference.** The
 recipients reorder the list in the editor they pasted it into — to put the urgent
 thing first, or to group what they are discussing. One line is one thing to drag.
@@ -2328,6 +2432,15 @@ differs per instance and is out of scope.
 - **Not configurable.** There is no column picker and no per-field switch. A
   setting that silently changes what a button produces is what §2.8 warns about,
   and a fixed output is checkable.
+  > **Narrowed on 2026-08-25: the HEAD is configurable, and the STYLING never will
+  > be.** 1.2.0 makes the issue reference one of five named shapes (§2.8), shared by
+  > all three exports. The warning above is not violated, and the three reasons are
+  > the test any later setting has to pass: the setting is **visible**, in ⚙, rather
+  > than silent; the output is still **checkable**, byte for byte, because the shapes
+  > are a fixed list in the script and the harness asserts every one of them; and no
+  > preference reaches **`detailChip`**, which is where the five measured paste rules
+  > are enforced. The column picker this bullet refuses is a different question and
+  > is not answered here.
 - **Not a per-row or per-selection copy.** There is no selection — the collection
   is the selection (§2.9) — so `collection` is the only scope that exists. The
   `item` scope is honoured in the code because it is the seam, not because
@@ -2470,7 +2583,7 @@ follows the hovered issue link. Everything else is inside the drawer.
 | A collection chip | drawer, below the collection | Makes that collection active. Each chip carries its own count |
 | ✕ on a chip | drawer, below the collection | Deletes that collection. Armed first: the chip turns red and its tooltip names what goes. On the only collection it empties it instead (§2.4) |
 | `new collection…` + create | drawer, below the chips | Creates a collection and makes it active |
-| 🔗 Links | drawer, the foot | Copies the whole collection as a markdown list, plus a spaced `<ul>` as HTML |
+| 🔗 Links | drawer, the foot | Copies the whole collection as a list, plus a spaced `<ul>` as HTML. **How each line names its issue is the `Issue reference` setting**, and the default is what 1.1.0 emitted (§2.8) |
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
 | 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. A copy spends it, and any change to the collection drops it (§2.14) |
@@ -2478,6 +2591,7 @@ follows the hovered issue link. Everything else is inside the drawer.
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | **A state button.** Opens the settings screen, which REPLACES the two sections and the foot. It stays lit while it is up, and the head reads `⚙ Settings`. Press it again to go back |
 | A settings tab | drawer, the settings screen | `Appearance`, `📋 Details` or `📊 Report`, with `Issue reference` pinned above the bar. Which tab you were last on is remembered |
+| Issue reference | drawer, the settings screen, pinned above the tabs | One of **five named shapes** for how an issue is written at the head of a line — a markdown link, a markdown link with no summary, key + summary + URL, key + URL, or the URL alone. **It governs 🔗 Links, 📋 Details and 📊 Report together** (§2.8) |
 | Sections | drawer, `Appearance` | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
 | Corner | drawer, `Appearance` | Bottom right or bottom left. The drawer's chrome mirrors it |
 | ↺ Restore export defaults | drawer, the export tabs | Puts the line shape, both field lists and both bands back to what 1.1.0 emitted. Click once to arm it — the label becomes `Restore?` — and again to commit. It leaves the appearance switches and the tab you are on alone |
@@ -2544,8 +2658,8 @@ Notes on the controls:
 | `navigator.permissions.query` before a clipboard write | Firefox and Safari reject the permission name. The promise rejected unnoticed and the copy silently never happened |
 | `GM_setClipboard` | It needs no user activation, but it writes one flavour per call, which would cost Links its HTML twin |
 | The `GM.*` promise-based API | An `await` in the copy handler puts the clipboard write outside its user activation |
-| Bare URLs, one per line | Links with the summary removed. Its only distinct paste target cannot be named |
-| `[KEY] Summary — URL` | Links' three fields with different punctuation |
+| Bare URLs, one per line | Links with the summary removed. Its only distinct paste target cannot be named. **OVERTURNED on 2026-08-25, and the ground was the naming.** The target is **a destination that does not render markdown**, where `[KEY](url)` arrives as its own source code with no link to click. It ships as the `URL only` shape of §2.8, and a real paste confirmed a visible URL survives Outlook and Teams and arrives clickable (A.9.1). It costs no slot in the spanning set, because it is a **preference over one format's head** and not a sixth format |
+| `[KEY] Summary — URL` | Links' three fields with different punctuation. **OVERTURNED on 2026-08-25** (decision 4). "Different punctuation" is exactly the point in **a destination that does not render markdown** — the user named the target this row could not. It ships as `Key, summary, then the URL`, and its punctuation is **`KEY: Summary - url`** rather than this row's, for two reasons worth keeping: no brackets, because in that destination they read as the leftover markdown the shape exists to avoid; and a hyphen rather than an em dash, because 📋 Details and 📊 Report already spend the em dash on the boundary before the field tail (§2.8, A.9.1) |
 | Copying the JQL instead of opening it | Every use of it ended in the same paste into Jira's search box, so the button goes there instead. The query text is one selection away on that page, and its URL is the better thing to share |
 | The collection's name as a heading in a copy | Redundant where you paste, wrong for a selection, invalid inside Keys and JQL, and it breaks *lines equals items* |
 | A template engine for the formats | Names' summary-less line is a different line shape, not a substituted value. Templates would be a rewrite of this layer |
@@ -2855,6 +2969,7 @@ replaced by something else.
 | 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
 | 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its three labels do not wrap inside 300px; the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
 | the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
+| 30 | **Bytes confirmed outside a browser; the paint and the paste are not** | All five line shapes, on all three exports, in both flavours, with a summary and without, byte for byte — plus that the shape table names the same ids as the preference's own vocabulary, and that a stored shape is read **at the press** rather than held in a variable. What is left for a browser is whether the pinned dropdown fits and reads at the 300px floor, and whether `Restore export defaults` puts it back. **The shapes themselves were already pasted, on 2026-08-24** (appendix A.9.1) |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
 
@@ -3006,6 +3121,17 @@ pass each, and they are cheap.
     count must go up, the panel must **stay open on the same tab**, and nothing may
     flicker back to the collection. This is decision 25, and the harness proves the
     state; only a browser proves the paint.
+30. **The line shape, end to end.** Open ⚙ and pick each of the five under
+    `Issue reference`, going back each time to press 🔗 Links, 📋 Details and
+    📊 Report. Every line's head must take the shape you chose, and the three must
+    agree with each other. Two things only a browser answers here: whether the
+    pinned row and its dropdown **fit and read at the 300px floor** — its widest
+    label is shorter than `Automatic (side by side when wide)`, which step 27 already
+    confirmed, so this is a check rather than a doubt — and whether **`Restore export
+    defaults` puts the dropdown back**, which is a render reading storage rather than
+    a value the handler wrote. The BYTES need no browser: the harness asserts all five
+    shapes on all three exports in both flavours, and the paste that chose them is
+    appendix A.9.1.
 
 ---
 
@@ -3355,6 +3481,14 @@ shapes withheld from the two exports that carry a field tail.
 the key, with no summary. It is the markdown counterpart of `Key and URL, no
 summary`, and the prototype had no such row, so this one comes from use rather than
 from the table. Ticket 03 owns its bytes in both flavours.
+
+**LANDED ON 2026-08-25.** The five shapes are `SHAPES` in the script, beside the
+dispatch table, and `format-smoke` §15 asserts every one of them byte for byte — both
+flavours, all three exports, with a summary and without — and that the table names the
+same ids as the preference's own vocabulary, in the same order. The fifth shape's
+label is **`Markdown link, no summary`**, confirmed by the user against their own
+words *"markdown url"*, because it reads as a pair with `Markdown link on the key`
+above it and `Key and URL, no summary` below it.
 
 **What this run does NOT say, recorded so the entry is not read as more than it
 is.** It is the user's report of their own pastes rather than a screenshot matrix

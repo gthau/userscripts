@@ -5,7 +5,7 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**604 checks across seven files. No framework, no `package.json`, no dependencies.**
+**716 checks across seven files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
@@ -22,8 +22,8 @@ answer.
 | `smoke.mjs` | 32 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` |
 | `store-smoke.mjs` | 110 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of all eight views, and `groupFor`'s **two** answers — place beside the key, read from the widest |
-| `format-smoke.mjs` | 156 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground |
-| `boot-smoke.mjs` | 207 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, and an add made **from the page while the panel is up** |
+| `format-smoke.mjs` | 257 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order |
+| `boot-smoke.mjs` | 218 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable |
 | `css-smoke.mjs` | 43 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
 
@@ -46,6 +46,16 @@ asserts things *about* them: that no lozenge ground is saturated, and that no co
 reaches the clipboard which the palette does not name. A copy would let the file and
 the assertions drift apart in silence, which is the one thing these harnesses exist
 to prevent.
+
+Since 1.2.0 it slices in the **shape table** as well — `SHAPES` and `LINE_SHAPE_IDS`
+— for the same reason and one more: it asserts that the two name the same ids in the
+same order. They are two lists rather than one derived from the other because the
+vocabulary has to exist above `DEFAULT_PREFS`, which is built at load, while the
+shapes' bytes belong beside the formatters that emit them; a `const` up there reading
+the table down here is a temporal dead zone and the script throws on load. **This
+check is the only thing holding them together**, and without it a table naming an id
+the vocabulary lacks is an unreachable shape, and an id with no table is a preference
+that renders nothing.
 
 `store-smoke` does the same to the constants it asserts about — `MIN_INLINE`,
 `MIN_BLOCK`, `BASIS_MIN`, `BASIS_MAX`, `LAYOUTS`, `SETTINGS_TABS`, `EXPORT_PREF_KEYS`
@@ -75,6 +85,22 @@ It is committed because rebuilding it is the expensive part, and because the nex
 question about a paste target will be answered the same way. **Keep its chips shape
 byte-identical to the script** — if it drifts it starts answering a question about
 itself. `run.mjs` does not pick it up; it globs `*-smoke.mjs`.
+
+## `config-prototype.html` — and it has diverged from the script
+
+The configurability effort's switchable page. **Its shape table has FOUR rows and the
+script has five**, and the prototype is the thing that is wrong: the fifth shape,
+`markdown-key`, was asked for by the paste the prototype's own copy button made
+possible (ADR appendix A.9.1), and it was never added back. Its other four rows are
+byte-identical to the script's and its labels are the ones that shipped. It also still
+carries a warning about the em dash collision on the plain shapes, which the same
+paste **accepted** on 2026-08-24, so that warning describes an open question that is
+closed.
+
+Nothing here reads the prototype, so nothing goes red when it drifts — which is why it
+is written down. **What happens to it is ticket 06's call**, and that ticket names the
+three options: merge it into `paste-test.html`, keep both, or let it supersede the rig.
+Until then, read the script's `SHAPES` and not this file.
 
 ## What a green run does NOT say
 

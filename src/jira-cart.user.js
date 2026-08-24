@@ -1867,7 +1867,15 @@ ${selectors.join(",\n")} {
   /**
    * The four formats of §2.8, as four functions with one signature:
    *
-   *     (items, scope) -> { text, html? }
+   *     (items, scope, shape) -> { text, html? }
+   *
+   * `shape` ARRIVES AS AN ARGUMENT AND IS NEVER READ HERE. `format` reads the
+   * preference once and hands the same shape to all three consumers, so the head
+   * of a line cannot differ between 🔗 Links, 📋 Details and 📊 Report -- there is
+   * no second read to fall out of step (§2.8, decision 5). It also keeps these
+   * functions PURE, which is what lets `format-smoke` assert their bytes for every
+   * shape without a store to stand up. The three formats with no head ignore it,
+   * the same way they already ignore `scope`.
    *
    * The four are a SPANNING SET, not a wish list: one rich list a person reads,
    * one plain list a person reads, one list of identifiers, one query. Every
@@ -1887,35 +1895,31 @@ ${selectors.join(",\n")} {
    * NO FORMAT EMITS THE COLLECTION'S NAME AS A HEADING. It is redundant wherever
    * you paste, wrong for a selection, and invalid inside Keys and JQL.
    */
-  function formatLinks(items, scope) {
+  function formatLinks(items, scope, shape) {
     const bullet = scope === "item" ? "" : "- ";
 
-    // The shape is `[KEY](url) Summary`, taken from `jira-ux`'s 🔗 button and
-    // repeated per line. The key alone is the link and the summary sits outside
-    // it, and that is a syntax limit rather than a taste: MARKDOWN CANNOT NEST
-    // SQUARE BRACKETS, so a `[KEY] Summary` label cannot be a link label. Two
-    // consequences worth keeping: the link column is short and uniform, so a
-    // pasted list is scanned down its keys, and the summary stays ordinary text,
-    // so it can be edited in the email you pasted it into (§2.8).
+    // THE LINE IS THE SHAPE, and it was a literal here until 1.2.0. `markdown` is
+    // the shape that literal was, so a default install emits the same bytes it did
+    // at 1.1.0 -- which is the whole requirement of these defaults (§2.8, SHAPES).
     //
-    // THE SEPARATOR GOES WITH THE SUMMARY. The code this comes from writes
+    // What every shape has to honour, and each does it in its own conditional:
+    // THE SEPARATOR GOES WITH ITS VALUE. The code Links comes from writes
     // `${key}](${url}) ${summary}` unconditionally, which leaves a trailing space
-    // when there is no summary. That is harmless there, where a summary is always
-    // derived from `document.title`. Here it is not (§2.8).
-    const text = items
-      .map(
-        (item) =>
-          `${bullet}[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`,
-      )
-      .join("\n");
+    // when there is no summary. That is harmless in `jira-ux`, where a summary is
+    // always derived from `document.title`. Here it is not (§2.8).
+    const text = items.map((item) => `${bullet}${shape.text(item)}`).join("\n");
 
-    // Only Links writes a rich version. The W3C Clipboard API names exactly three
-    // mandatory types -- `text/plain`, `text/html`, `image/png` -- and the Cart
-    // has no image, so `text/plain` + `text/html` is the whole surface. The
-    // `&nbsp;` after the anchor is taken verbatim from `jira-ux`, and it drops
-    // with the summary for the same reason the space above does (§2.8).
-    const cell = (item) =>
-      `<a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(item.key)}</a>${item.summary ? `&nbsp;${escapeHtml(item.summary)}` : ""}`;
+    // Only Links writes a rich version among the four. The W3C Clipboard API names
+    // exactly three mandatory types -- `text/plain`, `text/html`, `image/png` --
+    // and the Cart has no image, so `text/plain` + `text/html` is the whole
+    // surface (§2.8).
+    //
+    // `false`, so the key's anchor is bare. 📋 Details and 📊 Report pass `true`
+    // and bold it, because their lines run long and the bold marks where one issue
+    // starts; this line is a key and a summary, so there is nothing to find. The
+    // two heads have differed here since 📋 Details shipped, and §2.14 said
+    // otherwise until it was corrected on 2026-08-25.
+    const cell = (item) => shape.html(item, false);
 
     // The two versions must agree about what the document is: `- ` bullets on the
     // text side, `<ul><li>` on the HTML side. At single-item scope there is no
@@ -2130,16 +2134,29 @@ ${selectors.join(",\n")} {
    * merge happens in `detailedItems`, which is the only place that knows the
    * fetch is being held in memory.
    */
-  function formatDetails(items, scope) {
+  function formatDetails(items, scope, shape) {
     const bullet = scope === "item" ? "" : "- ";
     const dot = `<span style="color:${MUTED_INK}"> · </span>`;
 
     const text = items
       .map((item) => {
-        const head = `${bullet}[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`;
+        // THE HEAD IS 🔗 LINKS' LINE, and now it is that by construction rather
+        // than by two copies of one string agreeing (§2.14, decision 5).
+        const head = `${bullet}${shape.text(item)}`;
         const bits = detailBits(item).map((bit) => bit.text);
-        // The em dash earns its place: without it the metadata runs into the
-        // summary with only a `·` between them, and a summary can contain dashes.
+        /* The em dash earns its place: without it the metadata runs into the
+           summary with only a `·` between them, and a summary can contain dashes.
+
+           WITH A PLAIN SHAPE THE EM DASH LANDS AFTER A URL, and the separator
+           before that URL is a hyphen the summary may itself contain -- which is
+           the exact defect the em dash was invented to prevent, reintroduced by
+           the preset. IT IS ACCEPTED, on the user's ground and in the user's
+           words: these documents are READ AND NEVER PARSED. Nothing regex-parses
+           a pasted report, so the ambiguity costs a machine and not a reader, and
+           the em dash still marks where the metadata starts. Both alternatives
+           are declined rather than untried (A.9.1, decision 28). Do not "fix"
+           this by giving the plain shapes their own separator without pasting
+           one first. */
         return bits.length ? `${head} — ${bits.join(" · ")}` : head;
       })
       .join("\n");
@@ -2150,11 +2167,11 @@ ${selectors.join(",\n")} {
         ? `<span style="color:${MUTED_INK}"> — </span>` +
           bits.map((bit) => detailChip(bit, item)).join(dot)
         : "";
-      return (
-        `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
-        (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : "") +
-        tail
-      );
+      // `true` BOLDS THE KEY, and 🔗 Links passes `false`. That is the one place
+      // the two heads differ, it has been true since this format shipped, and it
+      // is deliberate: this line carries a field tail and runs long, so the bold
+      // key is what says where one issue starts (§2.14, corrected 2026-08-25).
+      return shape.html(item, true) + tail;
     };
 
     // The two versions must agree about what the document is, exactly as Links
@@ -2233,7 +2250,7 @@ ${selectors.join(",\n")} {
   const NO_PRIORITY = "No priority";
   const NO_TEAM = "No team";
 
-  function formatReport(items) {
+  function formatReport(items, scope, shape) {
     const groups = reportGroups(items);
 
     const text = groups
@@ -2245,7 +2262,10 @@ ${selectors.join(",\n")} {
               `*${group.team || NO_TEAM}*`,
               ...group.items.map((item) => {
                 const bits = detailBits(item, ["priority"]).map((bit) => bit.text);
-                const head = `- [${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`;
+                // The same head as the other two exports, from the same one
+                // preference. The bullet is a literal here because a report is a
+                // list of lists and there is no item scope to reach it (§2.15).
+                const head = `- ${shape.text(item)}`;
                 return bits.length ? `${head} — ${bits.join(" · ")}` : head;
               }),
             ].join("\n"),
@@ -2280,8 +2300,7 @@ ${selectors.join(",\n")} {
                     : "";
                   return (
                     `<li style="${LIST_ITEM_STYLE}">` +
-                    `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
-                    (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : "") +
+                    shape.html(item, true) +
                     tail +
                     "</li>"
                   );
@@ -2308,6 +2327,156 @@ ${selectors.join(",\n")} {
   // ceiling is recorded rather than guarded (risk 5).
   function searchUrl(jql) {
     return `${location.origin}/issues/?jql=${encodeURIComponent(jql)}`;
+  }
+
+  /* ------------------------------------------------------- the line shapes
+     THE HEAD OF A LINE, AS FIVE NAMED SHAPES. §2.8 shipped one -- `[KEY](url)
+     Summary` -- and 1.2.0 makes it a preference. ONE PREFERENCE, READ ONCE IN
+     `format` AND HANDED TO ALL THREE CONSUMERS, so §2.14's promise that
+     📋 Details' head is 🔗 Links' line stays true by construction: there is no
+     second value to keep in step. A per-export override is left in §6 and costs
+     one nullable key each (decision 5).
+
+     THIS IS A PRESET LIST AND NOT A TEMPLATE, and §2.8's finding is untouched. A
+     shape is a pair of functions in this file, so `detailChip` is still the one
+     place styling is written and no preference can reach it -- which is what keeps
+     the five measured paste rules of §2.14 enforceable. A fill-in-the-blanks
+     template would put user-written HTML on the clipboard and leave those rules
+     nothing to hold on to (§2.8, decision 2).
+
+     EVERY SHAPE DEFINES BOTH FLAVOURS (decision 6). One that changed only
+     `text/plain` would silently do nothing in Outlook, Word, Teams and Confluence,
+     which all take the HTML -- a setting that quietly fails to apply, which is the
+     thing §2.14 warns about.
+
+     `bold` IS THE ONE PLACE THE THREE HEADS DIFFER, and the difference is
+     deliberate rather than an oversight. 📋 Details and 📊 Report put
+     `font-weight:600` on the key and 🔗 Links does not, because their lines carry a
+     field tail and run long, so the bold key is what marks where one issue starts.
+     Links' line is a key and a summary, so there is nothing to find. §2.14 claimed
+     the two heads were identical; they never were on the HTML side, and that claim
+     is corrected there rather than made true here (2026-08-25).
+
+     ALL FIVE SURVIVED A REAL PASTE on 2026-08-24 (appendix A.9.1). Every shape read
+     correctly and a visible URL arrived clickable, which is what makes the three
+     URL-bearing shapes available on all three exports rather than on 🔗 Links alone.
+     `markdown-key` was asked for BY that paste; the prototype had no such row.
+
+     THE EM DASH COLLISION IS ACCEPTED, on the user's ground and in the user's
+     words: THESE DOCUMENTS ARE READ AND NEVER PARSED. `RDC-1513`'s real summary
+     contains ` - ` itself, so `key-summary-url` uses the summary's own punctuation
+     as its URL separator, and 📋 Details' em dash then lands after 45 characters of
+     link. Nothing regex-parses a pasted report, so that costs a machine's ambiguity
+     rather than a reader's, and the em dash still marks where the metadata starts.
+     Both alternatives -- a different separator before the URL, and withholding the
+     plain shapes from the two exports that carry a field tail -- are DECLINED
+     rather than untried (appendix A.9.1, decision 28).
+
+     THE SEPARATOR GOES WITH ITS VALUE, in every shape and both flavours. `GLX-402`
+     has no summary, so `key-summary-url` must emit `GLX-402 - url` and never
+     `GLX-402: - url`. That is §2.8's oldest rule about this line and it is why each
+     shape builds its own conditional instead of joining a list of parts.
+
+     THE IDS HERE ARE `LINE_SHAPE_IDS`, IN THIS ORDER, and `format-smoke` asserts it.
+     Two lists rather than one derived from the other, and the reason is load order:
+     the vocabulary has to exist ABOVE `DEFAULT_PREFS`, which is built at load, and
+     these bytes have to live beside the formatters that emit them -- a `const` up
+     there reading `SHAPES` down here would be a temporal dead zone and the script
+     would throw on load. So the harness holds the two together instead. A table
+     naming an id the list lacks is an unreachable shape; an id with no table is a
+     preference that renders nothing. */
+  const SHAPES = [
+    {
+      // WHAT 1.1.0 SHIPPED, and the default. `[KEY](url) Summary`, where the key
+      // alone is the link and the summary sits outside it -- a syntax limit rather
+      // than a taste, because MARKDOWN CANNOT NEST SQUARE BRACKETS, so a
+      // `[KEY] Summary` label cannot be a link label (§2.8).
+      id: "markdown",
+      label: "Markdown link on the key",
+      text: (item) =>
+        `[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`,
+      // The `&nbsp;` after the anchor is taken verbatim from `jira-ux`, and it drops
+      // with the summary for the same reason the space above does.
+      html: (item, bold) =>
+        `<a href="${escapeHtml(issueUrl(item.key))}"${bold ? ` style="font-weight:600"` : ""}>${escapeHtml(item.key)}</a>` +
+        (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : ""),
+    },
+    {
+      // ASKED FOR BY THE PASTE, not offered by the prototype (A.9.1, decision 27).
+      // The markdown counterpart of `key-url`: a link column and nothing else, for
+      // a list that is scanned down its keys. The summary is DROPPED rather than
+      // absent, so this is the one shape whose output does not depend on it.
+      id: "markdown-key",
+      label: "Markdown link, no summary",
+      text: (item) => `[${item.key}](${issueUrl(item.key)})`,
+      html: (item, bold) =>
+        `<a href="${escapeHtml(issueUrl(item.key))}"${bold ? ` style="font-weight:600"` : ""}>${escapeHtml(item.key)}</a>`,
+    },
+    {
+      // THE SHAPE §4 REJECTED, AND THE REJECTION IS OVERTURNED (decision 4). Its
+      // ground was "its only distinct paste target cannot be named"; the user named
+      // it -- A DESTINATION THAT DOES NOT RENDER MARKDOWN, where `[KEY](url)`
+      // arrives as its own source code and the URL is not there to click.
+      //
+      // The punctuation is NOT §4's `[KEY] Summary — URL`, and both differences are
+      // deliberate. No brackets, because in the destination this shape exists for
+      // they read as the leftover markdown it is meant to avoid. And a hyphen
+      // rather than an em dash before the URL, because 📋 Details and 📊 Report
+      // already spend the em dash on the boundary between the line and its fields.
+      id: "key-summary-url",
+      label: "Key, summary, then the URL",
+      text: (item) =>
+        `${item.key}${item.summary ? `: ${item.summary}` : ""} - ${issueUrl(item.key)}`,
+      // THE URL IS THE ANCHOR'S OWN VISIBLE LABEL. That is the whole point of the
+      // shape and it is what the paste had to confirm: it arrives displayed AND
+      // clickable, so one shape serves a reader who can follow a link and a reader
+      // who is looking at printed text (A.9.1).
+      //
+      // The anchor names no colour, exactly as the key's does not: this is the one
+      // link on the line that matters, and it should look like one. The PARENT's
+      // anchor is the one that has to name a colour, for the opposite reason
+      // (§2.14).
+      html: (item, bold) =>
+        (bold
+          ? `<span style="font-weight:600">${escapeHtml(item.key)}</span>`
+          : escapeHtml(item.key)) +
+        (item.summary ? `: ${escapeHtml(item.summary)}` : "") +
+        ` - <a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(issueUrl(item.key))}</a>`,
+    },
+    {
+      // The key as an identifier and the URL as a link, for the same destination as
+      // the shape above with the summary left off -- a short, uniform column when
+      // the summaries are noise.
+      id: "key-url",
+      label: "Key and URL, no summary",
+      text: (item) => `${item.key} - ${issueUrl(item.key)}`,
+      html: (item, bold) =>
+        (bold
+          ? `<span style="font-weight:600">${escapeHtml(item.key)}</span>`
+          : escapeHtml(item.key)) +
+        ` - <a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(issueUrl(item.key))}</a>`,
+    },
+    {
+      // §4 rejected "bare URLs, one per line" on the same ground as the shape above,
+      // and the same naming answers it. THE ONLY SHAPE WITH NO KEY AT ALL, which is
+      // why it ignores `bold`: the bold marks the key, and there is no key here.
+      // The URL carries the key in its own last segment, so nothing is lost that a
+      // reader cannot see.
+      id: "url",
+      label: "URL only",
+      text: (item) => issueUrl(item.key),
+      html: (item) =>
+        `<a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(issueUrl(item.key))}</a>`,
+    },
+  ];
+
+  // `normalisePrefs` has already turned an id this build does not know into
+  // `markdown`, and the harness asserts this table names every id it may return, so
+  // the fallback below cannot fire. It is here anyway because this is the COPY path:
+  // a `TypeError` here is a copy that silently never happened, which is the failure
+  // §2.8's scar is about.
+  function shapeFor(id) {
+    return SHAPES.find((shape) => shape.id === id) ?? SHAPES[0];
   }
 
   /* The foot's four controls. THREE COPY AND ONE OPENS, which is why this is not
@@ -2396,6 +2565,19 @@ ${selectors.join(",\n")} {
    * Adding a fifth format is one entry in the list above, which is how `jira-ux`'s
    * own BUTTONS array already works.
    *
+   * 1.2.0 ADDS A SECOND TABLE BESIDE THIS ONE AND NOT A SEAM INSIDE IT. `SHAPES`
+   * is a list of named presets, each a pair of functions in this file, so the
+   * paragraph above still holds: there is no template, `detailChip` is still the
+   * one place styling is written, and nothing a user can click reaches it.
+   *
+   * THE PREFERENCE IS READ HERE, ONCE PER COPY, AND NOWHERE ELSE. Three exports
+   * build their head from it, so §2.14's promise that 📋 Details' head is 🔗 Links'
+   * line cannot be broken by one of them reading a different value -- there is only
+   * one read. It is read at the press rather than held in a variable, for the
+   * reason `drawerIsOpen` is a function: a copy beside the stored value is two
+   * values that can disagree, and this one would disagree silently, in bytes
+   * already on somebody's clipboard (principle 1, §2.8).
+   *
    * Returns null rather than an empty payload, so no caller can write nothing to
    * the clipboard by accident.
    */
@@ -2407,7 +2589,7 @@ ${selectors.join(",\n")} {
     // claiming success. The precondition for any copy is at least one item (§2.8).
     if (!items.length) return null;
     if (entry.scopes && !entry.scopes.includes(scope)) return null;
-    return entry.build(items, scope);
+    return entry.build(items, scope, shapeFor(loadPrefs().lineShape));
   }
 
   /**
@@ -3231,6 +3413,7 @@ ${selectors.join(",\n")} {
   const PREF_RIGHT_CLICK_ID = "gt-cart-pref-right-click";
   const PREF_LAYOUT_ID = "gt-cart-pref-layout";
   const PREF_CORNER_ID = "gt-cart-pref-corner";
+  const PREF_SHAPE_ID = "gt-cart-pref-shape";
   /* THE ONE NAME FOR "THE SETTINGS ARE OPEN", and it is a constant because it is
      used TWICE: `render` writes it on the ⚙, and the stylesheet's selector paints
      the button from it. Two literals would be two values that can disagree, and the
@@ -3441,9 +3624,10 @@ ${selectors.join(",\n")} {
   // disagree with the page (§2.3).
   let liveAnchors = new Map();
 
-  // SCAFFOLDING, and all four of these go as tickets 03, 04 and 05 land their
-  // controls. A group that draws nothing at all reads as a broken screen rather than
-  // an empty one, and the ⚙ has already been reported once for looking like chrome.
+  // SCAFFOLDING. Two left -- 📋 Details' field list and 📊 Report's, tickets 04 and
+  // 05. The pinned group lost its note in 1.2.0 when ticket 03 put `Issue reference`
+  // in. A group that draws nothing at all reads as a broken screen rather than an
+  // empty one, and the ⚙ has already been reported once for looking like chrome.
   function emptyGroupNote() {
     return el("p", "gt-cart-note", "Nothing to configure here yet.");
   }
@@ -3568,12 +3752,33 @@ ${selectors.join(",\n")} {
        value per control. Nothing in here is replaced.
 
        PINNED ABOVE THE BAR: `Issue reference` governs all three exports, so a tab
-       that owned it would tell a small lie about its scope (decision 29). Ticket 03
-       puts the control in; the slot is here so that it lands above the bar rather
-       than inside a tab. */
+       that owned it would tell a small lie about its scope (decision 29). */
     const pinned = el("div", "gt-cart-group");
     pinned.append(el("div", "gt-cart-group-head", "Every export"));
-    pinned.append(emptyGroupNote());
+
+    /* ONE SETTING, THREE CONSUMERS. 🔗 Links' whole line, and the head of every
+       line in 📋 Details and 📊 Report, all come from this one control, which is
+       what keeps §2.14's promise that the three agree about what a collected issue
+       looks like (decision 5). A per-export override is left in §6.
+
+       The options are BUILT FROM `SHAPES`, so a shape added or dropped there moves
+       this dropdown with it and there is no second list of names to keep in step --
+       the same reason the tab bar is built from `SETTINGS_TABS`.
+
+       Same markup as `Sections` and `Corner` above, so it costs no new CSS and sits
+       on the same grid. */
+    const shape = el("label", "gt-cart-pref");
+    shape.title =
+      "How every export writes the issue at the head of a line. 🔗 Links, 📋 Details and 📊 Report all use it, so the three agree about what a collected issue looks like. The markdown shapes arrive as live links where markdown is rendered and as their own source code where it is not; the shapes that show a URL arrive readable and clickable in both.";
+    shape.append(el("span", "gt-cart-pref-label", "Issue reference"));
+    shape.append(
+      select(
+        PREF_SHAPE_ID,
+        "How an issue is written at the head of a line, in every export",
+        SHAPES.map((one) => [one.id, one.label]),
+      ),
+    );
+    pinned.append(shape);
     prefs.append(pinned);
 
     // The bar shows EVERY tab whether it has ever been pressed or not, so there is
@@ -4124,6 +4329,13 @@ ${selectors.join(",\n")} {
     }
     if (input.id === PREF_CORNER_ID) {
       savePrefs({ corner: input.value });
+      return;
+    }
+    // Not range-checked here. `savePrefs` normalises on the way in and `loadPrefs`
+    // again on the way out, so a value this build does not know falls back to
+    // `markdown` rather than reaching a formatter (§2.4, ticket 01).
+    if (input.id === PREF_SHAPE_ID) {
+      savePrefs({ lineShape: input.value });
     }
   }
 
@@ -4406,6 +4618,11 @@ ${selectors.join(",\n")} {
     if (layout) layout.value = prefs.layout;
     const corner = document.getElementById(PREF_CORNER_ID);
     if (corner) corner.value = prefs.corner;
+    // Read back out of storage like the rest, so `Restore export defaults` and
+    // another tab's write both land on this control without either of them having
+    // to know it is here.
+    const shape = document.getElementById(PREF_SHAPE_ID);
+    if (shape) shape.value = prefs.lineShape;
 
     // WHICH TAB, READ BACK OUT OF STORAGE on every render, so nothing holds a copy
     // that could disagree with it -- the same treatment `corner` and `layout` get.

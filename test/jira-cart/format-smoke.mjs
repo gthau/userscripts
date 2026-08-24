@@ -31,7 +31,7 @@ function slice(head, end) {
 
 const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys","formatJql","searchUrl","format",
                "detailBits","detailChip","formatDetails","byLabel","reportGroups","formatReport",
-               "bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine"];
+               "shapeFor","bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
 // because section 12 below asserts things ABOUT these values -- that no ground is
 // saturated, that no colour appears without one -- and a copy would let the file
@@ -42,6 +42,8 @@ const harness = `
   ${slice("const LOZENGE = {", "\n  };")}
   ${slice("const PRIORITY_INK =", "\n")}
   ${names.map(extract).join("\n")}
+  ${slice("const LINE_SHAPE_IDS = [", "\n  ];")}
+  ${slice("const SHAPES = [", "\n  ];")}
   ${slice("const EXPORTS = [", "\n  ];")}
   ${slice("const LIST_ITEM_STYLE =", "\n")}
   ${slice("const NO_PRIORITY =", "\n")}
@@ -49,13 +51,27 @@ const harness = `
   ${slice("const TEAM_FIELD =", "\n")}
   ${slice("const SUMMARY_FIELDS =", "\n")}
   ${slice("const DETAIL_FIELDS = [", "\n  ];")}
-  return {${names.join(",")}, EXPORTS, SUMMARY_FIELDS, DETAIL_FIELDS,
+  return {${names.join(",")}, EXPORTS, SHAPES, LINE_SHAPE_IDS, SUMMARY_FIELDS, DETAIL_FIELDS,
           MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE,
           NO_PRIORITY, NO_TEAM, TEAM_FIELD};
 `;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const location = { origin: "https://dalet.atlassian.net" };
-const f = new Function("SAFE_KEY_RE", "location", harness)(SAFE_KEY_RE, location);
+/* THE ONE PREFERENCE THE FORMATS READ, and the harness stands in for the STORE
+   rather than for the formatters. `format` reads `loadPrefs().lineShape` once per
+   copy and hands the shape to all three consumers (§2.8, decision 5), so shimming
+   it here exercises the real path -- the same code that decides which shape a real
+   press gets. The three builders stay pure functions of their arguments.
+
+   `markdown` between tests, so every section written before 1.2.0 keeps asserting
+   1.1.0's bytes without knowing this exists. */
+let storedShape = "markdown";
+const loadPrefs = () => ({ lineShape: storedShape });
+const f = new Function("SAFE_KEY_RE", "location", "loadPrefs", harness)(SAFE_KEY_RE, location, loadPrefs);
+const asShape = (id, kind, items, scope = "collection") => {
+  storedShape = id;
+  try { return f.format(kind, items, scope); } finally { storedShape = "markdown"; }
+};
 
 let fails = 0;
 const is = (label, got, want) => {
@@ -147,7 +163,10 @@ is("six exports, and the six labels", f.EXPORTS.map((one) => one.label),
   ["🔗 Links", "📃 Names", "🔑 Keys", "📋 Details", "📊 Report", "🔍 Search"]);
 is("only JQL restricts its scopes", f.EXPORTS.filter((one) => one.scopes).map((one) => one.kind), ["jql"]);
 is("exactly one entry navigates instead of copying", f.EXPORTS.filter((one) => one.opens).map((one) => one.kind), ["jql"]);
-is("and the other three still build a clipboard payload", f.EXPORTS.filter((one) => !one.opens).every((one) => !!one.build(THREE, "collection").text), true);
+// `build` is called directly here, so the shape has to be handed over the way
+// `format` hands it over: it is an ARGUMENT and not something a builder reads for
+// itself, which is what keeps one preference from being read three times (§2.8).
+is("and the other three still build a clipboard payload", f.EXPORTS.filter((one) => !one.opens).every((one) => !!one.build(THREE, "collection", f.shapeFor("markdown")).text), true);
 
 // ---- 7b. the search URL. The query is unchanged; only where it goes changed.
 const jql = f.format("jql", THREE, "collection").text;
@@ -469,6 +488,203 @@ is("and its id is kept, because that is what grouping joins on", teamed.teamId,
   "077a215a-beb6-4f29-9ae6-6db55ba2dab5");
 const noteam = f.readIssues([{ id: "2", key: "RDC-10", fields: { summary: "x" } }]).get("RDC-10");
 is("an absent team is empty, not undefined", [noteam.team, noteam.teamId], ["", ""]);
+
+// ---- 15. THE FIVE LINE SHAPES (ADR §2.8, decision 5; the paste is appendix A.9.1)
+//
+// ONE SETTING, THREE CONSUMERS. `format` reads the preference once per copy and
+// hands the same shape to 🔗 Links, 📋 Details and 📊 Report, so §2.14's promise
+// that Details' head IS Links' line holds by construction rather than by two
+// strings agreeing.
+//
+// HOW THIS PINS EVERY BYTE, AND WHY IT IS NOT ONE GIANT LITERAL. Sections 1, 12
+// and 14 above pin the DEFAULT shape's whole output absolutely, against the ADR's
+// own worked examples. This section pins each shape's HEAD as a literal, and then
+// asserts that everything after the head is byte-identical to what the default
+// emits. Together they leave no byte of any shape unasserted, and they say which
+// part of a line a shape is allowed to change -- which is the actual claim.
+//
+// The sample is two items: one with everything, whose real summary contains ` - `
+// and is therefore the em dash collision (A.9.1), and one with a key and nothing
+// else. So every assertion below covers WITH a summary and WITHOUT one, and the
+// separator has to drop with the value in both flavours.
+const SHAPED = [DETAILED[0], DETAILED[2]];
+const U1 = `${URL}/RDC-1513`;
+const U2 = `${URL}/GLX-402`;
+const S1 = "Markers [7] Dev (player) - Handle i/o Shift 1..0 keyboard shortcuts";
+const BOLD = ' style="font-weight:600"';
+
+// The head each shape emits, written out rather than computed. `text` is the plain
+// flavour; `plain` is the HTML 🔗 Links takes and `bold` is the HTML 📋 Details and
+// 📊 Report take -- the one place the three heads differ, and it is deliberate
+// (§2.14, corrected 2026-08-25).
+const HEADS = {
+  markdown: {
+    text: [`[RDC-1513](${U1}) ${S1}`, `[GLX-402](${U2})`],
+    plain: [`<a href="${U1}">RDC-1513</a>&nbsp;${S1}`, `<a href="${U2}">GLX-402</a>`],
+    bold: [`<a href="${U1}"${BOLD}>RDC-1513</a>&nbsp;${S1}`, `<a href="${U2}"${BOLD}>GLX-402</a>`],
+  },
+  "markdown-key": {
+    text: [`[RDC-1513](${U1})`, `[GLX-402](${U2})`],
+    plain: [`<a href="${U1}">RDC-1513</a>`, `<a href="${U2}">GLX-402</a>`],
+    bold: [`<a href="${U1}"${BOLD}>RDC-1513</a>`, `<a href="${U2}"${BOLD}>GLX-402</a>`],
+  },
+  "key-summary-url": {
+    text: [`RDC-1513: ${S1} - ${U1}`, `GLX-402 - ${U2}`],
+    plain: [`RDC-1513: ${S1} - <a href="${U1}">${U1}</a>`, `GLX-402 - <a href="${U2}">${U2}</a>`],
+    bold: [`<span${BOLD}>RDC-1513</span>: ${S1} - <a href="${U1}">${U1}</a>`,
+           `<span${BOLD}>GLX-402</span> - <a href="${U2}">${U2}</a>`],
+  },
+  "key-url": {
+    text: [`RDC-1513 - ${U1}`, `GLX-402 - ${U2}`],
+    plain: [`RDC-1513 - <a href="${U1}">${U1}</a>`, `GLX-402 - <a href="${U2}">${U2}</a>`],
+    bold: [`<span${BOLD}>RDC-1513</span> - <a href="${U1}">${U1}</a>`,
+           `<span${BOLD}>GLX-402</span> - <a href="${U2}">${U2}</a>`],
+  },
+  url: {
+    text: [U1, U2],
+    plain: [`<a href="${U1}">${U1}</a>`, `<a href="${U2}">${U2}</a>`],
+    // No key, so nothing to bold. The one shape where the two heads are the same.
+    bold: [`<a href="${U1}">${U1}</a>`, `<a href="${U2}">${U2}</a>`],
+  },
+};
+
+// ---- 15a. the table and the vocabulary must name the same ids
+// A table naming an id `LINE_SHAPE_IDS` lacks is an UNREACHABLE shape -- nothing
+// can store that preference. An id with no table is a preference that RENDERS
+// NOTHING. The two lists are separate because the vocabulary has to exist above
+// `DEFAULT_PREFS`, which is built at load, and these bytes have to live beside the
+// formatters; a `const` up there reading the table down here would be a temporal
+// dead zone. This check is what holds them together instead.
+is("the shape table and the preference's vocabulary name the same ids, in the same order",
+  f.SHAPES.map((one) => one.id), f.LINE_SHAPE_IDS);
+is("five shapes ship, and the fifth came from a paste rather than the prototype",
+  f.SHAPES.length, 5);
+is("and these are the words the ⚙ panel shows", f.SHAPES.map((one) => one.label),
+  ["Markdown link on the key", "Markdown link, no summary", "Key, summary, then the URL",
+   "Key and URL, no summary", "URL only"]);
+is("the first is the shape 1.1.0 shipped, which is what makes it the default",
+  f.SHAPES[0].id, "markdown");
+// `normalisePrefs` has already range-checked the id, so this cannot fire in the
+// script. It is asserted because this is the COPY path: a throw here is a copy that
+// silently never happened, which is the failure §2.8's scar is about.
+is("an id this build does not know falls back rather than throwing on the copy path",
+  f.shapeFor("no-such-shape").id, "markdown");
+is("and so does a missing one", f.shapeFor(undefined).id, "markdown");
+
+// ---- 15b. EVERY SHAPE DEFINES BOTH FLAVOURS (decision 6)
+// A shape that changed only `text/plain` would silently do nothing in Outlook,
+// Word, Teams and Confluence, which all take the HTML -- a setting that quietly
+// fails to apply, which is exactly what §2.14 warns about.
+for (const shape of f.SHAPES.slice(1)) {
+  is(`${shape.id} changes the text flavour`,
+    shape.text(SHAPED[0]) !== f.SHAPES[0].text(SHAPED[0]), true);
+  is(`${shape.id} changes the html flavour too, or it would do nothing where the HTML is taken`,
+    shape.html(SHAPED[0], true) !== f.SHAPES[0].html(SHAPED[0], true), true);
+}
+is("four shapes bold the key when the line carries a field tail",
+  f.SHAPES.filter((one) => one.html(SHAPED[0], true) !== one.html(SHAPED[0], false)).map((one) => one.id),
+  ["markdown", "markdown-key", "key-summary-url", "key-url"]);
+is("and `url` is the one with no key to bold",
+  f.shapeFor("url").html(SHAPED[0], true), f.shapeFor("url").html(SHAPED[0], false));
+
+// ---- 15c. the tails, taken from the default shape's own output
+// Section 12 and section 14 pin those bytes absolutely, so "unchanged" below means
+// unchanged from a string this file already asserts against the ADR -- not from a
+// copy of the code.
+const liOpen = `<li style="${f.LIST_ITEM_STYLE}">`;
+const liCells = (html) =>
+  html.split(liOpen).slice(1).map((chunk) => chunk.slice(0, chunk.indexOf("</li>")));
+const defaultDetails = f.format("details", SHAPED, "collection");
+const defaultReport = f.format("report", SHAPED, "collection");
+const detailTailText = defaultDetails.text.split("\n")
+  .map((line, i) => line.slice(`- ${HEADS.markdown.text[i]}`.length));
+const detailTailHtml = liCells(defaultDetails.html)
+  .map((cell, i) => cell.slice(HEADS.markdown.bold[i].length));
+const reportRows = (text) => text.split("\n").filter((line) => line.startsWith("- "));
+const reportTailText = reportRows(defaultReport.text)
+  .map((line, i) => line.slice(`- ${HEADS.markdown.text[i]}`.length));
+// The em dash tail is the same in both plain shapes and markdown ones, and THAT IS
+// THE COLLISION, accepted on 2026-08-24: `key-summary-url` ends in a URL, so the
+// em dash lands after 45 characters of link and its own separator is a hyphen the
+// summary itself contains. These documents are read and never parsed (A.9.1).
+is("the field tail is one string, whichever shape the head takes",
+  detailTailText[0],
+  " — Story · Dev Resolved · P2 · William CHUANG · Pyr 2026.8.0 (Release - Active) · 0m left" +
+  ` · ↳ [RDC-26701](${URL}/RDC-26701)`);
+is("an item with nothing but a key grows no tail in any shape", detailTailText[1], "");
+
+// ---- 15d. every shape, every export, both flavours, with a summary and without
+for (const shape of f.SHAPES) {
+  const head = HEADS[shape.id];
+
+  // 🔗 Links: the head IS the whole line. Nothing else is on it.
+  is(`${shape.id} · Links text`, asShape(shape.id, "links", SHAPED).text,
+    [`- ${head.text[0]}`, `- ${head.text[1]}`].join("\n"));
+  is(`${shape.id} · Links html`, asShape(shape.id, "links", SHAPED).html,
+    `<ul>${liOpen}${head.plain[0]}</li>${liOpen}${head.plain[1]}</li></ul>`);
+  is(`${shape.id} · Links at item scope drops the bullet and the <ul>`,
+    asShape(shape.id, "links", [SHAPED[1]], "item"), { text: head.text[1], html: head.plain[1] });
+
+  // 📋 Details: the head, then a tail no shape may touch.
+  is(`${shape.id} · Details text`, asShape(shape.id, "details", SHAPED).text,
+    [`- ${head.text[0]}${detailTailText[0]}`, `- ${head.text[1]}${detailTailText[1]}`].join("\n"));
+  is(`${shape.id} · Details html`, asShape(shape.id, "details", SHAPED).html,
+    `<ul>${liOpen}${head.bold[0]}${detailTailHtml[0]}</li>` +
+    `${liOpen}${head.bold[1]}${detailTailHtml[1]}</li></ul>`);
+
+  // 📊 Report: the same head under headings the shape leaves alone. The html is
+  // the default's, with each head swapped for this shape's -- which asserts the
+  // headings, the <p> margins and the <ul> nesting are untouched as well.
+  is(`${shape.id} · Report rows`, reportRows(asShape(shape.id, "report", SHAPED).text),
+    [`- ${head.text[0]}${reportTailText[0]}`, `- ${head.text[1]}${reportTailText[1]}`]);
+  is(`${shape.id} · Report headings are not the shape's business`,
+    asShape(shape.id, "report", SHAPED).text.split("\n").filter((line) => /^[*]/.test(line)),
+    defaultReport.text.split("\n").filter((line) => /^[*]/.test(line)));
+  is(`${shape.id} · Report html`, asShape(shape.id, "report", SHAPED).html,
+    defaultReport.html
+      .split(HEADS.markdown.bold[0]).join(head.bold[0])
+      .split(HEADS.markdown.bold[1]).join(head.bold[1]));
+
+  // THE SEPARATOR GOES WITH ITS VALUE, in every shape. `GLX-402` has no summary,
+  // so `key-summary-url` must emit `GLX-402 - url` and never `GLX-402: - url`.
+  is(`${shape.id} · no orphaned separator on a summary-less item`,
+    /:\s+-|-\s+-|\(\)/.test(shape.text(SHAPED[1])), false);
+  is(`${shape.id} · no trailing space on any line, in any export`,
+    /[ \t]$/m.test(["links", "details", "report"]
+      .map((kind) => asShape(shape.id, kind, SHAPED).text).join("\n")), false);
+
+  // EVERY <li> CARRIES THE MEASURED SPACING, in every shape and every export. A
+  // bare <li> is unreadable in Outlook, and these lines are longer than 1.1.0's,
+  // not shorter (§2.8, §2.14, measured 2026-08-20).
+  const everyHtml = ["links", "details", "report"]
+    .map((kind) => asShape(shape.id, kind, SHAPED).html).join("");
+  is(`${shape.id} · every <li> in all three exports carries LIST_ITEM_STYLE`,
+    [(everyHtml.match(/<li/g) || []).length, (everyHtml.split(liOpen).length - 1)], [6, 6]);
+
+  /* THE FIVE PASTE RULES, ON EVERY NEW BYTE STRING. Run over the three exports'
+     HTML at once, because the bytes a shape ADDS are the same in all three -- the
+     head, and the head alone. Each rule is a measurement from a real paste into
+     Outlook and Teams, and each is a change a later session would otherwise make
+     on reasonable-sounding instinct (§2.14, appendix A.9). */
+  is(`${shape.id} · rule 5: no font-size anywhere`, /font-size/.test(everyHtml), false);
+  is(`${shape.id} · rule 2: nothing depends on opacity`, /opacity/.test(everyHtml), false);
+  is(`${shape.id} · rule 1: no separator is a box`, /border:/.test(everyHtml), false);
+  is(`${shape.id} · rule 3: every background is one of the pale lozenge grounds`,
+    [...everyHtml.matchAll(/background:(#[0-9a-f]{6})/gi)].map((m) => m[1])
+      .every((one) => pale.includes(one)), true);
+  is(`${shape.id} · rule 3: no colour the palette does not name`,
+    [...everyHtml.matchAll(/color:(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
+      .every((one) => allowed.has(one)), true);
+}
+
+// ---- 15e. and the default is still what 1.1.0 emitted
+// Every section above this one was written before the shapes existed and asserts
+// 1.1.0's bytes. They are green, which is the real check; this one states the claim
+// out loud so a later session cannot read their silence as coincidence.
+for (const kind of ["links", "details", "report"]) {
+  is(`a copy with no preference stored emits the markdown shape · ${kind}`,
+    f.format(kind, SHAPED, "collection"), asShape("markdown", kind, SHAPED));
+}
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
