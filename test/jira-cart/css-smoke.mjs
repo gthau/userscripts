@@ -109,6 +109,33 @@ for (const sel of HIDDEN_ABLE) {
 console.log(`     ${HIDDEN_ABLE.length} hidden-able elements; ${hidingRules.length} rules can hide something`);
 is("every one of them can still be hidden, cascade and all", unhideable, []);
 
+// ---- 2b. THE GEAR'S OWN SIZE, and the two things that can silently undo it.
+// Added at 1.2.0 because a beta tester on 1.1.0 did not find the settings button at
+// all: 13px of grey pictograph in a transparent box, beside a ✕. The fix is a
+// font-size on the gear ALONE.
+const iconBase = rules.find((r) => r.sel.includes("button.gt-cart-icon,"))
+  ?? rules.find((r) => r.sel === "aside#gt-cart-drawer button.gt-cart-icon");
+const gearRule = rules.find((r) => r.sel.includes('[data-gt-action="prefs"]'));
+is("the gear carries its own font-size", /font-size:\s*16px/.test(gearRule?.body ?? ""), true);
+// Defect 1: the rule loses the cascade. The base rule sets `font-size: 13px` on the
+// same element, and §2's own history is that a lower-specificity rule on the ⚙ is
+// how it went inert at 0.3.0 -- so this is the same trap in the same place.
+is("and its rule beats the shared icon rule, so the size actually paints",
+   beats(spec(gearRule?.sel ?? ""), spec(iconBase?.sel.split(",")[0] ?? "")), true);
+// Defect 2: growing the BOX instead of the glyph. The head's height is the button's
+// 22px plus its own padding and border, and §2.11 rule 7 derives the drawer's floor
+// from a 35px head. A 24px button re-derives MIN_BLOCK and nothing here would say
+// so, which is why the box is asserted rather than assumed.
+is("the icon box is still 22px, so the head is still the height the floor assumes",
+   [/inline-size:\s*22px/.test(iconBase?.body ?? ""), /block-size:\s*22px/.test(iconBase?.body ?? "")],
+   [true, true]);
+is("and the gear's own rule sets no size, only a glyph size",
+   /(?<!font-)(inline|block)-size:/.test(gearRule?.body ?? ""), false);
+// The class dresses ✕, ⌫ and ↻ as well, so growing IT would leave the gear exactly
+// as prominent relative to its neighbours as it was -- the whole complaint.
+is("the shared icon rule still sets the small glyph, so only the gear grew",
+   /font-size:\s*13px/.test(iconBase?.body ?? ""), true);
+
 // ---- 3. The generated collected-keys sheet (§2.7) paints EVERY anchor whose href
 // names a collected key, and since 0.4.0 the drawer holds such anchors itself. Our
 // own rule has to win, or a collected key in the drawer is green on the red hover.

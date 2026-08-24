@@ -128,8 +128,8 @@ overflows is silently gone.
 
 | Open question | Gates | How it gets answered |
 | --- | --- | --- |
-| Two, three or four tabs | 02 | Press the prototype. Recommendation in the ticket |
-| How the ⚙ button gets noticed | 02 | A beta tester missed it. See below |
+| ~~Two, three or four tabs~~ | 02 | **Closed 2026-08-24.** Three; see below |
+| ~~How the ⚙ button gets noticed~~ | — | **Closed 2026-08-24 and SHIPPED.** See below |
 | ~~Which line shapes ship~~ | 03 | **Closed 2026-08-24.** Five, one of them new |
 | ~~Does a visible URL survive Outlook and Teams~~ | 03 | **Closed 2026-08-24.** It does, clickable |
 | ~~The em dash collision~~ | 03 | **Closed 2026-08-24.** Accepted |
@@ -210,7 +210,37 @@ constraint that rules one option out: the head's height feeds the drawer's 215px
 floor (`css-smoke` derives it with `HEAD = 35`), so a **taller** button re-derives
 `MIN_BLOCK`, while a **wider** one costs only the collection name's ellipsis.
 
-**Still open: the tab count and the ⚙ affordance, both in 02.**
+**29. THREE TABS: Appearance · 📋 Details · 📊 Report, with `Issue reference` pinned
+above the bar.** The recommendation, taken. It is the only structure where the shared
+setting is not misfiled — `Issue reference` governs all three exports, so a tab that
+owned it would tell a small lie about its scope — and it keeps each tab to one group
+of about ten rows. **The cost is real and belongs in the ADR:** *Appearance* sits as a
+peer of two export tabs, which is not a clean taxonomy. The two structures not taken:
+**two tabs** is the cleaner split by kind — how it looks against what it emits — and
+costs one scroller holding about 22 rows with two near-identical field lists in it;
+**four tabs** gives every group its own tab and costs four labels inside 300px plus a
+`🔗 Line` tab that owns a setting governing all three exports.
+
+**30. THE ⚙ GLYPH GOES FROM 13px TO 16px, AND NOTHING ELSE CHANGES. Landed, not
+deferred.** The box stays 22px, which is what makes it a one-declaration change: the
+head's height is the button's 22px plus its own padding and border, and `css-smoke`
+derives the drawer's 215px floor with `HEAD = 35`, so a taller button would re-derive
+`MIN_BLOCK`. Five checks in `css-smoke` hold it: the glyph size, the specificity that
+makes it paint — the ⚙ went inert at 0.3.0 from exactly that trap — the 22px box the
+floor depends on, that the gear's own rule sets no size, and that the shared icon
+class still sets 13px, because growing ✕, ⌫ and ↻ with it would leave the gear no more
+prominent than it was. All five confirmed able to fail.
+
+Two candidates not taken, recorded rather than lost: a **resting border and fill**,
+which reads as a button but spends the contrast decision 16's pressed state needs; and
+a **`⚙ Settings` label**, which is what A.9's `■` finding argues for — a word survives
+where a dim pictograph does not — at the cost of head width and a shorter collection
+name. The chosen fix costs neither height nor width. **If the button is still missed
+once ticket 02 has given it a pressed state, the label is the next thing to try**, and
+this is the record that it was on the table.
+
+**Nothing is open. Tickets 02, 03, 04 and 05 can each be run from their own file, and
+06 records what they land.**
 
 **The em dash collision, because it is the sharpest thing the prototype found.**
 §2.8 invented the em dash because *"a summary can contain dashes"*. `RDC-1513`'s

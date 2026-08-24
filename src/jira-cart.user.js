@@ -5524,6 +5524,38 @@ ${D} button.gt-cart-icon:hover:not(:disabled),
 ${D} button.gt-cart-button:hover:not(:disabled) {
   background: var(--gt-cart-hover);
 }
+
+/* THE GEAR IS BIGGER THAN ITS NEIGHBOURS, ON PURPOSE. Added on 2026-08-24, from
+   the first report this effort has had from a THIRD PARTY: a beta tester on 1.1.0
+   did not find the settings at all. At 13px it is a grey pictograph in a
+   transparent box, next to a ✕, which is the one glyph every reader already knows.
+
+   NO BACKTICKS IN THIS COMMENT, and none anywhere in this sheet: it is one template
+   literal, so a backtick in a comment ends it. Writing one here cost a syntax error
+   while this rule was being added, which is the third time (§2.11).
+
+   ONLY THE GEAR, and never the gt-cart-icon class itself: that class also dresses
+   ✕, ⌫ and ↻, and growing all four would leave the gear exactly as prominent
+   RELATIVE to them as it was, which is the whole complaint.
+
+   THE BOX STAYS 22px, AND THAT IS WHY THIS IS A FONT-SIZE ALONE. A 16px glyph fits
+   a 22px box at line-height 1, and the head's height is what the drawer's 215px
+   floor is derived from -- css-smoke computes it with HEAD = 35, which is this
+   button's 22 plus the head's own padding and border. A 24px button would
+   re-derive MIN_BLOCK, and that floor exists because going under it clipped the
+   create field and all four copy buttons away (§2.11 rule 7).
+
+   Two other candidates were weighed and not taken, recorded so neither is
+   rediscovered as new. A resting border and fill would make it read as a button,
+   and would spend the contrast the pressed state needs once ⚙ becomes a mode
+   toggle. A "⚙ Settings" LABEL is what appendix A.9's ■ finding argues for -- a
+   word survives where a dim pictograph does not -- and it costs head width, so the
+   collection's name truncates sooner. This one costs neither height nor width. If
+   the button is still missed once it also carries a pressed state, the label is the
+   next thing to try. */
+${D} button.gt-cart-icon[data-gt-action="prefs"] {
+  font-size: 16px;
+}
 ${D} button.gt-cart-x {
   flex: none;
   inline-size: 18px;

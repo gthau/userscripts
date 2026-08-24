@@ -19,23 +19,30 @@ working model of everything below. Its chrome is approximate; its behaviour is n
 
 ---
 
-## Answer this before you write anything
+## Both questions are ANSWERED. Nothing here is waiting on a press
 
-**How many tabs?** Three structures are in the prototype on the `Tabs` switch.
-Press all three at `Width → 300 min` and `Height → 215 min` and pick one.
+**THREE TABS — Appearance · 📋 Details · 📊 Report — with `Issue reference` pinned
+above the bar.** Decided by the user on 2026-08-24. The three structures and the
+reasoning are kept below, because the two not taken are §4's rejected alternatives
+and this ticket has to write them there.
 
 | | Tabs | Where `Issue reference` goes |
 | --- | --- | --- |
 | Two | Appearance · Exports | Inside Exports, above two long field lists |
-| **Three** | Appearance · 📋 Details · 📊 Report | **Pinned above the tab bar** |
+| **Three — CHOSEN** | Appearance · 📋 Details · 📊 Report | **Pinned above the tab bar** |
 | Four | 🔗 Line · 📋 Details · 📊 Report · ⚙ Look | Its own tab |
 
-**Recommendation: three.** It is the only structure where the shared setting is not
-misfiled — `Issue reference` governs all three exports, so a tab that owns it tells
-a small lie about its scope. It also leaves each export tab at about eight rows,
-which is the only one of the three that fits the minimum drawer height without
-scrolling. The cost is real and worth stating in the ADR: *Appearance* sits as a
-peer of two export tabs, which is not a clean taxonomy.
+**Why three.** It is the only structure where the shared setting is not misfiled —
+`Issue reference` governs all three exports, so a tab that owns it tells a small lie
+about its scope. It also keeps each export tab to one group of about ten rows. **The
+cost is real and must be in the ADR:** *Appearance* sits as a peer of two export
+tabs, which is not a clean taxonomy.
+
+**The two not taken, for §4.** *Two tabs* is the cleaner split by kind — how it looks
+against what it emits — and costs one scroller of about 22 rows holding two
+near-identical field lists, which invites editing the wrong one. *Four tabs* gives
+every group its own tab and costs four labels inside a 300px bar, plus a `🔗 Line` tab
+that owns a setting governing all three exports.
 
 **Second question — ANSWERED on 2026-08-24, by the user: the head reads
 `⚙ Settings`.** The original question and both sides are kept because the reasoning
@@ -86,6 +93,12 @@ you in Settings would be wrong, because Settings is not where you work. Say so i
 a comment, or a later session will "fix" the inconsistency.
 
 ### The state button
+
+**Its glyph is already 16px, and the box is already 22px — do not change either.**
+Landed on 2026-08-24, because a beta tester on 1.1.0 did not find the button at all.
+`css-smoke` holds five checks on it, including that the 22px box is what the drawer's
+215px floor is derived from, so a taller button re-derives `MIN_BLOCK`. What is left
+for this ticket is the STATE, not the size.
 
 **⚙ carries its state on `aria-pressed`, styled with
 `--gt-cart-selected-bg` / `--gt-cart-selected-text`.** Those two tokens already
@@ -192,5 +205,10 @@ only way to see these:
   things. And the two panel layouts the prototype dropped — one long scroll, and
   collapsible groups with a remembered open set — with the note that collapsible
   was chosen and then reversed by use.
-- The chosen tab structure and the head-label decision are both recorded with their
-  reasons, including the cost of the structure you picked.
+- **The three-tab structure and the `⚙ Settings` head are recorded in the ADR with
+  their reasons and their costs**, including *Appearance* sitting as a peer of two
+  export tabs. Both were decided on 2026-08-24, before this ticket ran; neither is
+  yours to reopen without new evidence.
+- **The ⚙ button still passes `css-smoke`'s five glyph checks** after it gains its
+  pressed state. If the pressed style needs the box to grow, `MIN_BLOCK` is
+  re-derived deliberately and §2.11 rule 7 is amended — not quietly widened.
