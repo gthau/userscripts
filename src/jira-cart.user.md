@@ -2524,6 +2524,20 @@ user who finds it fiddly at the minimum width will make the drawer wider* — th
 drawer is resizable and the grip is right there. Recorded in those terms so that a
 later session does not read it as a press that happened.
 
+> **MEASURED on 2026-08-25, and the decision held.** The paragraph above is kept
+> because the *standing* of a claim is the thing this document tracks, and for one
+> day this one rested on an argument. It no longer does: the user dragged a row with
+> the drawer at its 300×215 floor and reported the feature works. **The fallback the
+> decision leaned on was not needed** — nobody had to widen the drawer to reorder a
+> list.
+>
+> **What that closes and what it does not.** It closes the question decision 26 was
+> answered by fiat: the drag is usable at the floor. It does **not** retire the
+> reasoning, which is still the right answer if the drawer ever gets more rows than
+> eight or a longer label than `Time remaining` — the panel is a scroller and the
+> grip is still right there. And it says nothing about the two §7 step 31 items the
+> same session did not reach.
+
 #### What it is not
 
 - **Not a table.** See above. The table is §6 item 14, one entry in the dispatch
@@ -3115,8 +3129,9 @@ replaced by something else.
 | 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its three labels do not wrap inside 300px; the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
 | the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
 | 30 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira. Whole** | The line shapes, used rather than read. The pinned `Issue reference` row is above the tab bar with its five options; **all five shapes were pressed on all three exports** and each line's head took the shape chosen; and **the pinned row and its dropdown fit and read at the drawer's 300px floor**, which is the one thing no harness here can see — its widest label is shorter than `Automatic (side by side when wide)`, and that reasoning now has a press behind it. The harness holds the rest: every shape's bytes in both flavours with a summary and without, that the shape table names the same ids as the preference's own vocabulary, and that a stored shape is read **at the press** rather than held in a variable. **The shapes themselves were pasted on 2026-08-24** (appendix A.9.1). And **`Restore export defaults` puts the dropdown back**, pressed the same day — the half worth running separately, because it is a render reading storage rather than a value the handler wrote, which is what a fake DOM models least well |
-| 31 | **USED IN A BROWSER, 2026-08-25 — as a USE REPORT, not as a run of the seven items** | The user installed it and reported it works. That is worth more than nothing and less than the step: it says the panel draws, a tick takes and a row can be dragged, because none of that could be true otherwise. It does not say which of the seven items below were exercised, and it does **not** close decision 26's question — which was never whether the drag works but whether it is fiddly at the drawer's 300px floor. The items stand as the pass that would close them one by one |
-| 31, item by item | **STILL NEEDS A BROWSER, AND NOTHING HERE STANDS IN FOR IT** | The field lists' drag. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor was DECIDED rather than measured** (decision 26), so this step is the first time anybody will have put a pointer on it |
+| 31, less its third and sixth items | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The field lists, used rather than read. The panel draws both lists, a tick takes, and **a row drags at the drawer's 300×215 floor** — which is the press decision 26 had been answered without, and it came back working, so nobody had to widen the drawer to reorder a list. **A drop from one list towards the other was refused**, which is the one behaviour in this effort that no harness can see at all: it is the platform's own refusal standing because `dragover` declines to `preventDefault`, so there is nothing in the file to assert about. And the two selections a click can now reach that 1.1.0 could not produce were both emitted — **every field unticked**, which gives the issue reference alone with no em dash, and **`Team` ticked**, which reaches 📋 Details for the first time. Team needed no separate paste check: it takes `detailChip`'s default branch, the same plain grey span assignee and fix version have used since A.9 pasted them |
+| 31, items 3 and 6 | **STILL WANT A BROWSER, and they are the cheap two** | Pressing the three exports **after** a reorder, to see the tail come out in the stored order with 🔗 Links unaffected; and ticking a field **while `📋 Copy` is armed**, to see the label survive it. Both are held outside a browser already — `format-smoke` pins the emitted order and `boot-smoke` drives the armed case in this tab and from another one — so what is missing is only the paint. That is why they are listed rather than chased |
+| the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor was DECIDED rather than measured** (decision 26), so this step is the first time anybody will have put a pointer on it |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
 
@@ -3283,9 +3298,9 @@ pass each, and they are cheap.
     TOUCH.** `boot-smoke` has no layout and no paint, so it cannot put a pointer in
     the top half of a row; `format-smoke` covers `moveField` directly and this step
     covers everything between the pointer and it.
-    **The feature was used in a browser on 2026-08-25 and reported working**, which
-    is why this step is not marked unrun — but that was a use report and not a walk
-    through the seven items, so each of them is still worth pressing once. Open ⚙ →
+    **Run in a browser on 2026-08-25, less the third and sixth items**, which are the
+    two whose state a harness already holds. What the pass added is everything a
+    harness cannot see: the paint, the refusal, and the floor. Open ⚙ →
     `📋 Details` and:
     - **Drag a row up and drop it in the TOP half of another row.** It must land
       *above* that row. Drop in the **bottom** half and it must land *below*. The
@@ -3294,22 +3309,30 @@ pass each, and they are cheap.
     - **Drag a row from `📋 Details` onto the `📊 Report` tab's list** — switch tab
       mid-drag if the platform lets you, or drop on the tab bar. It must be
       **refused**: the cursor must say no and nothing may move in either list.
+      **PRESSED 2026-08-25: refused.** This is the one behaviour in the effort with
+      nothing in the file to assert about — the refusal is the platform's own,
+      standing because `onFieldOver` declines to call `preventDefault`.
     - **Press 🔗 Links, 📋 Details and 📊 Report after the reorder.** The tail must
       come out in the order the list stands in, and 🔗 Links must be unaffected.
     - **Untick every field on the `📋 Details` tab and copy.** Each line must be the
       issue reference alone, with no em dash — the same bytes 🔗 Links emits, which
-      is decision 9's stated cost.
+      is decision 9's stated cost. **PRESSED 2026-08-25.**
     - **Tick `Team` and copy.** It must appear, in the same grey as every other
-      unadorned field, and it must survive a paste into Outlook and Teams.
+      unadorned field. **PRESSED 2026-08-25.** It needs no paste check of its own:
+      it takes `detailChip`'s default branch, which is the same plain grey span
+      assignee and fix version have used since appendix A.9 pasted them.
     - **Arm 📋 Details, then tick a field while it is armed.** The label must still
       read `Copy N items`, and the copy must carry the field you just ticked. This is
       "the selection is applied at render, never at fetch" seen from the outside.
     - **At the 300×215 floor**, which is the size the whole ⚙ screen exists for:
       eight rows plus the tab bar must scroll rather than clip, and a row whose name
       and `also a heading` do not both fit must ellipsise the **name**.
-      **The drag's usability at that width was DECIDED and not measured** (decision
-      26): a user who finds it fiddly there will make the drawer wider. If this pass
-      says otherwise, that decision is what reopens — not this step.
+      **PRESSED 2026-08-25, AND THIS IS THE ONE THAT CHANGED A STANDING.** The drag's
+      usability at that width had been DECIDED and not measured (decision 26): a user
+      who finds it fiddly there will make the drawer wider. A row was dragged at the
+      floor and the feature was reported working, so **the fallback was not needed**
+      and the decision is now a measurement. The reasoning behind it still stands for
+      the day the panel grows past eight rows.
 
 ---
 

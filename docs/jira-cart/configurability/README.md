@@ -134,7 +134,7 @@ overflows is silently gone.
 | ~~Which line shapes ship~~ | 03 | **Closed 2026-08-24.** Five, one of them new |
 | ~~Does a visible URL survive Outlook and Teams~~ | 03 | **Closed 2026-08-24.** It does, clickable |
 | ~~The em dash collision~~ | 03 | **Closed 2026-08-24.** Accepted |
-| ~~Is the drag usable at 300px~~ | 04 | **Closed 2026-08-24.** Drag ships; see below |
+| ~~Is the drag usable at 300px~~ | 04 | **Decided 2026-08-24, MEASURED 2026-08-25.** It is; see 41 |
 | ~~Does the head read `⚙ Settings` while the panel is up~~ | 02 | **Closed 2026-08-24.** It does; see below |
 
 ### Answered on 2026-08-24, by the user
@@ -355,20 +355,40 @@ bug a signature would have had, silently, in exactly the case where the rows are
 in catalogue order and the signature says they are not. `boot-smoke` asserts node
 identity across a reorder, so a later session cannot quietly turn it into a rebuild.
 
-**39. THE 300px PRESS WAS NOT RUN, and decision 26 is why.** Recorded again here
-because it is the one claim in this ticket that rests on a decision rather than a
-measurement: a user who finds the drag fiddly at the minimum width will make the
-drawer wider. If a pass ever says otherwise, decision 26 is what reopens — not the
-drag.
+**39. THE 300px PRESS WAS NOT RUN AT THE TIME, and decision 26 was why.** Kept
+because for one day this was the only claim in the ticket resting on an argument
+rather than a measurement: a user who finds the drag fiddly at the minimum width will
+make the drawer wider. See 41 — it no longer rests on that.
 
-**40. IT WAS USED IN A BROWSER THE SAME DAY, and this is a USE REPORT rather than a
-run of §7 step 31.** The user installed it and said *"I tested in the browser, it
-works"*. Recorded at exactly that precision, because the distinction is the one this
-whole record keeps: a use report says the panel draws, a tick takes and a row can be
-dragged, since none of that could be true otherwise. **It does not say which of step
-31's seven items were exercised**, and it does **not** close decision 26 — the 300px
-question was never whether the drag works, but whether it is fiddly at the floor, and
-nothing about a normal-sized drawer answers that. Step 31 keeps its items.
+### Confirmed in a browser on 2026-08-25, the same day, in real Jira
+
+**40. §7 STEP 31 WAS RUN, LESS ITS THIRD AND SIXTH ITEMS.** The user installed it and
+pressed it. What the pass adds is everything a harness cannot see, and two of the
+three are things nothing in this repository could ever assert about:
+
+- **A drop from one list towards the other was REFUSED.** This is the only behaviour
+  in the effort with nothing in the file to check: the refusal is the *platform's
+  own*, standing because `onFieldOver` declines to call `preventDefault` on a row
+  whose list does not match. A harness cannot see the absence of a call turning into
+  a cursor that says no.
+- **Every field unticked emits the issue reference alone**, no em dash — decision 9's
+  stated cost, seen rather than asserted.
+- **`Team` ticked reaches 📋 Details**, which no configuration of 1.1.0 could produce.
+  It needed no separate paste check: it takes `detailChip`'s default branch, the same
+  plain grey span assignee and fix version have used since A.9 pasted them.
+
+**What was NOT reached: items 3 and 6** — pressing the three exports *after* a
+reorder, and ticking a field *while* `📋 Copy` is armed. Both are already held
+outside a browser, so what is missing is only the paint. Listed rather than chased.
+
+**41. THE 300px QUESTION IS NOW MEASURED, AND THE DECISION HELD.** A row was dragged
+with the drawer at its 300×215 floor and the feature came back working. **The
+fallback decision 26 leaned on was not needed** — nobody had to widen the drawer to
+reorder a list. Decision 26 is not deleted and 39 is kept above it, because *the
+standing of a claim* is what this record tracks and for one day this one was an
+argument. The reasoning is still the right answer for the day the panel grows past
+eight rows or a label past `Time remaining`; the panel is a scroller and the grip is
+still right there. §2.14 carries the amendment in place, dated, with the original.
 
 **Twenty-one mutations were confirmed able to fail** in a scratch copy: the catalogue
 seam, `moveField`'s downward off-by-one and its non-integer guard, both shipped
