@@ -248,11 +248,55 @@ is("the dragged row keeps its own ground under the pointer that is dragging it",
 const fieldBase = rules.find((r) => r.sel === "aside#gt-cart-drawer div.gt-cart-field");
 is("every field row reserves the border the drop indicator paints",
    /border:\s*1px solid transparent/.test(fieldBase?.body ?? ""), true);
-is("and the indicator only ever changes its colour, never its width",
-   ["before", "after"].map((edge) => {
-     const rule = rules.find((r) => r.sel.endsWith(`[data-gt-drop="${edge}"]`));
-     return /^\s*border-block-(start|end)-color:[^;]+;?\s*$/.test(rule?.body ?? "");
-   }), [true, true]);
+// NAMED BY ROW TYPE and not by the attribute alone, because since 1.4.0 there are
+// two of each: the item rows wear the same two attributes (§2.9). A `find` on the
+// attribute would have quietly started asserting the other list's rule.
+const dropRule = (row, edge) =>
+  rules.find((r) => r.sel === `aside#gt-cart-drawer div.gt-cart-${row}[data-gt-drop="${edge}"]`);
+const onlyAColour = (row) => ["before", "after"].map((edge) =>
+  /^\s*border-block-(start|end)-color:[^;]+;?\s*$/.test(dropRule(row, edge)?.body ?? ""));
+is("and the indicator only ever changes its colour, never its width", onlyAColour("field"), [true, true]);
+
+/* ---- 2c-bis. THE SAME TRAP A FOURTH TIME, on the collection's own drag (§2.9,
+   1.4.0). Everything above about the field rows has to hold about the item rows,
+   and none of it is inherited: they are a different selector in a different part of
+   the sheet, and the only thing they share is the pair of attribute names. */
+const itemHover = rules.find((r) => r.sel === "aside#gt-cart-drawer div.gt-cart-item:hover");
+const itemDragging = rules.find((r) => /div\.gt-cart-item\[data-gt-dragging="true"\]/.test(r.sel));
+const itemDraggingHover = itemDragging?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("the dragged ITEM keeps its own ground under the pointer that is dragging it",
+   beats(spec(itemDraggingHover ?? ""), spec(itemHover?.sel ?? "")), true);
+is("and its indicator only ever changes a colour too", onlyAColour("item"), [true, true]);
+// The border is on the rule the item rows SHARE with the live rows, so this also
+// says the two lists stay the same size -- one of them can be dragged and the other
+// cannot, and a row that changed height between the sections would be a worse bug
+// than the one the border is reserving against.
+const sharedRow = rules.find((r) => /div\.gt-cart-row,/.test(r.sel) && /div\.gt-cart-item$/.test(r.sel));
+is("both lists' rows reserve the border the indicator paints",
+   /border:\s*1px solid transparent/.test(sharedRow?.body ?? ""), true);
+is("and the padding was reduced by the border's width, so the box did not grow",
+   /padding:\s*2px 5px/.test(sharedRow?.body ?? ""), true);
+/* THE GRIP IS RESERVED AND NOT CONJURED. `visibility` keeps the row's width the same
+   whether or not the glyph is painted; `display: none` would give it back and
+   re-ellipsise the summary under the hand about to grab the row -- a reflow under a
+   moving pointer, which is the defect §2.14 spent a day removing from the foot. This
+   check is the whole of that decision, and it is one word. */
+const gripHidden = rules.find((r) => r.sel === "aside#gt-cart-drawer div.gt-cart-item span.gt-cart-grip");
+is("the item grip is hidden by visibility, so its width is held either way",
+   /visibility:\s*hidden/.test(gripHidden?.body ?? "") && !/display:/.test(gripHidden?.body ?? ""), true);
+is("and it is painted on hover and while dragging, because :hover does not update mid-drag",
+   rules.some((r) => /:hover span\.gt-cart-grip/.test(r.sel) && /data-gt-dragging/.test(r.sel)
+     && /visibility:\s*visible/.test(r.body)), true);
+// A row that cannot be written cannot be dragged, so it must not say grab either.
+const itemGrab = rules.find((r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-item[draggable="true"]');
+is("only a draggable row says grab", /cursor:\s*grab/.test(itemGrab?.body ?? ""), true);
+is("and it turns off text selection, or the browser drags the selection instead",
+   /user-select:\s*none/.test(itemGrab?.body ?? ""), true);
+// The key is the one thing in the row that is NOT the drag, and it has to say so
+// over a row that is saying grab.
+is("the key link keeps a pointer cursor inside a grabbable row",
+   /cursor:\s*pointer/.test(rules.find((r) =>
+     r.sel === "aside#gt-cart-drawer div.gt-cart-item a.gt-cart-row-key")?.body ?? ""), true);
 
 // ---- 2d. THE DRAWER OWNS ITS FOCUS APPEARANCE. Atlassian's sheet may style a
 // focused button inside the Cart, and a host rule on :focus paints on a MOUSE click

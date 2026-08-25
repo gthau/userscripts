@@ -341,9 +341,11 @@ is("nothing threw on an add", errors(), []);
 is("it landed in storage with its summary", JSON.parse(store["gt-jira-cart.collections"]).collections[0].items,
   [{ key: "RDC-77", summary: "The linked issue's own summary" }]);
 is("the badge followed", badge.textContent, "🛒 Scratch 1 ▾");
-is("the collection has the row", items().map((r) => r.children[0].textContent), ["RDC-77"]);
-is("and its key is a link too", items()[0].children[0].tag, "a");
-is("pointing at the issue", items()[0].children[0].attrs.href, "https://dalet.atlassian.net/browse/RDC-77");
+// Found by class and not by position: since 1.4.0 the first child of an item row is
+// the drag grip, and a positional read here is what said so, loudly.
+is("the collection has the row", items().map((r) => keyOf(r).textContent), ["RDC-77"]);
+is("and its key is a link too", keyOf(items()[0]).tag, "a");
+is("pointing at the issue", keyOf(items()[0]).attrs.href, "https://dalet.atlassian.net/browse/RDC-77");
 is("the live row is now collected", rows()[1].attrs["data-gt-collected"], "true");
 is("the toggle carries the key, because that is what the click reads", toggleOf(rows()[1]).attrs["data-gt-key"], "RDC-77");
 is("the copy buttons woke up", ["links", "names", "keys", "jql"].map((k) => copy(k).disabled), [false, false, false, false]);
@@ -908,11 +910,13 @@ is("and it is an offer before it is a question", restoreButton().textContent, "�
    and every measured style stay in one copy each and nothing a user can click
    reaches the five paste rules.
 
-   THE DRAG ITSELF IS NOT DRIVEN HERE AND CANNOT BE: this harness has no layout and
-   no paint, so there is no top half of a row to put a pointer in. `format-smoke`
-   covers `moveField` directly and §7 step 31 is the browser pass that covers the
-   pointer plumbing. What IS driven here is everything else -- the rows, the ticks,
-   the writes, and the order the panel draws a stored list in. */
+   THE DRAG ITSELF IS NOT DRIVEN HERE -- and "and cannot be", which this comment said
+   until 1.4.0, was wrong. A drag reads the element it was dispatched on and a rect,
+   both of which this harness has: the COLLECTION's drag is driven in full at the foot
+   of this file (§2.9.1). These rows were not retro-fitted, which was a scope call and
+   not a limit. `smoke.mjs` covers `moveInList` directly and §7 step 31 is the browser
+   pass. What IS driven here is everything else -- the rows, the ticks, the writes,
+   and the order the panel draws a stored list in. */
 const fieldRows = (tab) => byId.get(`gt-cart-fields-${tab}`).children;
 const fieldIds = (tab) => fieldRows(tab).map((row) => row.attrs["data-gt-field"]);
 const fieldRow = (tab, id) => fieldRows(tab).find((row) => row.attrs["data-gt-field"] === id);
@@ -1629,6 +1633,173 @@ throwOnWrite = false;
 dispatch(toggleOf(rows()[0]), "click");
 flush();
 is("a write that works clears it", byId.get("gt-cart-alert").hidden, true);
+
+/* ---- THE COLLECTION'S OWN DRAG (§2.9), DRIVEN END TO END. Added at 1.4.0.
+//
+   THIS IS THE CHECK THE FILE SAID COULD NOT EXIST. Until 1.4.0 both the script and
+   the README claimed no harness here could drive a drag, on the ground that
+   `boot-smoke` has no layout. Half of that is true: there is no paint and no
+   pointer. What there IS is the delegated listeners the script really registers and
+   a rect that can be stubbed per node -- and `dragstart`, `dragover` and `drop`
+   read nothing else. So the wiring is held here: which row was grabbed, which half
+   of which row the pointer was in, what got written, and what the drawer showed
+   while it was happening.
+
+   WHAT IS STILL NOBODY'S BUT A HAND'S: whether a row is comfortable to grab, and
+   whether a long list scrolls when a drag reaches its edge. That is §7 step 39, and
+   the quiet here is not coverage of it. */
+
+// A deterministic list first, through the drawer's own controls -- ⌫ twice, armed
+// and then committed, and the three live rows in page order.
+dispatch(emptyButton(), "click");
+dispatch(emptyButton(), "click");
+flush();
+for (const at of [0, 1, 2]) { dispatch(toggleOf(rows()[at]), "click"); flush(); }
+const keysIn = () => JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.map((i) => i.key);
+const drawn = () => items().map((r) => keyOf(r).textContent);
+const rowOf = (key) => items().find((r) => r.attrs["data-gt-key"] === key);
+const itemSummary = (row) => row.children.find((k) => k.classList.includes("gt-cart-row-summary")).textContent;
+
+is("three items, in the order they were added", keysIn(), ["RDC-1", "RDC-77", "GLX-402"]);
+is("and the drawer draws them in that order", drawn(), ["RDC-1", "RDC-77", "GLX-402"]);
+is("every row offers itself to the drag", items().map((r) => r.attrs.draggable), ["true", "true", "true"]);
+// Without this the platform starts its own link drag from the most obvious place to
+// grab a row, and the reorder looks broken exactly where it is first tried.
+is("and the key inside it opts OUT, so the row is what moves",
+  items().map((r) => keyOf(r).attrs.draggable), ["false", "false", "false"]);
+is("the row carries the key the drag will resolve against",
+  items().map((r) => r.attrs["data-gt-key"]), ["RDC-1", "RDC-77", "GLX-402"]);
+is("the grip is IN the row and first, so its width is reserved whether or not it is painted",
+  items().map((r) => r.children[0].classList.includes("gt-cart-grip")), [true, true, true]);
+is("and the tooltip says the row moves, since the glyph is invisible until hovered",
+  /Drag the row to reorder it/.test(items()[0].title), true);
+
+/* ---- WHAT THE DRAG HANDS AN EXTERNAL APPLICATION, and it is the whole of why the
+   row can be dropped into Notepad or Slack. `setData` takes one payload PER TYPE, so
+   the drag that reorders inside the drawer also carries the bytes the `🔗` button
+   writes. This drag is ABANDONED rather than dropped, which is the other thing this
+   section holds: a release with no drop must write nothing at all.
+
+   THE BYTES ARE ASSERTED AGAINST THE SAME LITERALS THE `🔗` PRESS IS, higher up this
+   file, and that is the point rather than duplication -- if the two ever disagree,
+   one issue leaving the Cart has two shapes, which is exactly the defect §4 rejected
+   when it refused a fixed shape for the copy button. */
+// A stand-in for the real `DataTransfer`, which Node does not have: the four
+// members the script touches, and nothing else.
+const transfer = () => ({
+  data: {}, effectAllowed: "", dropEffect: "",
+  setData(type, value) { this.data[type] = value; },
+});
+const carried = rowOf("RDC-77");
+const dtOut = transfer();
+const orderBefore = keysIn();
+dispatch(carried, "dragstart", { dataTransfer: dtOut });
+is("our own type comes first, and then everything an external target can use",
+  Object.keys(dtOut.data),
+  ["application/x-gt-cart-item", "text/plain", "text/html", "text/uri-list"]);
+is("the text is the 🔗 button's own bytes, at item scope: no bullet",
+  dtOut.data["text/plain"],
+  "[RDC-77](https://dalet.atlassian.net/browse/RDC-77) The linked issue's own summary");
+is("and the rich flavour is its twin, so a real editor gets a real link",
+  dtOut.data["text/html"],
+  '<a href="https://dalet.atlassian.net/browse/RDC-77">RDC-77</a>' +
+  "&nbsp;The linked issue's own summary");
+is("the uri-list is the issue, which is what makes it a LINK drag rather than text",
+  dtOut.data["text/uri-list"], "https://dalet.atlassian.net/browse/RDC-77");
+// A move-only drag is refused by a target that means to copy, and a drop into
+// another application is never a removal from the collection.
+is("copy AND move: a drop out there is a copy, a drop in here is a move",
+  dtOut.effectAllowed, "copyMove");
+dispatch(carried, "dragend", { dataTransfer: dtOut });
+flush();
+is("a drag released with no drop writes nothing", keysIn(), orderBefore);
+is("and it unfreezes the list, or every later render would be held for ever",
+  drawn(), orderBefore);
+
+/* A RECT PER ROW. The stub gives every element the same one, so "the top half"
+   would otherwise mean nothing. 100..120 puts the midpoint at 110. */
+const RECT = { left: 10, top: 100, right: 90, bottom: 120, width: 80, height: 20 };
+
+// ---- drag one: the LAST row onto the TOP half of the first
+const glx = rowOf("GLX-402");
+const first = rowOf("RDC-1");
+first.getBoundingClientRect = () => RECT;
+const dt = transfer();
+dispatch(glx, "dragstart", { dataTransfer: dt });
+is("the dragged row says so, which is the attribute the sheet paints",
+  glx.attrs["data-gt-dragging"], "true");
+is("and it carries the KEY, never a position", dt.data["application/x-gt-cart-item"], "GLX-402");
+
+dispatch(first, "dragover", { dataTransfer: dt, clientY: 105 });
+is("a pointer in the TOP half marks the gap ABOVE the row", first.attrs["data-gt-drop"], "before");
+is("and exactly one row wears the indicator", items().filter((r) => r.attrs["data-gt-drop"]).length, 1);
+is("the cursor is told it is a move", dt.dropEffect, "move");
+dispatch(first, "dragover", { dataTransfer: dt, clientY: 115 });
+is("the BOTTOM half of the same row is the gap BELOW it", first.attrs["data-gt-drop"], "after");
+dispatch(first, "dragover", { dataTransfer: dt, clientY: 105 });
+
+dispatch(first, "drop", { dataTransfer: dt, clientY: 105 });
+flush();
+is("the drop wrote the new order straight away", keysIn(), ["GLX-402", "RDC-1", "RDC-77"]);
+is("and the drawer did NOT redraw, because the pointer is still down", drawn(), ["RDC-1", "RDC-77", "GLX-402"]);
+dispatch(glx, "dragend", { dataTransfer: dt });
+flush();
+is("letting go is what redraws it", drawn(), ["GLX-402", "RDC-1", "RDC-77"]);
+is("and neither transient attribute survives the drag",
+  items().flatMap((r) => [r.attrs["data-gt-dragging"], r.attrs["data-gt-drop"]]).filter(Boolean), []);
+
+// ---- drag two: the BOTTOM half of the last row, which is the append
+const back = rowOf("GLX-402");
+const last = rowOf("RDC-77");
+last.getBoundingClientRect = () => RECT;
+const dt2 = transfer();
+dispatch(back, "dragstart", { dataTransfer: dt2 });
+dispatch(last, "dragover", { dataTransfer: dt2, clientY: 115 });
+dispatch(last, "drop", { dataTransfer: dt2, clientY: 115 });
+dispatch(back, "dragend", { dataTransfer: dt2 });
+flush();
+is("dropping below the last row puts it at the end", keysIn(), ["RDC-1", "RDC-77", "GLX-402"]);
+
+/* ---- THE FREEZE, AND THE ONE WRITE THAT CAN REACH IT.
+   It is NOT another tab. A person has one pair of hands and cannot click anywhere
+   while holding a mouse button down here. `runGapFill` needs no hand: it is a timer
+   and a fetch, and it writes a summary in. The write below is that write -- the same
+   key, the same bytes `save` would produce -- and `visibilitychange` is the render
+   it would schedule. */
+const held = items()[1];
+const moving = items()[0];
+const onto = items()[2];
+onto.getBoundingClientRect = () => RECT;
+const dt3 = transfer();
+// Read before the write, because what is being asserted is that this does NOT move.
+const wasShowing = itemSummary(items()[2]);
+dispatch(moving, "dragstart", { dataTransfer: dt3 });
+
+const blob = JSON.parse(store["gt-jira-cart.collections"]);
+blob.collections[0].items[2].summary = "filled in while the pointer was down";
+store["gt-jira-cart.collections"] = JSON.stringify(blob);
+dispatch(document, "visibilitychange");
+flush();
+is("a write landing mid-drag does not rebuild the list", items()[1] === held, true);
+is("so the row under the pointer is the same node it was at dragstart", items()[0] === moving, true);
+is("and the drawer is one render behind, deliberately", itemSummary(items()[2]), wasShowing);
+is("which is a different summary from the one now in storage",
+  wasShowing === "filled in while the pointer was down", false);
+
+dispatch(onto, "drop", { dataTransfer: dt3, clientY: 115 });
+dispatch(moving, "dragend", { dataTransfer: dt3 });
+flush();
+is("the drop still moved the right row, resolved by key", keysIn(), ["RDC-77", "GLX-402", "RDC-1"]);
+/* THE ONE THIS SECTION EXISTS FOR. The drawer was showing a three-row list that was
+   already out of date when the pointer came up. If the drop had written what was on
+   SCREEN, the summary that arrived mid-drag would be gone -- silently, and only for
+   whoever happened to be dragging at that moment. It writes through `update`, which
+   re-reads first (§2.5), so the two changes compose instead of one eating the other. */
+is("and the summary that arrived mid-drag survived the drop",
+  JSON.parse(store["gt-jira-cart.collections"]).collections[0].items[1].summary,
+  "filled in while the pointer was down");
+is("which the drawer now shows, one render later", itemSummary(items()[1]),
+  "filled in while the pointer was down");
 
 // ---- Escape does not close the drawer, and nothing on the page does either
 dispatch(byId.get("gt-cart-live-list"), "keydown", { key: "Escape" });

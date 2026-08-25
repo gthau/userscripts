@@ -1901,15 +1901,191 @@ cannot show a Jira title, so the row ellipsises and the hover carries the rest:
 | Duplicate names | **Prevented, by appending a number.** ` 2`, then ` 3`; lowest free wins; the same rule on create and on rename; a clash ignores case. The cost is known and accepted: a collection genuinely called `Sprint 2` duplicates to `Sprint 2 2`, because incrementing the trailing number would silently name it after a different sprint |
 | Emptying | **⌫ in the heading, beside ↻.** It removes every item and KEEPS the collection and its name, which is the whole reason it is not the same control as delete: a collection you refill every sprint is worth keeping, and deleting it to clear it means typing the name again |
 | Deleting | **✕ on the chip**, because a collection is deleted where it is named. Deleting the active one promotes the next by construction, and deleting the only one empties it instead — both already decided in §2.4 |
-| Reorder | **It does not exist.** Order is most-recently-activated (§2.4), and a hand-chosen order is not expressible |
+| Reorder | **It does not exist**, and this row is about the COLLECTIONS — the chips. Their order is most-recently-activated (§2.4), and a hand-chosen one is not expressible, because the first chip is not decoration: it is the collection an add goes into. Reordering the ITEMS inside a collection is a different question, and it shipped at 1.4.0 — §2.9.1 below |
 
 The collection switcher is a row of chips, each carrying a name and its own count.
 **The count is a separate element from the name and never truncates.** It is the
 one thing on a chip that cannot be reconstructed from a shortened label.
 
-Collection rows are in array order, which is insertion order, **which is the order
-a copy emits**. Newest-first would read better and would disagree with the paste,
-which is a worse thing to be.
+Collection rows are in array order. That was insertion order until 1.4.0 and it is
+now **insertion order until something is moved**. What has not changed, and it is the
+half that matters, is that **array order is the order a copy emits**. Newest-first
+would read better in the drawer and would disagree with the paste, which is a worse
+thing to be.
+
+### 2.9.1 The items reorder by drag — 1.4.0, 2026-08-25
+
+**Asked for by the user, and §6 item 7 had it as future work.** The reason is one
+§2.14 had already recorded from the other side: people paste these lists into Slack
+and Teams and then **reorder them in the editor by hand**, to put the urgent thing
+first or to group what they are discussing. Every line is one thing to drag *there*.
+This makes it one thing to drag *here*, before the paste, where the order is kept.
+
+**Grab the whole row.** Not a handle, and not a pair of ↑↓ buttons — the same shape
+the field lists use (§2.14) and for the same reason: the biggest target a 380px
+drawer can offer. The row holds a key, a summary and a ✕, and the summary already
+ellipsises.
+
+**The key link opts out of its own drag.** An anchor with an `href` is draggable by
+default, so without `draggable="false"` on it, the most obvious place to grab a row
+would start the browser's link drag and the reorder would look broken exactly where
+it is first tried. Opting the anchor out does not kill the gesture: the platform
+walks up to the nearest draggable ancestor, which is the row.
+
+**Only one thing was given away for this, and the first draft of this section said
+two.** What goes is selecting a summary with the mouse, to the `user-select: none`
+the drag needs — without it the browser offers the text selection to drag instead of
+the row. What was *going* to go is the key link's native drag-out: dragging a key
+into Slack or an editor used to drop that issue's URL there, free from the platform,
+and making the whole row draggable took the anchor's own drag away.
+
+**THE USER REFUSED THAT COST AND WAS RIGHT: `setData` takes one payload PER TYPE.**
+The same drag can be our reorder inside the drawer and a link on the way out. So
+`writeDragPayload` sets three more types beside the internal one, and what comes out
+is **better than what the anchor gave**:
+
+| Type | What it carries |
+| --- | --- |
+| `application/x-gt-cart-item` | The key. Ours, inert everywhere else, and the internal drag reads a variable rather than this — `getData` is unreadable during `dragover` |
+| `text/plain` | The `🔗` button's own bytes at item scope, from the same `format` call — so it is the **`Issue reference` shape**, not a hard-coded one |
+| `text/html` | Its rich twin, so an editor that takes HTML gets a real link |
+| `text/uri-list` | The issue URL, which is what makes this a **link** drag rather than a text drag |
+
+**The bytes are the `🔗`'s, and that is a rule rather than a convenience.** One issue
+leaving the Cart has one shape wherever it leaves from. A literal in the drag handler
+would be a second place deciding what a collected issue looks like — the exact defect
+§4 rejected when it refused a fixed shape for the copy button. It also means the five
+paste rules of §2.14 already cover these bytes, because they *are* those bytes.
+`boot-smoke` asserts them against the same literals the `🔗` press is asserted
+against, so the two cannot drift apart in silence.
+
+**The source is the store, not the row on screen.** A drag out is a copy, and a copy
+reads what is stored.
+
+**`effectAllowed` is `copyMove` and not `move`.** A target that means to copy will
+refuse a move-only drag, and a drop into another application is never a removal from
+the collection. Inside our own list `dragover` still sets `dropEffect = "move"`, so
+the gesture there is unchanged; what `copyMove` adds is a cursor that tells the truth
+on the way out.
+
+**`text/uri-list` is the one with a cost, and it was taken with the cost named.** A
+link drag can be dropped on the Jira page itself, and the browser's own answer to
+that is to navigate the tab to the issue — losing the page the live list is
+mirroring. **That hazard is not new**: the anchor's native drag had it before 1.4.0.
+What is new is that the target is now the whole row rather than the key, so a
+mis-drop is easier to make. §7 step 39 looks at it rather than assuming either way.
+
+> **LOOKED AT ON 2026-08-25, AND NOTHING HAPPENED.** The user dropped a row onto the
+> Jira page behind the drawer and the tab did not navigate. **The accepted cost was
+> not charged**, which is a better outcome than the design allowed for.
+>
+> **Read this narrowly, because there are two explanations and this run does not
+> separate them.** Either the browser declined to navigate on a `text/uri-list` drop
+> into page content, or **Jira's own page swallowed the drop** — it is a
+> drag-and-drop application in its own right, with `dragover` handlers of its own on
+> boards, backlogs and attachment zones, and any one of them calling
+> `preventDefault` would produce exactly this result. **The second explanation is
+> instance-shaped and view-shaped**: it could hold on a board and not on a settings
+> page, and it says nothing about a different browser.
+>
+> So the paragraph above is kept exactly as written. What changed is that the hazard
+> is now **unobserved** rather than **assumed**, on one browser, one Jira instance,
+> one view, one attempt. It is not retired, and nothing in the file depends on it
+> either way — if it ever does fire, the remedy is a `dragover` on the document that
+> swallows our own drag, which §2.9.1 costed and declined precisely because the
+> hazard was thought to be the browser's rather than ours to prevent.
+
+**And it corrects a line this document has carried since 1.0.0.** §2.9 says copying
+one row out of the collection is refused, *because the collection is the selection*.
+That was never quite true — the platform gave per-row extraction away through the
+anchor for four versions. What the sentence was really refusing is a per-row copy
+**control**: a second selection mechanism layered on the first, costing every row a
+button in a drawer that is already narrow. That refusal stands. The gesture does not
+cost a row anything, and it is now deliberate rather than incidental.
+
+**The grip is reserved always and painted only on hover.** The ⠿ sits in every row
+and holds its ~10px whether or not it is visible; only `visibility` changes. This is
+the one place the user chose against the recommendation — which had been the field
+lists' always-visible glyph — so the reflow a hover-conjured glyph would cause became
+ours to prevent rather than to warn about. A glyph that *arrived* with the pointer
+would re-ellipsise the summary under the hand about to grab the row, and reflow under
+a moving pointer is the defect §2.14 spent a day removing from the foot. So the width
+is paid always and the noise is not. A row that cannot be dragged — a store that is
+not writable — holds the same space and never paints, so the two modes are the same
+size.
+
+**What it writes.** The collection's own array, through `update`, which is the one
+read-modify-write there is (§2.5). Both ends are resolved **by key** against the
+array that read returns, so what lands is a move of the *stored* list rather than of
+the list that was on screen when the drag began. Which half of the row the pointer is
+in decides which gap it lands in; below the last row is the append.
+
+**An add still appends.** A hand-made order is never disturbed by collecting
+something new. The alternative — new arrivals at the top once the list has been
+touched — was declined: it makes the add path behave differently depending on hidden
+state, and this section had already rejected newest-first for this list.
+
+**THE LIST FREEZES WHILE A ROW IS HELD, AND THE REASON IS NOT WHAT IT FIRST LOOKED
+LIKE.** `renderCollection` rebuilds its rows with `replaceChildren`; the ⚙ panel
+moves its rows instead, which is why the field drag needs no freeze. So a render
+landing mid-drag here would destroy the row under the pointer. The first draft of
+this decision justified the freeze — and §2.14's *id, never an index* — with **another
+tab writing the list**. The user took that apart in one sentence: *a person can only
+use one tab at a time.* They cannot click in another tab, or on the page's `+`, while
+holding a mouse button down in this one. **Nothing a hand does anywhere can land
+mid-drag.**
+
+What can is `runGapFill`: a timer and a fetch, needing nobody, filling in a summary
+or marking a key unreadable. That changes the row signature, and the signature is
+what calls `replaceChildren`. **That is the whole of the hazard, and it is in this
+tab.** The freeze holds the list and deliberately does not update `itemSignature`, so
+the render after `dragend` rebuilds from whatever storage holds by then. Nothing is
+lost, only deferred — and because the store is re-read at drop time, a summary that
+arrived mid-drag and a move made mid-drag **compose**, rather than one eating the
+other. `boot-smoke` drives exactly that sequence.
+
+The correction was written back into §2.14's own block, where the wrong reason
+shipped. The design there does not change: an id costs the same as an index, and it
+is now honestly a cheap handle rather than a defence.
+
+**No keyboard path.** This is the fourth pointer-only drag in the drawer, and §6 item
+4 is the limit it rests on. ↑↓ buttons were declined for the field lists in §4
+decision 11 and are declined here for the same reason, with one extra cost named:
+this is user data rather than a preference, so the case for a keyboard path is
+stronger here than it was there. It is still refused, because granting it here alone
+would say the limit had moved when it has not.
+
+**Nothing scrolls the list during a drag, on purpose.** The field lists are eight rows
+and always fit; a collection can be fifty, in a drawer whose floor is 300×215. The
+platform auto-scrolls a scrollable box when a drag nears its edge, and whether it
+does so *here* is **§7 step 39** — a measurement, not a decision. This is the same bet
+decision 26 made about whether a field row could be dragged at the floor, which came
+back working. If this one comes back not working, the answer is ours to write.
+
+> **THE BET PAID, MEASURED 2026-08-25.** The user dragged a row toward the edge of a
+> long list and held it there, and **the list scrolled**. So there is no auto-scroll
+> to write, and the paragraph above is kept rather than replaced because the
+> *standing* of a claim is what this document tracks: for a few hours this rested on
+> an argument about what the platform does, and now it does not.
+>
+> **What it does NOT say.** It was not run at the drawer's 300×215 floor, which is
+> the size where the scrollable area is smallest and the edge strips are closest
+> together. That half stays a bet, and it is the half decision 26's equivalent was
+> actually about. One browser, one instance, one person, one sitting.
+
+**The drag out was measured in the same sitting**, and all three destinations took
+it: a plain text editor, a rich editor or Slack/Teams, and the same row dragged again
+after `Issue reference` was changed — which came out in the new shape. That last one
+is the one worth having: it is the check that no second place decides what a
+collected issue looks like, and it is the only way to see it from outside the
+harness.
+
+**What did not change.** The chips keep their most-recently-activated order (the
+table above). There is no sort button: a sort would silently destroy a hand-made
+order with no undo, which is the thing the two destructive controls in this section
+are armed against. Nothing can be added by dropping a link into the drawer — that is
+§6 item 6. And a reorder needs no arming and no undo, because unlike a delete it is
+undone by doing it again.
 
 **Copy and refresh** (`08` §5):
 
@@ -1959,6 +2135,27 @@ tick-box selection would be a second selection mechanism layered on the first, a
 it would cost every row a checkbox in a drawer that is already narrow. `06`'s scope
 matrix allows more; the Cart ships less, deliberately, and the cost is stated:
 copying three of twenty items means removing the other seventeen first.
+
+> **AMENDED 2026-08-25, and the amendment is to the words rather than the design.**
+> *"No per-row copy"* was too broad, and it was too broad from the beginning: the
+> key in every row is a real `<a href>`, and the platform let anyone drag one out
+> into another application for four versions. That was per-row extraction, sitting
+> there uncounted.
+>
+> **What this paragraph is actually refusing is a per-row copy CONTROL** — a
+> ✕-sized `🔗` on every row, or tick boxes and a *Copy selected*. Both cost every row
+> width in the narrowest list in the drawer, and both are the second selection
+> mechanism the paragraph objects to. That refusal is unchanged.
+>
+> **A gesture costs a row nothing, and 1.4.0 made this one deliberate** (§2.9.1).
+> Dragging a row out drops that issue into Slack, an editor or a note, in the same
+> bytes the `🔗` writes. It was going to be lost when the whole row became draggable;
+> the user pointed out that `setData` takes one payload per type, so it was restored
+> and improved instead — the `Issue reference` shape rather than a bare URL.
+>
+> **The cost above still stands as written.** Copying three of twenty items is still
+> removing the other seventeen, because a drag moves ONE row and there is no way to
+> hold three.
 
 **The two failure states have words** (`08` §6):
 
@@ -2332,9 +2529,21 @@ resolves both ends against the stored list at drop time, so a re-render that mov
 the rows cannot make the drop wrong. It therefore has no entry in the `dragging`
 guard, and it must not grow one.
 
-**All three stay pointer-only** (§6 item 4), and none of them can be driven by a
-harness in this repository, because nothing here has a layout. §7 steps 13 and 31
-are what stand in.
+**All of them stay pointer-only** (§6 item 4). **A FOURTH ARRIVED AT 1.4.0 — the
+collection's own items (§2.9.1) — and it answers this defect a third way, because it
+had to.** The field lists' answer works only because the ⚙ panel *moves* its rows and
+never rebuilds them; `renderCollection` rebuilds, so owning nothing is not enough
+there and the list freezes for the length of the drag instead. That is the one drag
+in the drawer with an entry of its own in what `render` will not touch, and §2.9.1
+says why: the hazard is not another tab — a person has one pair of hands — it is
+`runGapFill`, the only write in the Cart that needs no hand.
+
+**And "none of them can be driven by a harness in this repository" was retired on
+2026-08-25.** The two pointer drags cannot: they need real layout. The two HTML5 ones
+can, and `boot-smoke` drives the collection's end to end. §7 step 13 stands for the
+grip, step 31 for the field lists, and step 39 for the two things about a drag that
+no harness will ever answer — whether a row is comfortable to grab, and whether a long
+list scrolls at its edge.
 
 **5. The chrome mirrors the anchor.** Two features that were each correct alone
 collided: on a left dock, the ✕ sat where the grip lands. §2.9 has the rule.
@@ -2879,6 +3088,30 @@ harness**. There is **no keyboard path**, by §6 item 4: the Cart is not intende
 be operated by keyboard input, and adding one here would say that limit had moved
 when it has not.
 
+> **TWO CORRECTIONS ON 2026-08-25, both from designing the collection's own drag
+> (§2.9.1). Neither changes what shipped; both change what this document claims.**
+>
+> **One: "no harness in this repository can drive a drag" is no longer true, and it
+> was never quite the right claim.** `boot-smoke` keeps the delegated listeners the
+> script registers and already stubbed a rect per node for the 1.3.0 rail, which is
+> everything `dragstart`, `dragover` and `drop` read — so 1.4.0 drives the item
+> drag there end to end, including which half of which row the pointer was in.
+> What is true of THESE rows is that **nothing drives this one**, which is a gap in
+> the harness rather than a property of the platform: retro-fitting the same
+> synthetic drag to the field lists was offered and declined as out of scope. So
+> step 31 still stands, for a narrower reason than the one written above it.
+>
+> **Two: the pure function is not called `moveField` any more.** It is `moveInList`,
+> because it never touched a field — it is an array move, and the collection's drag
+> goes through the same one. Its checks moved from `format-smoke` §16j to
+> `smoke.mjs`, which is where the pure helpers live. Nothing about decision 11's
+> reasoning depends on the name; the rename is here so a reader searching for
+> `moveField` learns where it went rather than concluding it was deleted.
+>
+> **And one thing that is NOT corrected, because it is still right:** the drag is
+> HTML5 rather than pointer plumbing. §2.9.1 made the same choice for the same two
+> reasons, which is the strongest evidence available that it was the right one.
+
 **Whether the drag is usable at the drawer's 300px floor was DECIDED, NOT MEASURED.**
 The press was written and never run. The user answered it by decision instead: *a
 user who finds it fiddly at the minimum width will make the drawer wider* — the
@@ -3242,6 +3475,8 @@ Everything else is inside the drawer.
 | `🔗` | floating, on the far side of the `+` | Copies **that one issue** and does not open it. The bytes are 🔗 Links' at item scope, so **the `Issue reference` setting decides them** and both flavours are written. It flashes `✅`, or `⚠️` if the write was refused. The `+` does not move to make room for it (§2.7.1) |
 | A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it. **The key itself is a link**: click to open the issue, middle-click or Ctrl-click for a new tab |
 | A key, in either section | drawer | A real link to the issue, so the browser's own gestures all apply, including its context menu |
+| A collection row | drawer, the collection | **Drag it to reorder** (1.4.0). The whole row is the target, key included; a ⠿ appears on whichever row the pointer is over, and its space is held whether or not it is painted. Which half of the row you drop on decides above or below; below the last row appends. **The array order is what every export emits**, so this sets what a paste says first. No keyboard path (§6 item 4), and no undo beyond dragging it back (§2.9.1) |
+| A collection row, dragged OUT of the drawer | drawer → anywhere else | **The same drag drops that issue into another application** (1.4.0), in whatever shape `Issue reference` names — the `🔗` button's bytes, plain and rich, plus a `text/uri-list` so it is a real link drag. It is a copy: the row stays in the collection. **A mis-drop onto the Jira page can navigate the tab to that issue**, which is the platform's own answer to a dropped link and was true of the key link before 1.4.0 (§2.9.1) |
 | `✕` on a collection row | drawer, the collection | Removes that item |
 | The collection's name | drawer, the collection's heading | Click to rename it in place. Enter or blur commits. Escape cancels |
 | ⌫ | drawer, the collection's heading | Empties the collection and keeps its name. Click once to arm it — the label becomes `Empty N?` — and again to commit |
@@ -3358,7 +3593,7 @@ Notes on the controls:
 | **✕ meaning "go back" on the settings screen** | Two values that disagree wearing a different hat, and it leaves no way to close the Cart from that screen at all. ⚙ is the way back, and it is the button that put you there |
 | **One long scroll for the settings panel** | Prototyped. Twenty-two controls in one column means the thing you came for is usually off-screen, and there is no landmark to scroll to |
 | **Collapsible groups with a remembered open set** | Prototyped, **chosen, and then reversed by use.** Every visit starts with a decision about which group to open, the remembered set is a second piece of state that can disagree with what is on screen, and a group added later arrives collapsed — where a new tab arrives visible (decision 21) |
-| **↑↓ buttons instead of a drag for the field lists** | Recommended, and declined by the user on 2026-08-24. The cost is stated rather than hidden: no harness in this repo can drive a drag, so `moveField` must be pure and covered, and §7 gains a browser step (decision 26) |
+| **↑↓ buttons instead of a drag for the field lists** | Recommended, and declined by the user on 2026-08-24. The cost is stated rather than hidden: no harness in this repo can drive a drag, so `moveField` must be pure and covered, and §7 gains a browser step (decision 26). **Two words of this have since been overtaken** — the function is `moveInList` now, and 1.4.0 showed a drag *can* be driven in `boot-smoke` (§2.9.1). The decision is unaffected: the cost was real when it was weighed, and these rows are still driven by nothing but a hand |
 | **A fix-version band named by the JOINED version string** | It keeps *lines equals items* exactly, which is the property the chosen answer spends — and it produces the heading `Flex 2026.6.x (LTS track), Flex 2026.9.0`, which groups only the issues carrying that exact pair. **So a release section does not list the release**, which is the only reason anybody groups by one. The property was worth less than the report (§2.15, decision 15) |
 | **A fix-version band on the FIRST version only** | Also keeps *lines equals items*, and it **drops a fact about the issue silently** — the issue really is in both releases and one section will not say so. Worse, *which* band it lands in depends on the order Jira happened to return the array, so the same collection can group differently on two presses with nothing to say why |
 | **Banding 📊 Report by the status NAME** | The names are this instance's own wording, so the band order is `Dev In progress`, `Dev Resolved`, `To Do` — alphabetical noise dressed as a workflow. The category is already fetched, it is Atlassian's fixed three, and it is what a rank can safely be written over (§2.15, decision 13) |
@@ -3370,6 +3605,15 @@ Notes on the controls:
 | **A fixed shape for the copy button — always `[KEY](url) Summary`** | Predictable, and it makes `Issue reference` a setting that governs three exports and not the fourth thing that writes a link. Two places would then decide what a collected issue looks like, and somebody who set `Key and URL, no summary` because their destination does not render markdown would get markdown from this button anyway |
 | **A bare URL, always, matching Chrome's *Copy link address*** | The most predictable answer and the closest to the browser's own gesture. It puts the ⚙ setting out of reach of this gesture entirely, and `URL only` is already one of the five shapes — so choosing it costs one dropdown instead of costing everybody else the setting |
 | **Reading the STORED summary when the hovered issue is already collected** | It never loses a summary, and the store's may be fresher than the page's (that is what ↻ is for). It also means the same hover copies different bytes before and after an add, which reads as a defect — and it makes `+` and `🔗` disagree about what the issue is called. The page, through the same six tiers, for both (§2.7.1) |
+| **A grip handle as the only drag target on a collection row** | It keeps mouse text selection and names the gesture where the gesture is. It costs a column in a 380px drawer whose summaries already ellipsise, and it differs from the field lists' whole-row drag for no reason a user would perceive. **Half of the case for it evaporated the same day**: it was also going to preserve the key link's native drag-out, and `setData` per type gave that back to the whole-row version anyway (§2.9.1, 2026-08-25) |
+| **Letting the key link's native drag-out simply be lost** | What the first draft of §2.9.1 shipped, with the loss recorded honestly as a cost of the whole-row target. **Reversed the same day by the user, in one question**: `setData` is callable once per type, so the drag can be our reorder and a link at the same time. Worth keeping in this table because the cost was stated clearly and accepted, and it was still avoidable — a stated cost is not a paid one, and nobody had checked |
+| **A bare URL as the dragged-out payload, matching what the anchor used to drop** | Nobody's habit changes, and it is the most predictable thing to drop. It puts a second decision about what a collected issue looks like in a second place, out of reach of `Issue reference` — the same defect §4 rejected for the `🔗` button two rows above, and `URL only` is already one of the five shapes for anyone who wants exactly this |
+| **An always-visible ⠿ on every collection row** | **Recommended, and declined by the user on 2026-08-25**, in favour of one painted only on hover. The recommendation was consistency with the field rows; what the user wanted was a quieter list. The cost moved rather than vanished: the width is still reserved on every row, because giving it back when the glyph is quiet would re-ellipsise the summary under the pointer — so what was bought is silence, not space |
+| **↑↓ buttons on collection rows instead of a drag** | The same shape declined for the field lists in decision 11, and with a better case here: this is user data, and it would be drivable by a harness with no synthetic drag at all. Declined for the same reason as before, plus one — two more controls on every row of the narrowest list in the drawer (§2.9.1) |
+| **Carrying the collection's id in the drag, to guard against the active collection changing mid-drop** | Written, and then deleted before it shipped. The scenario needs a click in another tab while a mouse button is held down here, which one pair of hands cannot do. It would have been a guard against a state no user can reach, and the record would have kept a hazard for the next reader to budget for (§2.9.1, 2026-08-25) |
+| **A sort-by-key button beside ↻** | Offered with the drag and declined. One press to order a list is better than fifty drags, and it silently destroys a hand-made order with no undo — which is precisely what this section's two destructive controls are armed against. Sorting stays in §6 item 7 |
+| **Reordering the collection chips by drag** | The neighbouring gesture, and it contradicts §2.4: the first chip is not decoration, it is the collection an add goes into, so dragging a chip would silently switch collections |
+| **Letting a new add land at the top once the order has been touched** | It puts the thing you just did where you can see it. It makes the add path behave differently depending on state nothing on screen shows, and §2.9 had already rejected newest-first for this list because it disagrees with the paste |
 | **No summary at all from the copy button** | It removes the question. It also makes two of the five shapes silently stop carrying a summary from this one button, which is a setting that quietly fails to apply — the exact failure §2.14 warns about |
 | **Shipping the copy button with no switch** | Fewer knobs, and it takes nothing away, which is the test every other switch here was chosen by. But it does cost **room**: the rail is 52px instead of 24px over the row's own left margin, and on the issue-search table that may reach the selection checkbox. That is a cost use can find and nothing here can measure, so the switch ships with it rather than after it. It is on by default (§2.7.1) |
 | **A toast for a copy made from the right-click menu** | The menu closes on every entry, so a copy made there has no receipt when the rail's copy button is switched off. A toast would fix it and would be the only thing in the script that used one — for a corner of a preference that itself ships off. Recorded as a cost instead |
@@ -3558,8 +3802,15 @@ These are not gaps in the design. Each was named, and each was left.
    and because Jira's own board drags are pointer-based, so this is the mechanism
    least likely to collide with them. Adding a keyboard path to it and to nothing
    else would say this limit had moved when it has not; if it ever does move, all
-   three drags move together, and ↑↓ buttons on the field lists are the shape that
+   the drags move together, and ↑↓ buttons on the field lists are the shape that
    was already considered and declined (§4, decision 11).
+   **A FOURTH ARRIVED AT 1.4.0 — the collection's own items (§2.9.1) — and it is
+   pointer-only on the same terms, with one cost this item should name rather than
+   inherit.** The other three move a preference or a box; this one moves USER DATA,
+   so the case for a keyboard path is stronger here than anywhere it has been
+   refused before. It is still refused, and the reason is unchanged: granting it to
+   one drag and not the other three would say the limit had moved. **The count in
+   this item is now four, and the rule is still all-or-none.**
 5. **The dashboard gadget.** See risk 7.
 6. **Import into a collection** — pasting a list of keys, or adding every result of
    a JQL query. "Add all 12,816 results" belongs here, not to the scan. Search
@@ -3581,8 +3832,19 @@ These are not gaps in the design. Each was named, and each was left.
    **What is still open is everything about the COLLECTION itself**, and the
    distinction is the point: §2.15 groups a *document built from* the collection,
    which leaves the collection's own array untouched — its order still survives
-   inside every band, as it does in every other format. Manual reorder, sort by key,
-   and any grouping of the drawer's own list are unaffected by this and stay here.
+   inside every band, as it does in every other format.
+   **The MANUAL-REORDER half is CLOSED on 2026-08-25 — see §2.9.1.** The drawer's
+   item rows drag, and what they write is the collection's own array, which is what
+   every export emits. That is the first time this array has been anything but
+   insertion order, and the promise it always carried — *array order is what a copy
+   emits* — is what makes the feature worth having. `format-smoke` §18 asserts it
+   across all six exports, including that a moved row keeps its new place **inside**
+   a 📊 Report band, which is the one export that could plausibly have thrown the
+   order away.
+   **Sort by key and any grouping of the drawer's own list are still open and stay
+   here.** Both were offered alongside the drag on 2026-08-25 and declined: a sort
+   silently destroys a hand-made order and has no undo, which is exactly what §2.9's
+   two destructive controls are armed against.
 8. **Capture from Bitbucket and Confluence.** Out of scope for this effort, and
    **intended future work rather than a hypothetical** — the user's instruction.
    The store already reaches both, because it is per-script; Confluence Cloud also
@@ -3826,7 +4088,9 @@ replaced by something else.
 | 32, less the fix-version paste | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira, AND IT IS THE STEP THAT FOUND A DEFECT** | 📊 Report's two bands, used rather than read. The dropdowns were pressed and the grouped reports came back **working**. **The duplicate pair was found HERE and by nothing else**: the ticket shipped `Team` then `Team` reachable and argued in writing that it was harmless — useless, truthful, visible on the paste — and one press said otherwise, which is the whole reason this step exists rather than a table of assertions. The answer, a greyed option plus a one-press swap, was pressed the same day and reported **working well**. Everything about the bytes is held outside a browser and it is the largest block in `format-smoke`: each of the seven as band 1 and again as band 2, every `No …` heading, empty-sorts-last in both bands, the status categories in Atlassian's order and not alphabetically, one non-default pair byte for byte in both flavours, the five paste rules over every pair, and the multi-valued line count — plus `bandPatch` directly, and a sweep proving no press on either dropdown from any starting pair can produce a duplicate |
 | 32's fix-version export | **CONFIRMED IN A BROWSER, 2026-08-25** | A report banded by fix version, on a collection holding real issues in two releases. **Reported exported as expected** — so the one output in this effort that breaks *lines equals items* on purpose comes out the way the design says, on real data rather than on the harness's three-row sample, and the repetition read as intended rather than as a fault. That was the open question: the bytes were already held (the line count is items plus one, and the issue is under both headings), and whether a document listing one issue twice looks deliberate is not a thing bytes can answer. **What this run does NOT say**, recorded so it is not read as more than it is: the report was of the export, and **no paste target was itemised** — nothing here records Outlook against Teams for a banded report, the way appendix A.9 does for the chips. The chips inside those rows are unchanged from A.9's own pastes, which is why that gap blocks nothing |
 | 32's remaining bullets | **NO REPORT EITHER WAY** | The two dropdowns at the 300px floor, the `KEY Summary` and `Unassigned` wording at the size it is read, and `Restore export defaults` putting both dropdowns back. Listed rather than claimed, and none of them blocks: the first is the same grid step 30 already measured at that width, and the last is held by `boot-smoke` in state if not in paint |
-| the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor is no longer DECIDED but MEASURED** — it had been settled by argument with a fallback ready (decision 26), a row was dragged at the floor on 2026-08-25, and it came back working, so the fallback was not needed. The reasoning behind the decision still stands for the day the panel grows past eight rows. What has still never been driven by anything but a hand is the drag itself |
+| the FIELD lists' drag | **NOTHING HERE STANDS IN FOR IT** — and the "EVER" that used to be in this cell was withdrawn on 2026-08-25 | This is the cost of decision 11, paid where it falls. What IS held outside a browser is everything on either side of the pointer — `moveInList` (né `moveField`) against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor is no longer DECIDED but MEASURED** — it had been settled by argument with a fallback ready (decision 26), a row was dragged at the floor on 2026-08-25, and it came back working. The reasoning still stands for the day the panel grows past eight rows. **What changed is the word "ever".** 1.4.0 drove the COLLECTION's drag synthetically in `boot-smoke` (row below), which proves the mechanism was always reachable; these rows were not retro-fitted because the user scoped that out, so this cell now records a gap in the harness rather than a limit of it |
+| the COLLECTION's drag, since 1.4.0 | **DRIVEN IN THE HARNESS, except for the pointer** | `boot-smoke` runs `dragstart` → `dragover` → `drop` → `dragend` through the delegated listeners the script really registers, with a rect stubbed per row so "the top half" means something. It asserts all four payload types and their bytes — the internal one carrying a KEY, and `text/plain`, `text/html` and `text/uri-list` against the same literals the `🔗` press is asserted against, so one issue cannot come to have two shapes; that `effectAllowed` is `copyMove`; that the top half marks the gap above and the bottom half the gap below; that dropping below the last row appends; that a release with no drop writes nothing and unfreezes the list; that the drawer does **not** redraw while the pointer is down; and — the one it exists for — that a write landing mid-drag survives the drop, because `update` re-reads before it writes. **Fourteen deliberate defects were reintroduced one at a time, in two runs, and every one went red.** **What is still nobody's but a hand's:** whether a row is comfortable to grab, and whether a fifty-row list auto-scrolls at its edge. That is step 39 |
+| 39, less two items | **CONFIRMED IN A BROWSER, 2026-08-25, and itemised rather than taken from "it works"** | Both halves of a row and the append; a row grabbed by its KEY, with the key still opening the issue afterwards; the copy in the new order; the refusal onto `On this page`; and the drag OUT into a plain editor, a rich one or Slack/Teams, **and again after `Issue reference` was changed**, which is the only way from outside the harness to see that one place decides what a collected issue looks like. **The item this step exists for came back working: the list auto-scrolls at its edge**, so §2.9.1's bet on the platform paid and no auto-scroll needs writing. **And the mis-drop hazard did not fire** — a row dropped on the Jira page did not navigate the tab, which §2.9.1 records as *unobserved* rather than *retired*, because Jira's own drop handlers explain it as well as the browser does. **NOT RUN:** the whole step at the 300×215 floor, auto-scroll included — which is the size decision 26's equivalent was actually about — and the two paint items, which were not itemised |
 | 33 | **NOT RUN, and it is the cheapest step in this section** | The truncation the ⚙ screen replaces, in devtools, at the 300×215 floor. Every argument for the screen rests on it and nobody has looked at it. It confirms a REJECTED design was as bad as this document says — the one step here with that job |
 | 34 | **NOT RUN. Appendix A.9.1 says in its own words what it does not record** | Each of the five line shapes pasted into Outlook and into Teams in both skins, itemised. A.9.1 answered the yes/no that was blocking — a visible URL survives and stays clickable — from the user's own report rather than from a screenshot matrix, so **there is no per-target table for the shapes** the way there is for the chips. Nothing blocks on it, and 1.2.0 shipped without it |
 | 35 | **Needs Tampermonkey's storage view** | The remembered tab across a reload, and a tab id no build knows landing on the first tab **with content drawn**. `boot-smoke` holds both in state; what is missing is the paint, and this is the one preference whose failure mode is an empty screen rather than a wrong value |
@@ -4003,10 +4267,14 @@ pass each, and they are cheap.
     a value the handler wrote. The BYTES need no browser: the harness asserts all five
     shapes on all three exports in both flavours, and the paste that chose them is
     appendix A.9.1.
-31. **THE FIELD LISTS' DRAG, WHICH IS THE ONE THING IN THIS EFFORT NO HARNESS CAN
-    TOUCH.** `boot-smoke` has no layout and no paint, so it cannot put a pointer in
-    the top half of a row; `format-smoke` covers `moveField` directly and this step
-    covers everything between the pointer and it.
+31. **THE FIELD LISTS' DRAG, WHICH NOTHING IN THE HARNESS DRIVES.** `smoke.mjs`
+    covers `moveInList` directly and this step covers everything between the pointer
+    and it.
+    **The heading of this step used to say "the one thing in this effort no harness
+    CAN touch", and that was corrected on 2026-08-25.** 1.4.0 drove the collection's
+    drag synthetically in `boot-smoke` (step 39), so a drag was always reachable; it
+    was not retro-fitted to these rows because the user scoped that out. The step
+    stands, for the narrower reason that nothing drives it — not that nothing could.
     **Run in a browser on 2026-08-25, less the sixth item.** What the pass added is
     everything a harness cannot see: the paint, the refusal, and the floor — and it
     also retired half of item 3 into the harness, which is the better outcome than
@@ -4189,6 +4457,85 @@ pass each, and they are cheap.
     still happens and **there is no receipt at all**. That is the recorded cost, not
     a defect — confirm it is that and not a silent failure by watching the console at
     debug level (§2.7.1).
+
+39. **THE COLLECTION'S DRAG, AND THE TWO THINGS ABOUT IT NO HARNESS CAN SEE (§2.9.1,
+    1.4.0).** Unlike step 31, the wiring of this one **is** held outside a browser —
+    `boot-smoke` drives the whole gesture. So this step is deliberately short, and
+    everything in it is either paint, pointer feel, or the platform's own behaviour.
+    Collect at least fifteen issues, then:
+    > **RUN IN A BROWSER ON 2026-08-25, LESS TWO ITEMS, AND ONE RESULT CHANGED A
+    > STANDING.** Itemised with the user rather than taken from *"confirmed as
+    > working"*, because a use report is not a run of a numbered step.
+    >
+    > **Exercised and correct:** both halves of a row and the append below the last;
+    > a row grabbed by its KEY, and that same key still opening the issue on a click
+    > afterwards; the copy after a reorder, in the new order; the refusal of a drop
+    > onto `On this page`; and all three drag-out destinations — a plain editor, a
+    > rich one or Slack/Teams, and the same row dragged again after `Issue reference`
+    > was changed, which came out in the new shape.
+    >
+    > **THE ONE THIS STEP EXISTS FOR CAME BACK WORKING: the list auto-scrolls** when
+    > a row is held at its edge, so the bet §2.9.1 placed on the platform paid and
+    > there is no auto-scroll to write.
+    >
+    > **A mis-drop onto the Jira page did NOT navigate the tab.** Better than the
+    > design allowed for — and §2.9.1 says why that is recorded as *unobserved*
+    > rather than *retired*, because Jira's own drop handlers are as likely an
+    > explanation as the browser's behaviour, and neither was separated here.
+    >
+    > **NOT RUN, and neither blocks:** the whole thing at the drawer's 300×215 floor
+    > — including the auto-scroll, which is the size where the edge strips are
+    > closest together and is what decision 26's equivalent was actually about; and
+    > the two paint items below, which were not itemised. What a green harness cannot
+    > see there is whether the dragged row keeps its ground and its ⠿ for the whole
+    > gesture, and whether the indicator stays one line that never changes a row's
+    > height. `css-smoke` holds all four of those as rules; nothing holds them as
+    > pixels.
+    - **Drag a row and drop it in the TOP half of another.** It must land above that
+      row. Then repeat into the BOTTOM half: it must land below.
+    - **Watch the row you are holding.** It must keep its own background while the
+      pointer is on it, and the ⠿ must stay visible for the whole drag — `:hover`
+      does not update mid-drag, which is why the sheet paints the grip on the dragged
+      row as well.
+    - **Watch the row you are NOT holding.** A single line marks one gap, and it must
+      move with the pointer rather than leaving a trail. Nothing may change height as
+      it appears: if a row jumps, the transparent border has been lost.
+    - **Grab a row by its KEY.** It must move the row. If the browser starts dragging
+      a link instead, `draggable="false"` on the anchor has gone.
+    - **Then click that same key.** It must still open the issue: the drag may not
+      have eaten the click.
+    - **THE ONE THIS STEP EXISTS FOR — drag a row towards the top or bottom edge of a
+      long list and hold it there.** The list must scroll. Nothing in the Cart makes
+      that happen; it is the platform's, and §2.9.1 bet on it rather than writing it.
+      **If it does not scroll, that is a finding and not a defect report** — it means
+      the bet lost and the auto-scroll is ours to write.
+    - **Then do the same at the drawer's 300×215 floor**, which is where step 31's
+      equivalent surprised nobody but was worth running anyway.
+    - **Copy afterwards.** Press 🔗 Links and 📊 Report: the new order must be what
+      comes out, and in the report it must be the order **inside** each heading.
+    - **Drag a row onto the `On this page` list above it.** It must be refused — the
+      cursor says no and nothing moves. Like step 31's cross-list refusal, this is the
+      platform's own refusal standing because `dragover` declines to `preventDefault`,
+      so there is nothing in the file to assert about it.
+    - **THE DRAG OUT, WHICH IS THE OTHER HALF OF THIS STEP (§2.9.1).** The bytes are
+      held in `boot-smoke` against the `🔗` button's own literals, so what needs a
+      hand is only whether real applications accept them. Drag a row into:
+      **a plain text editor** (Notepad, or whatever is nearest — note that some
+      builds of Notepad accept only a dropped *file*, which is the app's business and
+      not a defect here); **a rich editor** that takes HTML; and **Slack or Teams**,
+      which is where these lists actually go. The text must be that issue in the
+      `Issue reference` shape, and the row must **stay in the collection** — it is a
+      copy, and a row that vanished would mean `dropEffect` reached us wrong.
+    - **Change `Issue reference` and drag the same row again.** The dropped text must
+      change with it. If it does not, a second place is deciding what an issue looks
+      like, which is what §4 rejected twice.
+    - **THE HAZARD, LOOKED AT ON PURPOSE.** Drag a row and drop it on the Jira page
+      itself — not on the drawer, on the page behind it. **The tab may navigate to
+      that issue**, because a `text/uri-list` drop is a link drop and that is the
+      browser's own answer to one. Record which browser did what. This was true of
+      the key link before 1.4.0 and the target is bigger now; the cost was accepted
+      with the type (§2.9.1), so what this item settles is how easy it is to hit,
+      not whether it happens.
 
 ---
 
