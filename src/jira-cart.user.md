@@ -1975,6 +1975,26 @@ mirroring. **That hazard is not new**: the anchor's native drag had it before 1.
 What is new is that the target is now the whole row rather than the key, so a
 mis-drop is easier to make. §7 step 39 looks at it rather than assuming either way.
 
+> **LOOKED AT ON 2026-08-25, AND NOTHING HAPPENED.** The user dropped a row onto the
+> Jira page behind the drawer and the tab did not navigate. **The accepted cost was
+> not charged**, which is a better outcome than the design allowed for.
+>
+> **Read this narrowly, because there are two explanations and this run does not
+> separate them.** Either the browser declined to navigate on a `text/uri-list` drop
+> into page content, or **Jira's own page swallowed the drop** — it is a
+> drag-and-drop application in its own right, with `dragover` handlers of its own on
+> boards, backlogs and attachment zones, and any one of them calling
+> `preventDefault` would produce exactly this result. **The second explanation is
+> instance-shaped and view-shaped**: it could hold on a board and not on a settings
+> page, and it says nothing about a different browser.
+>
+> So the paragraph above is kept exactly as written. What changed is that the hazard
+> is now **unobserved** rather than **assumed**, on one browser, one Jira instance,
+> one view, one attempt. It is not retired, and nothing in the file depends on it
+> either way — if it ever does fire, the remedy is a `dragover` on the document that
+> swallows our own drag, which §2.9.1 costed and declined precisely because the
+> hazard was thought to be the browser's rather than ours to prevent.
+
 **And it corrects a line this document has carried since 1.0.0.** §2.9 says copying
 one row out of the collection is refused, *because the collection is the selection*.
 That was never quite true — the platform gave per-row extraction away through the
@@ -2041,6 +2061,24 @@ platform auto-scrolls a scrollable box when a drag nears its edge, and whether i
 does so *here* is **§7 step 39** — a measurement, not a decision. This is the same bet
 decision 26 made about whether a field row could be dragged at the floor, which came
 back working. If this one comes back not working, the answer is ours to write.
+
+> **THE BET PAID, MEASURED 2026-08-25.** The user dragged a row toward the edge of a
+> long list and held it there, and **the list scrolled**. So there is no auto-scroll
+> to write, and the paragraph above is kept rather than replaced because the
+> *standing* of a claim is what this document tracks: for a few hours this rested on
+> an argument about what the platform does, and now it does not.
+>
+> **What it does NOT say.** It was not run at the drawer's 300×215 floor, which is
+> the size where the scrollable area is smallest and the edge strips are closest
+> together. That half stays a bet, and it is the half decision 26's equivalent was
+> actually about. One browser, one instance, one person, one sitting.
+
+**The drag out was measured in the same sitting**, and all three destinations took
+it: a plain text editor, a rich editor or Slack/Teams, and the same row dragged again
+after `Issue reference` was changed — which came out in the new shape. That last one
+is the one worth having: it is the check that no second place decides what a
+collected issue looks like, and it is the only way to see it from outside the
+harness.
 
 **What did not change.** The chips keep their most-recently-activated order (the
 table above). There is no sort button: a sort would silently destroy a hand-made
@@ -4052,6 +4090,7 @@ replaced by something else.
 | 32's remaining bullets | **NO REPORT EITHER WAY** | The two dropdowns at the 300px floor, the `KEY Summary` and `Unassigned` wording at the size it is read, and `Restore export defaults` putting both dropdowns back. Listed rather than claimed, and none of them blocks: the first is the same grid step 30 already measured at that width, and the last is held by `boot-smoke` in state if not in paint |
 | the FIELD lists' drag | **NOTHING HERE STANDS IN FOR IT** — and the "EVER" that used to be in this cell was withdrawn on 2026-08-25 | This is the cost of decision 11, paid where it falls. What IS held outside a browser is everything on either side of the pointer — `moveInList` (né `moveField`) against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor is no longer DECIDED but MEASURED** — it had been settled by argument with a fallback ready (decision 26), a row was dragged at the floor on 2026-08-25, and it came back working. The reasoning still stands for the day the panel grows past eight rows. **What changed is the word "ever".** 1.4.0 drove the COLLECTION's drag synthetically in `boot-smoke` (row below), which proves the mechanism was always reachable; these rows were not retro-fitted because the user scoped that out, so this cell now records a gap in the harness rather than a limit of it |
 | the COLLECTION's drag, since 1.4.0 | **DRIVEN IN THE HARNESS, except for the pointer** | `boot-smoke` runs `dragstart` → `dragover` → `drop` → `dragend` through the delegated listeners the script really registers, with a rect stubbed per row so "the top half" means something. It asserts all four payload types and their bytes — the internal one carrying a KEY, and `text/plain`, `text/html` and `text/uri-list` against the same literals the `🔗` press is asserted against, so one issue cannot come to have two shapes; that `effectAllowed` is `copyMove`; that the top half marks the gap above and the bottom half the gap below; that dropping below the last row appends; that a release with no drop writes nothing and unfreezes the list; that the drawer does **not** redraw while the pointer is down; and — the one it exists for — that a write landing mid-drag survives the drop, because `update` re-reads before it writes. **Fourteen deliberate defects were reintroduced one at a time, in two runs, and every one went red.** **What is still nobody's but a hand's:** whether a row is comfortable to grab, and whether a fifty-row list auto-scrolls at its edge. That is step 39 |
+| 39, less two items | **CONFIRMED IN A BROWSER, 2026-08-25, and itemised rather than taken from "it works"** | Both halves of a row and the append; a row grabbed by its KEY, with the key still opening the issue afterwards; the copy in the new order; the refusal onto `On this page`; and the drag OUT into a plain editor, a rich one or Slack/Teams, **and again after `Issue reference` was changed**, which is the only way from outside the harness to see that one place decides what a collected issue looks like. **The item this step exists for came back working: the list auto-scrolls at its edge**, so §2.9.1's bet on the platform paid and no auto-scroll needs writing. **And the mis-drop hazard did not fire** — a row dropped on the Jira page did not navigate the tab, which §2.9.1 records as *unobserved* rather than *retired*, because Jira's own drop handlers explain it as well as the browser does. **NOT RUN:** the whole step at the 300×215 floor, auto-scroll included — which is the size decision 26's equivalent was actually about — and the two paint items, which were not itemised |
 | 33 | **NOT RUN, and it is the cheapest step in this section** | The truncation the ⚙ screen replaces, in devtools, at the 300×215 floor. Every argument for the screen rests on it and nobody has looked at it. It confirms a REJECTED design was as bad as this document says — the one step here with that job |
 | 34 | **NOT RUN. Appendix A.9.1 says in its own words what it does not record** | Each of the five line shapes pasted into Outlook and into Teams in both skins, itemised. A.9.1 answered the yes/no that was blocking — a visible URL survives and stays clickable — from the user's own report rather than from a screenshot matrix, so **there is no per-target table for the shapes** the way there is for the chips. Nothing blocks on it, and 1.2.0 shipped without it |
 | 35 | **Needs Tampermonkey's storage view** | The remembered tab across a reload, and a tab id no build knows landing on the first tab **with content drawn**. `boot-smoke` holds both in state; what is missing is the paint, and this is the one preference whose failure mode is an empty screen rather than a wrong value |
@@ -4424,6 +4463,34 @@ pass each, and they are cheap.
     `boot-smoke` drives the whole gesture. So this step is deliberately short, and
     everything in it is either paint, pointer feel, or the platform's own behaviour.
     Collect at least fifteen issues, then:
+    > **RUN IN A BROWSER ON 2026-08-25, LESS TWO ITEMS, AND ONE RESULT CHANGED A
+    > STANDING.** Itemised with the user rather than taken from *"confirmed as
+    > working"*, because a use report is not a run of a numbered step.
+    >
+    > **Exercised and correct:** both halves of a row and the append below the last;
+    > a row grabbed by its KEY, and that same key still opening the issue on a click
+    > afterwards; the copy after a reorder, in the new order; the refusal of a drop
+    > onto `On this page`; and all three drag-out destinations — a plain editor, a
+    > rich one or Slack/Teams, and the same row dragged again after `Issue reference`
+    > was changed, which came out in the new shape.
+    >
+    > **THE ONE THIS STEP EXISTS FOR CAME BACK WORKING: the list auto-scrolls** when
+    > a row is held at its edge, so the bet §2.9.1 placed on the platform paid and
+    > there is no auto-scroll to write.
+    >
+    > **A mis-drop onto the Jira page did NOT navigate the tab.** Better than the
+    > design allowed for — and §2.9.1 says why that is recorded as *unobserved*
+    > rather than *retired*, because Jira's own drop handlers are as likely an
+    > explanation as the browser's behaviour, and neither was separated here.
+    >
+    > **NOT RUN, and neither blocks:** the whole thing at the drawer's 300×215 floor
+    > — including the auto-scroll, which is the size where the edge strips are
+    > closest together and is what decision 26's equivalent was actually about; and
+    > the two paint items below, which were not itemised. What a green harness cannot
+    > see there is whether the dragged row keeps its ground and its ⠿ for the whole
+    > gesture, and whether the indicator stays one line that never changes a row's
+    > height. `css-smoke` holds all four of those as rules; nothing holds them as
+    > pixels.
     - **Drag a row and drop it in the TOP half of another.** It must land above that
       row. Then repeat into the BOTTOM half: it must land below.
     - **Watch the row you are holding.** It must keep its own background while the
