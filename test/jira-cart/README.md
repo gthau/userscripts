@@ -5,7 +5,7 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**845 checks across seven files. No framework, no `package.json`, no dependencies.**
+**1,089 checks across seven files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
@@ -20,10 +20,10 @@ answer.
 | File | Checks | What it holds |
 | --- | --- | --- |
 | `smoke.mjs` | 32 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` |
-| `store-smoke.mjs` | 110 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
+| `store-smoke.mjs` | 119 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of all eight views, and `groupFor`'s **two** answers — place beside the key, read from the widest |
-| `format-smoke.mjs` | 351 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It also holds **`moveField` directly** — the middle, both ends, an out-of-range index, a string index, and both no-ops — because no harness here can drive the drag itself |
-| `boot-smoke.mjs` | 250 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one |
+| `format-smoke.mjs` | 555 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It also holds **`moveField` directly** — the middle, both ends, an out-of-range index, a string index, and both no-ops — because no harness here can drive the drag itself |
+| `boot-smoke.mjs` | 281 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one |
 | `css-smoke.mjs` | 46 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
 
@@ -74,7 +74,7 @@ the `injectStyle` call, resolves the `${...}` names from the real constants, par
 the rules, and computes selector specificity. That is the only way to see the three
 bugs it exists for, because **none of them is visible to JavaScript**.
 
-## `paste-test.html` — the one thing here that is not a harness
+## `paste-test.html` — the one thing here that is not a harness, and since 1.2.0 the ONLY one
 
 Open it in a browser. It emits **byte-identical HTML to `formatDetails`** and has a
 button that puts both flavours on the real clipboard, so a paste into Outlook, Teams,
@@ -86,21 +86,55 @@ question about a paste target will be answered the same way. **Keep its chips sh
 byte-identical to the script** — if it drifts it starts answering a question about
 itself. `run.mjs` does not pick it up; it globs `*-smoke.mjs`.
 
-## `config-prototype.html` — and it has diverged from the script
+Since 1.2.0 the page carries two more things:
 
-The configurability effort's switchable page. **Its shape table has FOUR rows and the
-script has five**, and the prototype is the thing that is wrong: the fifth shape,
-`markdown-key`, was asked for by the paste the prototype's own copy button made
-possible (ADR appendix A.9.1), and it was never added back. Its other four rows are
-byte-identical to the script's and its labels are the ones that shipped. It also still
-carries a warning about the em dash collision on the plain shapes, which the same
-paste **accepted** on 2026-08-24, so that warning describes an open question that is
-closed.
+- **`Issue reference`, in the instrument rack.** The script's own `SHAPES` table,
+  carried across, so all five line shapes reach the clipboard button. That is what
+  ADR §7 step 34 needs: appendix A.9.1 answered the yes/no that was blocking — a
+  visible URL survives and arrives clickable — and it records in its own words that
+  it never itemised which shape went into which target.
+- **The ⚙ bench, at the foot.** The drawer at real proportions, with a width and a
+  height switch down to the 300×215 floor, so the settings screen can be looked at
+  rather than read about. It drives nothing above it, and the page's own fence says
+  so.
 
-Nothing here reads the prototype, so nothing goes red when it drifts — which is why it
-is written down. **What happens to it is ticket 06's call**, and that ticket names the
-three options: merge it into `paste-test.html`, keep both, or let it supersede the rig.
-Until then, read the script's `SHAPES` and not this file.
+### `config-prototype.html` was MERGED INTO IT AND DELETED, at 1.2.0
+
+Ticket 06 named three options — merge, keep both, or let the prototype supersede the
+rig — and **merge was chosen, on the ground the ticket gave: two rigs is two chances
+to drift.** That ground turned out to be understated. **Both files had drifted, and
+neither drift was found by anything going red**, because nothing here reads either:
+
+| What was wrong | Since |
+| --- | --- |
+| The prototype's shape table had **four rows where the script has five**. `markdown-key` was asked for BY a paste the prototype's own copy button made possible (A.9.1) and never added back | 2026-08-24 |
+| The prototype's `renderStage` queried `.bench`, **a class no element on that page carried**, so it threw on every call — including the one at load, which is why the drawer never took its width, its height, its zoom or its mode | the commit that first tracked it |
+| `paste-test`'s own `render` read `grouped` **before its `const`**, which is a temporal dead zone: it threw `ReferenceError` on every call. The page opened, the instruments drew, and the three surfaces stayed empty. `Copy this shape for real` kept working the whole time, because it calls the builder itself and never goes through `render` — so the one control that can answer anything was the one control that still did | the commit that first tracked it |
+
+All three are fixed. The prototype's export specimens did not come across, because
+this page already emits those and does it byte-identically; its own palette, its own
+seven issues and its own copy of `detailBits` went with them. What did come across is
+the settings mock, and **its three approximations are fenced on the page itself**
+rather than left to be discovered: the `--cart-*` chrome colours, the sketched drawer
+body, and the tab remembered in `localStorage` where the script uses
+`gt-jira-cart.prefs`.
+
+### Verifying the chips, which is the rule this page lives under
+
+`run.mjs` cannot do it — nothing under `test/` reads an HTML file, and adding an
+eighth harness that did would give every other file a second seam to point at the
+code. So it is a **diff run by hand, and ticket 06 required it rather than assuming
+it**: emit one collection from the page's `buildChips` and from the script's
+`formatDetails`, on all five shapes in both flavours, and require every byte to
+match. Run it after touching either. **It was run at 1.2.0 and it is
+byte-identical.**
+
+The same session also booted the whole page against a fake DOM and pressed every
+instrument, which is what found the `grouped` fault above and proved the fix by
+putting the fault back and watching it throw again. Neither script is committed —
+they are twenty lines of `readFileSync` plus the extraction this directory already
+does six times — but **that is the shape of the check, and it is cheaper than
+believing the page works.**
 
 ## What a green run does NOT say
 
@@ -114,6 +148,19 @@ bytes changed and **it will not tell you whether the result is readable**.
 The same applies to the fake DOM: it has no cascade, no layout and no paint, which is
 why `css-smoke` exists separately and why §7 still has steps only a browser can
 answer.
+
+**NOTHING HERE CAN DRIVE A DRAG.** It follows from the line above and it is worth
+saying in its own sentence, because 1.2.0 added a third one — the field lists'
+reorder — and its cost was named *before* the feature was chosen rather than found
+afterwards (ADR §4, decision 11). `boot-smoke` has no layout, so there is no top half
+of a row to put a pointer in and no grip to pull. What stands in its place is
+everything on either side of the pointer: `moveField` is a pure function
+`format-smoke` drives directly, and the panel's rows, their ticks, the writes they
+make and the stored order the panel draws are all in `boot-smoke`. **A green run says
+nothing about whether a row can be dragged at all**, which is why ADR §7 step 31 is a
+browser step and why the cross-list refusal in it has nothing in the file to assert
+about — that refusal is the platform's own, standing because `onFieldOver` declines
+to call `preventDefault`.
 
 ## The one seam, if the Cart becomes a browser extension
 
@@ -195,3 +242,33 @@ four exports' bytes do not MOVE when a preference moves, where every other check
 them runs with the defaults and only ever said the bytes are 1.1.0's. What changed is
 the comment, which now says what the check holds rather than what it was meant to.
 **Run the mutation before writing the comment**, not after.
+
+### The 1.2.0 mutation run, and what it does and does not say
+
+Ticket 06 asked for every check the six tickets added to be **proven able to fail**.
+The honest form of that, over 604 new checks, is a mutation run: change one thing the
+tickets landed, and require the harness to go red.
+
+**26 mutations, and 0 survived.** Each names the claim it is meant to make a liar of,
+and each is a single edit to `src/jira-cart.user.js` in a scratch copy:
+
+| Area | Mutations | Caught by |
+| --- | --- | --- |
+| **01, the preferences** | a list keeps a field's place when unticked; `on` is true only when exactly `true`; an unmentioned catalogue field is appended OFF; a duplicate collapses to its first entry; an unknown id is dropped; `reportBand1` may not be `none`; a new field arrives OFF in both defaults; an unknown tab id lands on the first tab | `store-smoke`, and five of the eight also `boot-smoke` |
+| **03, the line shapes** | the default is what 1.1.0 emitted; `markdown` drops its space with the summary; `key-summary-url` keeps its separator with its value; the table names the vocabulary's ids in its order; every shape defines both flavours; `bold` reaches 📋 Details' head and not 🔗 Links' | `format-smoke`, four of the six also `boot-smoke` |
+| **04, the field lists** | `moveField`'s middle case, its out-of-range refusal, and that it returns a **copy** rather than splicing its argument; the tail prints in stored order; an unticked field does not print; the selection reaches only its own export; the fields are read at render and never at fetch | `format-smoke`, four also `boot-smoke`, one also `tabs-smoke` |
+| **05, the bands** | the two may not name one field; the swap moves the other dropdown to what this one held; the status categories come out in Atlassian's order and not alphabetically; the default pair is priority then team | `format-smoke` and `boot-smoke`, one also `tabs-smoke` |
+| **the stylesheet** | the ⚙'s state paint survives a hover | `boot-smoke`, `format-smoke` |
+
+**What it does not say, and this matters more than the number.** A mutation run proves
+that *something* goes red, not that the check you had in mind is the one that caught
+it — several of these are caught by three files at once. And it says nothing about a
+claim nobody wrote a check for: a mutation only exists where somebody thought of the
+failure. It is a floor, not a ceiling.
+
+**Two mutations were written badly before they were written well**, and both failed in
+the same way the backtick check did — by changing no byte. Adding a defaulted
+parameter to `detailBits` does nothing, because every caller passes the argument; and
+adding a fourth parameter to `formatLinks` does nothing, for the reason recorded
+above. **A mutation that survives is as likely to be a bad mutation as a missing
+check**, so read the diff before believing the result.

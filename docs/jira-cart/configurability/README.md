@@ -13,6 +13,19 @@
 Settled by grilling on 2026-08-21 and 2026-08-22, and by a prototype
 (`test/jira-cart/config-prototype.html`) that overruled the first UI design twice.
 
+> **ALL SIX TICKETS LANDED, AND 1.2.0 SHIPPED ON 2026-08-25.** The ADR carries every
+> decision below, amended in place and dated. The prototype named above **no longer
+> exists**: ticket 06 merged what was worth keeping into
+> [`test/jira-cart/paste-test.html`](../../../test/jira-cart/paste-test.html) and
+> deleted it, on the ground that two rigs is two chances to drift. That ground was
+> understated — **both** rigs had drifted, and neither drift was found by anything
+> going red, because nothing under `test/` reads an HTML file. The table in that
+> directory's README lists all three faults.
+>
+> **From here, read the ADR and not this file.** This is the dated evidence: the
+> questions as they were asked, the alternatives with their grounds, and the four
+> answers that use overturned. It is not maintained.
+
 ---
 
 ## The decision, in one paragraph
@@ -463,7 +476,12 @@ be fixed by whichever ticket touches that section.
    has been putting on the clipboard, and nobody has pasted a Details line with an
    unbolded key. The shared shape carries a `bold` flag; §2.14 says so, dated.
 2. **`formatReport`'s docblock still says one press arms both stepped buttons.**
-   §2.15 reversed that on 2026-08-21 and the comment never caught up. Ticket 05.
+   §2.15 reversed that on 2026-08-21 and the comment never caught up. Ticket 05. —
+   **FIXED on 2026-08-25.** The docblock now carries the reversal with its date and
+   its reason: `detailsHeld` holds the KIND that produced it, and a button offers a
+   copy only for its own kind. The original argument is kept rather than deleted,
+   because it was right about the DATA and wrong about the CONTROL, and that is the
+   part worth not making twice.
 
 ---
 
@@ -476,14 +494,24 @@ be fixed by whichever ticket touches that section.
                  └── 05 report bands ─────────────┘
 ```
 
-| # | Ticket | What it lands |
-| --- | --- | --- |
-| [01](01-preferences.md) | The preferences exist before anything reads them | New keys, range-checked, `store-smoke`. No visible change |
-| [02](02-settings-screen.md) | ⚙ is a screen, not a strip | The mode, the state button, the tabs, the restore |
-| [03](03-issue-reference-presets.md) | One head, five shapes, both flavours | The shared line-shape preset |
-| [04](04-field-lists.md) | Two selections over one catalogue | The two field lists and the drag |
-| [05](05-report-bands.md) | Seven bands, and one of them repeats an issue | Generalised grouping |
-| [06](06-record-and-ship.md) | The version, the rig and the record | 1.2.0, the rig, the docs |
+| # | Ticket | What it lands | Landed | What changed once it met real code |
+| --- | --- | --- | --- | --- |
+| [01](01-preferences.md) | The preferences exist before anything reads them | New keys, range-checked, `store-smoke`. No visible change | **2026-08-22** | Nothing about the decisions. It found that `store-smoke` had **copied** `MIN_BLOCK` as `160` where the script says `215`, so *"a size below the minimum is clamped"* had been green while measuring the harness's own number. Fixed by slicing the constants instead |
+| [02](02-settings-screen.md) | ⚙ is a screen, not a strip | The mode, the state button, the tabs, the restore | **2026-08-24/25** | **Two reversals, both from use.** The panel's layout was settled by argument, prototyped, chosen — and pressed, twice, which is what made it tabs. And the ⚙'s state button **landed early, ahead of its own ticket**, because the blue on that button was reported as bad UX and the diagnosis was that it was a *focus ring* and not a state: `prefsOpen` lived in memory and nothing on screen was a function of it |
+| [03](03-issue-reference-presets.md) | One head, five shapes, both flavours | The shared line-shape preset | **2026-08-25** | **A fifth shape, asked for by a paste.** The prototype offered four; `markdown-key` came from using the copy button (A.9.1). And an ADR correction fell out: §2.14's claim that Details' head "is §2.8's Links line, unchanged" is true of `text/plain` only — the HTML side bolds the key. The two heads **stay different**, and the shared shape carries a `bold` flag |
+| [04](04-field-lists.md) | Two selections over one catalogue | The two field lists and the drag | **2026-08-25** | **A decision became a measurement.** Whether the drag is usable at the 300px floor had been *decided* rather than measured (decision 26), with a fallback ready. A row was dragged at the floor and it worked, so the fallback was not needed. It also found a check that **could not fail** — see the note below |
+| [05](05-report-bands.md) | Seven bands, and one of them repeats an issue | Generalised grouping | **2026-08-25** | **A defect found by pressing, and by nothing else.** The ticket shipped `Team` then `Team` reachable and argued in writing that it was harmless. Every byte of it was asserted; none of the assertions was the thing that was wrong. The answer — a greyed option plus a one-press swap — was pressed the same day |
+| [06](06-record-and-ship.md) | The version, the rig and the record | 1.2.0, the rig, the docs | **2026-08-25** | **Merge, not keep-both**, and the merge found two more silent breakages: this effort's prototype threw on every `renderStage` call, and `paste-test`'s own `render` had thrown since it was first tracked. Neither rig is read by anything, so neither could go red |
+
+**A check that could not fail, at 1.2.0, and the rule that caught it.** This
+directory's own convention says a check written because a bug happened must say so in
+a comment. `format-smoke`'s check that a field list cannot reach 🔗 Links was written
+believing it guarded `format`'s `entry.fields ?` test — and dropping that test changes
+no byte, because `formatLinks` takes three parameters and JavaScript discards a fourth
+in silence. **The check was KEPT**, because it holds a real claim no other one makes:
+those four exports' bytes do not *move* when a preference moves, where every other
+check on them runs with the defaults and only ever said *these bytes are 1.1.0's*.
+What changed is the comment. Run the mutation before writing the comment, not after.
 
 **01 must land first.** 02, 03, 04 and 05 are independent of each other once it
 has: each reads its own preference and touches its own renderer. 06 is last
@@ -491,3 +519,10 @@ because it records what the others decided.
 
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.
+
+**That staging held.** Nothing after 01 needed a second pass at the store, and no two
+of 02–05 collided. The one thing the plan did not predict is where the findings came
+from: **four decisions were reversed by pressing a control** — the panel's layout
+twice, the ⚙'s own missing state, and the duplicate band pair — and **a fifth line
+shape was asked for by a paste**. None of the five came from re-reading the design.
+That is the same lesson 1.1.0 recorded, and it is now recorded twice.

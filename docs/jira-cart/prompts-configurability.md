@@ -2,7 +2,10 @@
 
 > **RUN on 2026-08-21 and 2026-08-22. The outcome is
 > [`configurability/`](configurability/)** — the decision record, and six
-> implementation tickets to be taken one per session.
+> implementation tickets, one per session. **All six landed, and 1.2.0 shipped on
+> 2026-08-25.** The decisions are in the ADR, amended in place and dated; the
+> tickets' own record marks each one done and says what changed when it met real
+> code.
 >
 > Written 2026-08-21, at the end of the 1.1.0 session, by the person who built it —
 > so it names the traps from the inside rather than from a reading of the code.
@@ -31,6 +34,23 @@
 > `[KEY] Summary — URL` — *"its only distinct paste target cannot be named"* — was
 > **overturned**, because the user named it in one sentence: a destination that does
 > not render markdown.
+>
+> **What the six sessions added, which the prompt could not have.** Its instruction to
+> send every question about the output to the rig was right, and it was right for a
+> reason the prompt did not state: **the rig is where a decision gets pressed.** Four
+> answers were overturned after they had been argued through, costed and written down
+> — the panel's layout twice, the ⚙'s missing state, and the duplicate band pair — and
+> a fifth line shape was asked for by a paste. One more was *confirmed* the same way
+> rather than overturned: the drag's usability at the 300px floor, which had been
+> decided rather than measured, and which came back working. Every one of them came
+> from pressing a control or pasting an output.
+>
+> **And one thing it could not have predicted, which is about the rig itself.** The
+> prototype this prompt asked for was thrown away by ticket 06 — merged into
+> `paste-test.html` — and the merge found that **both** rigs had been broken for as
+> long as they had been tracked, each throwing on every render, with nothing under
+> `test/` able to see it. If a later prompt asks for a prototype, ask it to boot the
+> page once against a fake DOM as well.
 
 ## The task
 

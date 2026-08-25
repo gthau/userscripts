@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.2.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -38,23 +38,45 @@
  *   page` mirrors the issue links drawn right now, and the whole row is the
  *   button. Below it is the active collection, with its name editable in place,
  *   a ↻ that asks Jira for every summary again, chips for the other
- *   collections, and five buttons at the foot: 🔗 Links, 📃 Names and 🔑 Keys
- *   copy the collection, 📋 Details fetches and then copies a richer list, and
- *   🔍 Search opens the whole of it in Jira's own issue search, in a new tab.
- * - 📋 Details takes TWO presses: the first asks Jira for type, status,
- *   priority, assignee, fix version and parent, and the label changes to say it
- *   has them; the second copies. Nothing it fetches is ever stored, so a
- *   detailed list cannot be pasted with last week's status in it.
+ *   collections, and six buttons at the foot: 🔗 Links, 📃 Names and 🔑 Keys
+ *   copy the collection, 📋 Details fetches and then copies a richer list,
+ *   📊 Report copies that list grouped under headings, and 🔍 Search opens
+ *   the whole of it in Jira's own issue search, in a new tab.
+ * - 📋 Details and 📊 Report each take TWO presses: the first asks Jira for
+ *   type, status, priority, assignee, team, fix version, time remaining and
+ *   parent, and the label changes to say it has them; the second copies. Nothing
+ *   either fetches is ever stored, so a detailed list cannot be pasted with last
+ *   week's status in it.
  * - An item that reached the collection with no summary is filled in from
  *   Jira's API while the drawer is open. An item is valid with a key alone, so
  *   nothing waits for it.
- * - A ⚙ with the preferences, including the right-click menu, which ships off.
+ * - A ⚙ in the drawer's head, which since 1.2.0 opens a whole SETTINGS SCREEN
+ *   rather than a strip: it replaces the two sections and the foot, and the head
+ *   reads `⚙ Settings` while it is up. Press it again to go back.
+ * - THREE THINGS ABOUT THE EXPORTS ARE YOURS TO SET, and the defaults are exactly
+ *   what 1.1.0 emitted, so an existing user sees no change until they ask for
+ *   one:
+ *     - `Issue reference` — one of five named shapes for how an issue is written
+ *       at the head of a line, from the markdown link 1.1.0 shipped to the plain
+ *       `KEY: Summary - url` a destination that does not render markdown wants.
+ *       It governs 🔗 Links, 📋 Details and 📊 Report together.
+ *     - Which fields 📋 Details and 📊 Report print, and in what order. Each
+ *       has its own ordered list over the same eight fields, on its own tab, with
+ *       a checkbox per field and a drag to reorder. Zero ticked is allowed — the
+ *       line is then the issue reference alone.
+ *     - How 📊 Report is banded: `Group by` and `Then by`, over seven fields,
+ *       where 1.1.0 could only do priority and then team.
+ *   ↺ `Restore export defaults` puts all five back. The appearance switches —
+ *   sections, corner, and the right-click menu, which still ships off — are on
+ *   their own tab and it leaves them alone.
  *
  * What is still absent: keyboard shortcuts, multi-select, per-row copy,
- * importing a JQL query into a collection, grouping, and reordering.
+ * importing a JQL query into a collection, and any ordering or grouping of the
+ * COLLECTION itself. 📊 Report groups a document built from the collection; the
+ * collection's own array keeps its insertion order in every format.
  *
  * The reasons for all of it are in `jira-cart.user.md` beside this file. Read
- * that before changing anything here: it lists 38 rejected alternatives, and
+ * that before changing anything here: it lists 64 rejected alternatives, and
  * most of the surprising lines below are one of them. The section numbers in
  * the comments point into it.
  *

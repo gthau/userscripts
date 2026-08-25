@@ -1,9 +1,28 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 1.1.0 implements the whole of section 2 and has
+- **Status:** Accepted. **Version 1.2.0 implements the whole of section 2 and has
   been checked against it.** A version number here means *the spec is built and
   checked*, not *nothing is left to want* — §6 will always hold open items, so
   waiting for an empty §6 would mean never reaching any of them.
+  **1.2.0 made the exports CONFIGURABLE, and it is a minor version because it
+  breaks nothing: every default is exactly what 1.1.0 emitted**, so an existing
+  user sees no change until they ask for one. Three things became settings — the
+  shape of the issue reference at the head of a line (§2.8), which fields
+  📋 Details and 📊 Report print and in what order (§2.14), and 📊 Report's two
+  bands (§2.15) — reached through a ⚙ that became a whole **screen** rather than a
+  strip, because ~22 controls do not fit above two sections in a drawer that can be
+  300×215px (§2.9, §2.11). **It did not touch §2.4's `v`**: every new key is in
+  `gt-jira-cart.prefs`, which is not versioned, and no stored *item* changed shape,
+  so there is no migration and no `.bak` write. What it DID change in kind is that
+  the preferences key now holds an **ordered list that the code's own catalogue can
+  overrule** (§2.4, amended 2026-08-22). Six tickets decided it, one per session,
+  and their record is [`docs/jira-cart/configurability/`](../docs/jira-cart/configurability/).
+  **FOUR of its decisions were reversed by pressing the thing rather than by
+  reading it, and none by re-reading the design** — the panel's layout twice, the
+  ⚙'s own missing state, and the duplicate band pair, which every byte of the harness
+  had already asserted and none of the assertions caught (§7 steps 27–32). A fifth
+  shape was then asked for by a paste (appendix A.9.1). That is the 1.1.0 lesson
+  holding a second time, and it is now recorded twice.
   **1.1.0 added the first new feature since 1.0.0: 📋 Details, a fifth export
   (§2.14).** It is the first section written from *real pastes* rather than from
   argument — into Outlook and into Teams in both skins — and those pastes reversed
@@ -31,8 +50,9 @@
   What is left is the part of §7 that only a browser can answer: a live visit to
   each of the eight views, a store damaged by hand, and a real logout. The two
   probes of appendix C are still not run, and 1.0.0 added a third
-- **Date:** 2026-08-19, and §2.14 was added on 2026-08-20
-- **Applies to:** `src/jira-cart.user.js` (version 1.1.0)
+- **Date:** 2026-08-19; §2.14 was added on 2026-08-20, and the configurable
+  exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25
+- **Applies to:** `src/jira-cart.user.js` (version 1.2.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository. **§2.14 was decided by a grilling session and six real
   pastes instead**, because the question it answers — what a detailed list looks
@@ -1091,7 +1111,8 @@ the email you pasted it into without fighting a link boundary.
 > copy and hands the shape to 🔗 Links, 📋 Details and 📊 Report, so §2.14's promise
 > that the three agree about what a collected issue looks like holds by construction
 > — there is no second read to fall out of step. A **per-export override** is left in
-> §6 and costs one nullable key each (decision 5).
+> **§6 item 16** and costs one nullable key each, whose third state must mean *follow
+> the default* (decision 5).
 >
 > | Shape | `text/plain` | What it is for |
 > | --- | --- | --- |
@@ -2884,7 +2905,7 @@ follows the hovered issue link. Everything else is inside the drawer.
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
 | 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, team, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. **Which of those fields it prints, and in what order, is the `📋 Details` tab's own list** — the default is what 1.1.0 emitted. A copy spends it, and any change to the collection drops it; a change to the field list does **not**, because the fetch always asks for all of them (§2.14) |
-| 📊 Report | drawer, the foot | **Two presses**, sharing 📋 Details' fetch. Copies the collection grouped by priority and then by team, which is the shape the Technology Portfolio Office sends to team leads. **It has its own field list**, on its own tab, over the same eight fields (§2.15, §2.14) |
+| 📊 Report | drawer, the foot | **Two presses**, sharing 📋 Details' fetch. Copies the collection grouped under headings. The default is priority and then team, which is the shape the Technology Portfolio Office sends to team leads, **and since 1.2.0 both bands are settings** — see the two rows below. **It has its own field list** as well, on the same tab, over the same eight fields (§2.15, §2.14) |
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | **A state button.** Opens the settings screen, which REPLACES the two sections and the foot. It stays lit while it is up, and the head reads `⚙ Settings`. Press it again to go back |
 | A settings tab | drawer, the settings screen | `Appearance`, `📋 Details` or `📊 Report`, with `Issue reference` pinned above the bar. Which tab you were last on is remembered |
@@ -2892,6 +2913,8 @@ follows the hovered issue link. Everything else is inside the drawer.
 | A field's checkbox | drawer, `📋 Details` or `📊 Report` | Whether that field is printed on the line. Each tab has its **own** list over the **same** eight fields — type, status, priority, assignee, team, fix version, time remaining, parent — and every field has a row whether it is ticked or not. **Zero ticked is allowed**: the line is then the issue reference alone (§2.14) |
 | A field's row | drawer, `📋 Details` or `📊 Report` | **Drag it to reorder.** The line prints the ticked fields in the order the list stands in. A drop into the *other* tab's list is refused. There is no keyboard path (§6 item 4) |
 | `also a heading` | drawer, `📊 Report` | That field is one of the report's two bands. It is a note and not a refusal — tick it and the value appears on the row as well (§2.14 rule 4) |
+| `Group by` | drawer, `📊 Report` | The report's first heading level. One of **seven** fields — priority, team, status category, type, assignee, fix version or parent — and it may not be `None`, because a report with no bands at all is 📋 Details (§2.15) |
+| `Then by` | drawer, `📊 Report` | The second heading level, the same seven fields plus `None` for one level only. **The field `Group by` holds is shown greyed here rather than hidden**, so it says why it cannot be chosen; choosing the other dropdown's field **swaps the pair in one press** (§2.15) |
 | Sections | drawer, `Appearance` | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
 | Corner | drawer, `Appearance` | Bottom right or bottom left. The drawer's chrome mirrors it |
 | ↺ Restore export defaults | drawer, the export tabs | Puts the line shape, both field lists and both bands back to what 1.1.0 emitted. Click once to arm it — the label becomes `Restore?` — and again to commit. It leaves the appearance switches and the tab you are on alone |
@@ -3200,6 +3223,29 @@ These are not gaps in the design. Each was named, and each was left.
    away rather than a fresh effort — resting on the unverified claim in risk 3.
 10. **User-editable export templates.** Deferred, and §2.8 establishes they are a
     rewrite of that layer rather than a configuration of it.
+    **STILL OPEN, AND THE FINDING SURVIVED 1.2.0 — amended 2026-08-25.** This is the
+    item most likely to be read as closed, because 1.2.0 made the exports
+    configurable and a template is what "configurable exports" usually means. It
+    shipped **without one**, and the finding is not weakened by that; it is what
+    shaped the answer. What 1.2.0 added is a **filter over a fixed renderer**: a
+    named shape for the head of a line, chosen from five the script owns, and an
+    ordered list of *which* of eight fields to print. A preference may say which
+    fields and in what order. **It may never say what a field looks like.**
+    That line is where the finding lives, and three things depend on it. `detailChip`
+    stays the one place a field becomes bytes, so §2.14's five paste rules — no
+    `opacity`, no inline `border`, no separator that is a box, no colour without a
+    pale ground — keep a single enforcement point instead of being re-derived inside
+    somebody's template. **Every reachable output is still checkable byte for byte**,
+    because the set of them is finite: `format-smoke` asserts each of the five shapes
+    on each export in both flavours, and the five rules over every string a selection
+    can produce. And Names' summary-less line is still a *different line shape*
+    rather than a substituted value — the original reason — which a template would
+    have to express with a conditional inside itself.
+    So the item is unchanged in substance and narrower in scope: what is deferred is
+    a user writing the bytes, and what shipped is a user choosing among bytes the
+    script wrote. **The day a preference reaches `detailChip`, this item is the one
+    to reopen first**, and §4's column-picker row says the same thing from the other
+    side.
 11. **Two questions the prototypes could not answer by use:** whether the
     right-click preference is ever switched on, and whether the section divider is
     ever dragged. Both shipped because the cost of having them is one CSS rule and
@@ -3225,6 +3271,16 @@ These are not gaps in the design. Each was named, and each was left.
     column set is already decided: the nine fields of §2.14 in the backlog's own
     left-to-right order. Today the route is 🔍 Search plus Jira's own CSV export,
     which is what it always was. §2.14 cites this item by number.
+    **STILL OPEN, AND CHEAPER SINCE 1.2.0 — noted 2026-08-25.** The sentence above
+    says the column set *is already decided*, which was the honest form of "somebody
+    will have to decide it". They no longer have to: the **field list is built**, with
+    a catalogue, an order, a tick per field and a panel that draws it, and a table
+    wants exactly that — which columns, in which order. A third list over the same
+    catalogue is one more key in `gt-jira-cart.prefs` and one more tab, both of which
+    now have a shape to copy. What is still unbuilt is the renderer: a `<table>` is
+    where Excel and Sheets differ from every other target the Cart writes to, and no
+    paste has ever been made into either. **That is the part to measure first**, and
+    appendix A.9 is the model for how.
 15. **The report: grouped by priority, then by team. BUILT on 2026-08-20 — see
     §2.15.** The item keeps its number because §2.14 and appendix C cite it. What
     follows is the record of what was open while it was, and the order in its own
@@ -3256,6 +3312,51 @@ These are not gaps in the design. Each was named, and each was left.
     position — and the resolution is that grouping is an order the *user asked
     for*, while rule 4 forbids a *field* whose meaning changes with position. Worth
     stating before somebody reads the rule as forbidding this.
+16. **A per-export override for the line shape. Opened and deferred on 2026-08-25,
+    in the grilling that designed §2.8's five shapes** (decision 5). `lineShape` is
+    **one** preference with three consumers, and `format` reads it once per copy and
+    hands the shape to 🔗 Links, 📋 Details and 📊 Report — so §2.14's promise that
+    the three agree about what a collected issue looks like holds by construction,
+    with no second read to fall out of step. An override would let one export differ.
+    **The reason it is deferred is that nobody has wanted it.** No session and no use
+    has produced somebody who wants 🔗 Links plain and 📋 Details markdown *at the
+    same time*, and the shared value is what makes the three agree — so the case has
+    to be made before the agreement is spent, not after.
+    **The cost, recorded now because getting it wrong is silent.** It is one nullable
+    key per export, and **the nullable is the whole design**: a per-export key must
+    have a **third state meaning *follow the default***, distinct from *hold this
+    shape*. Storing a shape instead — copying today's default into the key the first
+    time the export is touched — looks identical on the day it is written and is the
+    bug: the export **silently stops following** the shared setting, so changing
+    `Issue reference` afterwards moves two exports and not three, with nothing on
+    screen to say why. `null` follows; anything else overrides; and the panel has to
+    draw that difference, which is a fourth control per tab and not a fourth option
+    in an existing one.
+    **Where it would go if it is ever wanted:** one key per export tab, beside that
+    tab's field list, and the pinned `Issue reference` row stays where it is as the
+    default the nulls follow. It reopens §2.8's amendment of 2026-08-25 and nothing
+    else.
+17. **The settings panel's taxonomy: `Appearance` is a peer of two export tabs.
+    Named as a cost and accepted on 2026-08-24, recorded here on 2026-08-25 so it is
+    not rediscovered as a defect** (§2.9, decisions 18 and 29). The bar reads
+    `Appearance` · `📋 Details` · `📊 Report`, with `Issue reference` pinned above it.
+    Two of those tabs are named after **buttons in the foot** and one is named after
+    a **kind of setting**, so the bar mixes two ways of dividing the same screen.
+    Three structures were prototyped and the alternatives are in §2.9's own table
+    with their grounds. Three won because it is the only one where the shared
+    setting is not misfiled: `Issue reference` governs all three exports, so a tab
+    that owned it would tell a small lie about its scope, and pinning it above the
+    bar is what buys the untidy peer below.
+    **What would reopen it is a fourth tab**, and the shape of the pressure is
+    predictable: the moment a second *kind* of setting arrives — something that is
+    neither appearance nor one export — `Appearance` stops being the odd one out and
+    the bar has two groups in it, which is when a two-level structure starts paying
+    for itself inside 300px. Until then, renaming `Appearance` would be the cheap
+    move and it does not help: the mismatch is in what the tabs divide by, not in
+    what they are called.
+    **Nothing about this is a defect and nothing depends on it.** A tab added later
+    arrives visible, because a bar shows every tab whether it has been pressed or
+    not (decision 21), so the structure can change without a migration.
 
 
 ---
@@ -3265,12 +3366,29 @@ These are not gaps in the design. Each was named, and each was left.
 There is no test system in this repository. Use these steps in a browser, with
 `jira-ux-improvements` and `jira-backlog-sprints` also installed.
 
-**What is confirmed at 1.0.0, and by what.** Seven Node harnesses hold 372 checks:
-the pure helpers, the store, the (row, key) group, the four formats and the API's
-response validation, the whole script against a fake DOM, the generated stylesheet's
-cascade, and the script run twice over one store. They pull the real functions out of
-the file by brace matching, so they cannot drift from it and a rename breaks them
-loudly.
+**What is confirmed outside a browser, and by what.** Seven Node harnesses hold
+**1,089 checks at 1.2.0**, against 372 at 1.0.0: the pure helpers, the store and every
+preference it clamps, the (row, key) group, the six formats and the API's response
+validation, the whole script against a fake DOM, the generated stylesheet's cascade,
+and the script run twice over one store. They pull the real functions out of the file
+by brace matching, so they cannot drift from it and a rename breaks them loudly.
+**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0** — so this version more than doubled
+them, and almost all of the 604 it added are in two files: `format-smoke` holds every
+byte each setting can reach, and `boot-smoke` drives the ⚙ screen's own controls.
+That ratio is what a configurable output costs to keep checkable: the outputs are
+still a finite set, and asserting them means asserting all of them.
+
+**AND THEY WERE PROVEN ABLE TO FAIL, on 2026-08-25, rather than assumed to be.** A
+green harness says nothing until you know its checks CAN go red — `css-smoke`'s first
+backtick check could not, and it was green for a fortnight. So 1.2.0's were mutated:
+**26 single edits to the script, each naming the claim it was meant to make a liar of,
+and every one of them turned something red.** The table is in
+[the harnesses' README](../test/jira-cart/README.md), with what the run does **not**
+say: several mutations are caught by three files at once, so it proves *something*
+goes red rather than that the intended check did, and a claim nobody wrote a check for
+is invisible to it. **Two of the 26 had to be written twice**, because the first
+version of each changed no byte — the same failure as the backtick check, made again
+by the person writing down the rule against it.
 
 **They are committed, since 1.0.0, to [`test/jira-cart/`](../test/jira-cart/):**
 
@@ -3305,7 +3423,10 @@ replaced by something else.
 | 32, less the fix-version paste | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira, AND IT IS THE STEP THAT FOUND A DEFECT** | 📊 Report's two bands, used rather than read. The dropdowns were pressed and the grouped reports came back **working**. **The duplicate pair was found HERE and by nothing else**: the ticket shipped `Team` then `Team` reachable and argued in writing that it was harmless — useless, truthful, visible on the paste — and one press said otherwise, which is the whole reason this step exists rather than a table of assertions. The answer, a greyed option plus a one-press swap, was pressed the same day and reported **working well**. Everything about the bytes is held outside a browser and it is the largest block in `format-smoke`: each of the seven as band 1 and again as band 2, every `No …` heading, empty-sorts-last in both bands, the status categories in Atlassian's order and not alphabetically, one non-default pair byte for byte in both flavours, the five paste rules over every pair, and the multi-valued line count — plus `bandPatch` directly, and a sweep proving no press on either dropdown from any starting pair can produce a duplicate |
 | 32's fix-version export | **CONFIRMED IN A BROWSER, 2026-08-25** | A report banded by fix version, on a collection holding real issues in two releases. **Reported exported as expected** — so the one output in this effort that breaks *lines equals items* on purpose comes out the way the design says, on real data rather than on the harness's three-row sample, and the repetition read as intended rather than as a fault. That was the open question: the bytes were already held (the line count is items plus one, and the issue is under both headings), and whether a document listing one issue twice looks deliberate is not a thing bytes can answer. **What this run does NOT say**, recorded so it is not read as more than it is: the report was of the export, and **no paste target was itemised** — nothing here records Outlook against Teams for a banded report, the way appendix A.9 does for the chips. The chips inside those rows are unchanged from A.9's own pastes, which is why that gap blocks nothing |
 | 32's remaining bullets | **NO REPORT EITHER WAY** | The two dropdowns at the 300px floor, the `KEY Summary` and `Unassigned` wording at the size it is read, and `Restore export defaults` putting both dropdowns back. Listed rather than claimed, and none of them blocks: the first is the same grid step 30 already measured at that width, and the last is held by `boot-smoke` in state if not in paint |
-| the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor was DECIDED rather than measured** (decision 26), so this step is the first time anybody will have put a pointer on it |
+| the drag itself | **NOTHING HERE STANDS IN FOR IT, EVER** | The field lists' reorder. This is the cost of decision 11, paid where it falls: no harness in this repository can drive a drag, because `boot-smoke` has no layout. What IS held outside a browser is everything on either side of the pointer — `moveField` against the middle, both ends, an out-of-range index, a string index and a no-op; the panel's eight rows, their ticks, the writes they make, and the stored order the panel draws; and every byte string a selection can produce, against the five paste rules. **Whether the drag is usable at the 300px floor is no longer DECIDED but MEASURED** — it had been settled by argument with a fallback ready (decision 26), a row was dragged at the floor on 2026-08-25, and it came back working, so the fallback was not needed. The reasoning behind the decision still stands for the day the panel grows past eight rows. What has still never been driven by anything but a hand is the drag itself |
+| 33 | **NOT RUN, and it is the cheapest step in this section** | The truncation the ⚙ screen replaces, in devtools, at the 300×215 floor. Every argument for the screen rests on it and nobody has looked at it. It confirms a REJECTED design was as bad as this document says — the one step here with that job |
+| 34 | **NOT RUN. Appendix A.9.1 says in its own words what it does not record** | Each of the five line shapes pasted into Outlook and into Teams in both skins, itemised. A.9.1 answered the yes/no that was blocking — a visible URL survives and stays clickable — from the user's own report rather than from a screenshot matrix, so **there is no per-target table for the shapes** the way there is for the chips. Nothing blocks on it, and 1.2.0 shipped without it |
+| 35 | **Needs Tampermonkey's storage view** | The remembered tab across a reload, and a tab id no build knows landing on the first tab **with content drawn**. `boot-smoke` holds both in state; what is missing is the paint, and this is the one preference whose failure mode is an empty screen rather than a wrong value |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
 
@@ -3475,7 +3596,10 @@ pass each, and they are cheap.
     **Run in a browser on 2026-08-25, less the sixth item.** What the pass added is
     everything a harness cannot see: the paint, the refusal, and the floor — and it
     also retired half of item 3 into the harness, which is the better outcome than
-    pressing it for ever. Open ⚙ → `📋 Details` and:
+    pressing it for ever. **There are TWO lists and they are separate stores**, so
+    run the first bullet on `📋 Details` and again on `📊 Report`: a reorder on one
+    tab must leave the other tab's order alone, which is the whole reason they are
+    two preferences and not one. Open ⚙ → `📋 Details` and:
     - **Drag a row up and drop it in the TOP half of another row.** It must land
       *above* that row. Drop in the **bottom** half and it must land *below*. The
       indicator must appear on the edge it is going to land on, and the row must not
@@ -3559,6 +3683,55 @@ pass each, and they are cheap.
       not veto the tick (decision 8).
     - **Press ↺ `Restore export defaults`.** Both dropdowns must go back to
       `Priority` and `Team`, and the report must emit 1.1.0's bytes again.
+33. **THE TRUNCATION THE SCREEN REPLACES, reproduced once so the reason is not
+    folklore.** Every argument for making ⚙ a screen rather than a strip rests on a
+    sentence — *"a panel that shared the box with the sections would be truncated
+    with NO SCROLLBAR TO SAY SO"* — and nobody has seen it. Take the drawer to
+    300×215, open ⚙, and in devtools set `overflow: clip` on the panel
+    (`div#gt-cart-prefs`, which ships `overflow: hidden auto`). The last group
+    must go, **with nothing on screen saying anything is missing** — no scrollbar,
+    no cut-off row, just a panel that ends. Put the rule back and the group returns.
+    Run this once and write the date here. It is the only step in §7 whose purpose
+    is to confirm a **rejected** design was as bad as the ADR says it was, and it is
+    cheap because the two states are one devtools edit apart.
+34. **EACH SHIPPED LINE SHAPE, PASTED, PER TARGET.** Appendix A.9.1 answered the
+    question that was blocking — a visible URL survives and arrives clickable — and
+    it says in its own words what it did **not** record: which shape went into which
+    of Outlook, Teams light and Teams dark, and which export carried it. This step
+    is that table, and the rig is
+    [`test/jira-cart/paste-test.html`](../test/jira-cart/paste-test.html), whose
+    `Issue reference` instrument emits the script's own five shapes and whose
+    `Copy this shape for real` button puts both flavours on the clipboard. For each
+    of the five, paste into **Outlook** and into **Teams in both skins**, and look
+    for four things:
+    - **The key still reaches the issue.** `markdown` and `markdown-key` put the
+      link on the key; `key-summary-url` and `key-url` put it on the URL text; `url`
+      is the URL alone. In a destination that renders markdown, all five must give
+      something clickable — and in one that does not, the three plain shapes must
+      still show a URL a reader can copy by hand.
+    - **The URL is not rewritten.** Outlook has been seen to wrap long links, and a
+      wrapped `https://dalet.atlassian.net/browse/RDC-1513` that breaks across two
+      lines is still readable but is no longer one click.
+    - **The em dash still marks where the fields start**, on 📋 Details and
+      📊 Report. This is the collision A.9.1 accepted with a stated reason: on the
+      plain shapes the summary's own ` - ` repeats the URL separator, so the em dash
+      is doing more work than it was designed for. Accepting it was a judgement
+      about *readers*, and this is where a reader looks at it.
+    - **The two trailing spaces survive**, where the shape relies on markdown's hard
+      line break.
+    Nothing here blocks: 1.2.0 shipped on A.9.1's yes/no. What this step buys is the
+    property table the next question will want, and **if it is not run, say so** —
+    an unrecorded paste and a paste that found nothing look identical afterwards.
+35. **THE REMEMBERED TAB, INCLUDING ONE EDITED BY HAND.** `boot-smoke` holds the
+    state and this is the paint. Open ⚙, go to `📊 Report`, and **reload the page**:
+    the panel must come back on `📊 Report` and not on the first tab. Then edit
+    `gt-jira-cart.prefs` in Tampermonkey's storage view, set `settingsTab` to a
+    string no build knows — `"colours"` will do — and open ⚙ again. It must land on
+    the **first tab with that tab's content drawn**, not on a blank panel and not on
+    a bar with nothing selected. This is the same fall-back-to-a-default rule
+    `layout` and `corner` have always had (§2.4), and the reason it is worth pressing
+    rather than reading is that a tab id is the one preference whose failure mode is
+    an **empty screen** rather than a wrong value.
 
 ---
 
@@ -3924,6 +4097,16 @@ like the run above: the per-target breakdown was not itemised, so this appendix 
 dark, nor which of the three exports carried it. What it establishes is the yes/no
 that was blocking — a visible URL survives and stays clickable — and not a property
 table. If a later question needs the table, it needs new pastes.
+
+**THE RIG FOR THOSE PASTES EXISTS, since 2026-08-25, and it is not the one that made
+this run.** The configurability prototype was merged into
+[`test/jira-cart/paste-test.html`](../test/jira-cart/paste-test.html) and deleted, so
+the five shapes are now an `Issue reference` instrument on the page that already has
+the clipboard button — and they are the script's own `SHAPES` table carried across,
+verified byte for byte against `formatDetails` rather than assumed. **§7 step 34 is
+the table.** Worth knowing why the prototype could not have made it: **its shape
+table had four rows and the script has five** — the fifth is the one this appendix
+asked for — and nothing in the repository read that file, so nothing said so.
 
 ---
 
