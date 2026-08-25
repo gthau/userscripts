@@ -1,7 +1,9 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 1.3.0 implements the whole of section 2 and has
-  been checked against it.** A version number here means *the spec is built and
+- **Status:** Accepted. **Version 1.3.1 implements the whole of section 2 and has
+  been checked against it. 1.3.1 is a DOM-rot patch and decides nothing new: it names
+  the NINTH VIEW, Rovo search, which announced itself exactly as risk 19 said a new
+  view would — as a contract warning on a page that worked (§2.1).** A version number here means *the spec is built and
   checked*, not *nothing is left to want* — §6 will always hold open items, so
   waiting for an empty §6 would mean never reaching any of them.
   **1.3.0 added one gesture: a `🔗` beside the floating `+` that puts THAT ONE ISSUE
@@ -72,13 +74,14 @@
   preference changed in one tab reached the other at an arbitrary later moment
   (§2.5, §2.9, risk 12).
   What is left is the part of §7 that only a browser can answer: a live visit to
-  each of the eight views, a store damaged by hand, a real logout, and **1.3.0's own
+  each of the NINE views, a store damaged by hand, a real logout, and **1.3.0's own
   three steps — 36, 37 and 38 — none of which has been run.** The two
   probes of appendix C are still not run, and 1.0.0 added a third
 - **Date:** 2026-08-19; §2.14 was added on 2026-08-20, the configurable
   exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25, and §2.7.1 —
-  the copy button — was added on 2026-08-25
-- **Applies to:** `src/jira-cart.user.js` (version 1.3.0)
+  the copy button — was added on 2026-08-25, and **the ninth view was named the
+  same day** (§2.1)
+- **Applies to:** `src/jira-cart.user.js` (version 1.3.1)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository. **§2.14 was decided by a grilling session and six real
   pastes instead**, because the question it answers — what a detailed list looks
@@ -128,7 +131,7 @@ expensive or impossible. Three of them could not be taken from documentation at 
 
 **THIS DOCUMENT IS STILL THE DECISION OF RECORD, AND THAT IS UNCHANGED.** What sits
 in `docs/` is dated evidence, it is not maintained, and parts of it are stale on
-purpose — the DOM survey covers seven views where there are eight, and one ticket's
+purpose — the DOM survey covers seven views where there are NINE, and one ticket's
 own filename still says `localstorage`. **Where the two disagree, this document
 wins**: it was written after, and it carries the corrections. The README there says
 so as well, so neither can be read as the authority by accident.
@@ -290,6 +293,79 @@ label names a region and both are a timeline to the person reading the row. The
 anchor's own testid is also in the known-region list below, where it buys silence
 rather than a false warning on the day the row's name rots.
 
+**THERE IS A NINTH VIEW, AND IT IS THE FIRST ONE WITH TWO REGIONS THAT BEHAVE
+DIFFERENTLY. Found in use on 2026-08-25, at version 1.3.0, and closed the same day
+at 1.3.1.** **Rovo search**, `/jira/rovo-search` — the page a query from the search
+bar lands on.
+
+**It announced itself exactly as risk 19 said the next one would**: a badge reading
+*"42 issue keys are on this page and none of them is inside a known row container"*,
+on a page where the `+` and the `🔗` both appeared and both worked. That is not a
+contradiction and it is worth stating plainly, because it is the shape every future
+report of this kind will take: **the rail needs only a hovered `/browse/` anchor.**
+`groupFor` falls back to `{ place: anchor, read: anchor }` when there is no row, so
+both buttons appear on any Jira page whatever. **The check was right and the buttons
+were right.** What was lost was the summary.
+
+**The page holds TWO issue-link regions and they failed in different ways.** 70
+anchors, 42 distinct keys, 8 of them in both regions.
+
+| Region | Shape | What it did |
+| --- | --- | --- |
+| The answer card's table, inside `jira-nl-to-jql-card-wrapper` | 20 rows, **2 anchors each**: an issue-type **icon** linking to the issue with NO TEXT, then the key. The summary is a third cell | **Stored a bare key.** Confirmed by a live press: `added WEB-29577 …: no summary on the page, so the key is stored on its own` |
+| The results list, `search-page-results-list` | 30 results, **1 anchor each**, whose text is `KEY: summary` | **Already correct.** Confirmed by a live press: `(tier 4)` with the right title |
+
+Its names, read off the row's own `outerHTML` on a live page:
+
+| Part | Name |
+| --- | --- |
+| The whole page | `search-page-body` |
+| The table's row | `datasource-table-view--row-ari:cloud:jira:<site>:issue/<issueId>` |
+| The key's anchor | `link-datasource-render-type--link` |
+| The icon's anchor | `issue-like-table-type-icon-link` — **an anchor to the issue with no text at all** |
+| The summary | `link-datasource-render-type--text` |
+| A result in the list | `search-page-result` |
+
+Five things to carry:
+
+- **THE ROW ALONE BOUGHT NOTHING, and this is the lesson of the ninth view.** Tiers
+  1, 2, 3 and 5 are all behind `if (row)`, and tier 4 reads the anchor, whose text
+  here is the key. Measured: naming the row moved the cascade from tier 0 to tier 0.
+  It reached **tier 1** only when the summary field was named as well. **A row entry
+  and a summary entry for this view are one change, not two.**
+- **The row's leaf ends with an ARI**, not a bare identifier — `…--row-ari:cloud:jira:
+  <site>:issue/564570`. So, like the backlog and the Team's Timeline tab, a
+  substring match with a trailing hyphen. The hyphen is what keeps it off
+  `datasource-table-view--body` and off the table itself.
+- **An anchor with no text is not "the anchor that says nothing but the key".** The
+  icon cell comes FIRST in document order, and an empty string strips to an empty
+  string, so `groupFor` handed it the rail and the `+` parked beside a picture.
+  `groupFor` now requires the candidate to have text. Every earlier view still
+  passes that test: the timeline's `RDC-21069, (opens new window)` and the backlog's
+  visible key both have some.
+- **The results list is a KNOWN REGION and deliberately NOT a row.** Its one anchor
+  carries the key and the summary, so tier 4 already answers it, and a row would put
+  tiers 1, 2 and 3 in front of tier 4. Tier 2 takes any `aria-label` in the row that
+  starts with the key, and **nothing has measured what the labels inside a result
+  say** — so promoting it could only trade a summary that works for one that might.
+  Naming it a region buys the one thing needed, silence from the contract check on a
+  search that returns no answer table, and changes no summary. Promote it if a
+  result ever grows a second anchor.
+- **THIS IS NOT A JIRA LIST COMPONENT.** `datasource-table-view` is the smart-link
+  datasource table, so the row entry also pays wherever one is embedded — an issue
+  description, a Confluence page. None of those was surveyed. **Expect a tenth
+  view**, and risk 19 now says so for the second time.
+
+**The one known limit, stated rather than hidden.** It is the COLUMN ORDER that
+makes `link-datasource-render-type--text` the summary, not the name: `--text` is the
+renderer's generic text cell, and tier 1 takes the first non-empty match in document
+order. A table configured with another text column to the left of Summary would read
+that column instead. The row's own `aria-label` says `"<value>, Summary field, edit"`
+and would settle it **by name** — but tier 2 wants a label that STARTS with the key
+and this one starts with the value, so using it means a new tier rather than a new
+selector. Not built: §2.2 already says an item is valid with a key alone, and a
+wrong summary is worse than none.
+
 **The premise of ticket `02` was wrong, and the correction matters.** The ticket
 was written around a warning that issue references are not always links. The
 warning was real, but about other Jira entities: a fixVersion and a sprint are
@@ -316,11 +392,13 @@ loses the decoration or the summary. That is principle 4 by construction.
 | Row | `[data-testid$="scope.issues.issue.row"]` | timeline |
 | Row | `[data-testid$="issue-line-card.card-container"]` | linked work items |
 | Row | `[data-testid*="timeline-table.components.list-item.container-"]` | the Team's Timeline tab |
+| Row | `[data-testid*="datasource-table-view--row-"]` | Rovo search's answer table, and any embedded smart-link table |
 | Summary | `[data-testid$="summary-field-static.content"]` | backlog |
 | Summary | `[data-testid$="issue-summary.issue-summary-cell"]` | search results, epic children |
 | Summary | `[data-testid$="single-line-text.container.box"]` | board |
 | Summary | `[data-testid$="inline-read.link-item"]` | issue links |
 | Summary | `[data-testid$="list-item-content.summary.title"]` | the Team's Timeline tab |
+| Summary | `[data-testid$="link-datasource-render-type--text"]` | Rovo search's answer table. **Ships with the row above it or neither ships** |
 | Summary | `[data-testid$="foundation.summary.heading"]` | the issue view |
 
 Four rules about that table, each from evidence:
@@ -350,6 +428,9 @@ Four rules about that table, each from evidence:
   splits one card into two groups and defeats the purpose.
 - **The Team's Timeline row is the SECOND place the leaf rule is widened**, and
   the third place a name ends in an identifier. See the eighth-view note above.
+- **Rovo search's table row is the FOURTH place a name ends in an identifier**, and
+  the first where that identifier is an ARI rather than a number. See the
+  ninth-view note above.
 - **`ui.issue-row` covers three views, and its live name is
   `native-issue-table.ui.issue-row`.** An issue's child work items use the same
   component as search results and an epic's children, so no fourth name is
@@ -378,8 +459,24 @@ condition. Taken literally the check would put a warning on every issue page.
    list still works.
 2. **At least twelve distinct keys in none of the containers this document
    names** — no row, no current-issue breadcrumb, no linked-work-items card, no
-   `.ak-renderer-document`. Jira's own quick-search dropdown draws a handful of
-   issue links inside none of them, and a warning it set off would be false.
+   `.ak-renderer-document`, and since 1.3.1 no Rovo search result and no cell of a
+   smart-link table. Jira's own quick-search dropdown draws a handful of issue links
+   inside none of them, and a warning it set off would be false.
+
+**The regions are LAYERED, and 1.3.1 is what made that visible.** Rovo search's
+table is named twice: the `<tr>` is a row, and its `…--cell-N` is a known region.
+Taking them away one at a time says what each buys, and the harness holds all three
+outcomes: with the row name rotted the check stays **quiet** and the Cart loses only
+the summary, which is principle 4 by construction; with the row and its cell both
+gone the table is **reported**, 20 keys; with the results list unnamed too the
+warning is the one the user read off the page, **42 keys**. A region entry is
+therefore never idle padding — it is the difference between a lost summary and a
+false alarm on the day a name rots.
+
+**No region may be as wide as the page.** All 70 of Rovo search's anchors sit inside
+`search-page-body`, so naming *that* a region would silence the check on that page
+for ever, including on the day both row names rot. It is used as an ORIGIN LABEL
+instead (§2.3), where the whole cost of being that coarse is a coarse label.
 
 **The check therefore under-reports, and that is the intended trade.** A backlog
 filtered down to five rows, on the day Atlassian renames the backlog row, is
@@ -538,7 +635,8 @@ walking up from the anchor. First match wins.
 | board | `[data-testid$="ui.card.card"]` |
 | work-item table | `[data-testid$="ui.issue-row"]` |
 | timeline | `[data-testid$="scope.issues.issue.row"]` |
-| timeline | `[data-testid="sr-timeline"]` — the Team's Timeline tab. **The one origin that names a whole view rather than a row**, so the label survives the row's name changing |
+| timeline | `[data-testid="sr-timeline"]` — the Team's Timeline tab. **The FIRST origin that names a whole view rather than a row**, so the label survives the row's name changing |
+| search | `[data-testid="search-page-body"]` — Rovo search. **The second origin that names a whole view rather than a row**, and for a second reason: that page has two regions and both are "the search page" to the person reading the drawer. It sits above the two rows below it, so anything nested inside a result still reads as `search` |
 | linked work items | `[data-testid*="issue-line-card"]` |
 | description or comments | `.ak-renderer-document` |
 
@@ -3393,12 +3491,18 @@ Notes on the controls:
 ---
 
 
-19. **THE SURVEY OF SEVEN VIEWS WAS NOT EXHAUSTIVE, and one more view was found by
-   USING the Cart rather than by surveying.** The Team's Timeline tab (§2.1) was
-   the eighth, and it announced itself as a false contract warning. Two lessons,
-   both cheap: the detector held on a view nobody had ever tested it against, and
-   **the contract check is the thing that finds a new view**, so a warning on a
-   page that works is worth reading rather than suppressing. Expect a ninth.
+19. **THE SURVEY OF SEVEN VIEWS WAS NOT EXHAUSTIVE, and TWO more views have now
+   been found by USING the Cart rather than by surveying.** The Team's Timeline tab
+   (§2.1) was the eighth, on 2026-08-18. **Rovo search was the ninth, on 2026-08-25,
+   and this risk predicted it in as many words.** Both announced themselves the same
+   way: a contract warning on a page that worked. Three lessons, all cheap: the
+   detector held on views nobody had ever tested it against; **the contract check is
+   the thing that finds a new view**, so a warning on a page that works is worth
+   reading rather than suppressing; and **a warning is not the whole defect** — on
+   Rovo search it pointed at a lost summary, which nothing on the page announced.
+   **Expect a tenth**, and this time there is a named candidate rather than a
+   guess: `datasource-table-view` is the smart-link table, not a Jira list, so it is
+   embedded in issue descriptions and Confluence pages that no survey has opened.
 
 ---
 
@@ -3691,7 +3795,7 @@ replaced by something else.
 | 25, less the middle-click | **Confirmed outside a browser** | Every row's key is a real anchor with an absolute `href` and no action on it, a click on one changes nothing in the collection, and **`On this page` does not double**, because the scan skips the Cart's own UI. The red hover's readability is the cascade check of §2.11, not a click |
 | 17, 18 | **Confirmed outside a browser** | The store's four migration rows and every sentence §2.9's table promises, word for word — including the case the storage view actually produces, where a hand-edited blob arrives as an **object** rather than a string |
 | 13 (reload), 16 | **Mechanism confirmed outside a browser** | The script run TWICE over one store: a drawer left open comes back open with its size, and a stale tab that adds one item does not write away the five it never saw. **All six are there** |
-| 1, 5, 7 | **Needs a live visit to each of the eight views** | Nothing but Jira has eight views |
+| 1, 5, 7 | **Needs a live visit to each of the nine views** | Nothing but Jira has nine views |
 | 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
 | 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its three labels do not wrap inside 300px; the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
 | the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
@@ -3727,15 +3831,21 @@ pass each, and they are cheap.
    number of anchors — a backlog card carries two. Scroll. Rows must enter and leave.
 4. **Filters are respected.** Apply a filter to the backlog. The live list must show
    only what the page shows.
-5. **The summary arrives from the page.** On each of the **eight** views, add a
+5. **The summary arrives from the page.** On each of the **nine** views, add a
    link and confirm the item carries a summary. Seven came from the survey; the
-   eighth is the Team's Timeline tab that using the Cart found (§2.1), and **there
-   are now two timelines, which are different components**. The tier is in the
-   console at debug level, so each view answers in one line: `added KEY to NAME:
-   "…" (tier N)`. **The timeline is the interesting one**, and it must not carry
-   the sentence around the link. **Expect a ninth view** — risk 19 says the survey
-   was not exhaustive, and the contract check is what finds one, so a warning badge
-   on a page that works is a finding to read rather than an alarm to suppress.
+   eighth is the Team's Timeline tab and the ninth is Rovo search, both of which
+   using the Cart found (§2.1), and **there are now two timelines, which are
+   different components**. The tier is in the console at debug level, so each view
+   answers in one line: `added KEY to NAME: "…" (tier N)`. **The timeline is the
+   interesting one**, and it must not carry the sentence around the link.
+   **Since 1.3.1 Rovo search is TWO checks and not one**, because its two regions
+   answer from different tiers: a press in the answer card's table must read
+   **tier 1** and a press in the results list below it must read **tier 4**. A tier 0
+   in the table is the defect 1.3.1 fixed coming back. Confirm the `+` parks beside
+   the KEY in that table and never beside the issue-type icon to its left.
+   **Expect a tenth view** — risk 19 says the survey was not exhaustive, twice over
+   now, and the contract check is what finds one, so a warning badge on a page that
+   works is a finding to read rather than an alarm to suppress.
 6. **A prose link works.** Open an issue whose description links other issues. Those
    keys must appear in the live list, and must be addable.
 7. **The floating toggle.** Hover an issue key. The `+` must appear to its left,

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.3.0
+// @version      1.3.1
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Or press the 🔗 beside it to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -272,6 +272,28 @@
     // `roadmap.timeline-table.components.*` and the key and title inside it are
     // `roadmap.timeline-table-kit.ui.*`. Do not assume one prefix covers both.
     '[data-testid*="timeline-table.components.list-item.container-"]',
+    // ROVO SEARCH, AND IT IS THE NINTH VIEW risk 19 said to expect. Added on
+    // 2026-08-25, after the contract check reported 42 keys and NOT ONE ROW on
+    // `/jira/rovo-search`. The check was right and the page still worked, which is
+    // §7 step 5's case exactly: the `+` and the `🔗` appear on any `/browse/`
+    // anchor, row or no row, because `groupFor` falls back to the hovered anchor.
+    // What was lost was the summary -- a press on this table stored a BARE KEY.
+    //
+    // THIS PAGE HAS TWO ISSUE-LINK REGIONS AND THEY ARE NOT THE SAME. This entry is
+    // the table in the answer card (`jira-nl-to-jql-card-wrapper`), 20 rows of 2
+    // anchors. The other is `search-page-result`, 30 results of 1 anchor whose text
+    // is `KEY: summary`, so tier 4 already answers there and it is named in
+    // KNOWN_REGION instead -- see the note on it there.
+    //
+    // Its leaf ends with an ARI, `...--row-ari:cloud:jira:<site>:issue/564570`, so
+    // like the backlog and the timeline this is a substring match with a trailing
+    // hyphen. The hyphen is what keeps it off `datasource-table-view--body` and the
+    // table itself; the cells say `--cell-N` and never collide.
+    //
+    // NOT A JIRA LIST COMPONENT. This is the smart-link datasource table, so the
+    // entry also pays wherever one is embedded -- an issue description, a
+    // Confluence page -- and none of those were surveyed. Expect a tenth view.
+    '[data-testid*="datasource-table-view--row-"]',
   ].join(",");
 
   const ISSUE_HEADING = '[data-testid$="foundation.summary.heading"]';
@@ -286,6 +308,28 @@
     // `summary.title` on its own is the kind of name any view could take; scoped
     // to a row this reads the one title beside the one key (§2.2, tier 1).
     '[data-testid$="list-item-content.summary.title"]',
+    // Rovo search's table, and IT SHIPS WITH THE ROW ABOVE OR NEITHER SHIPS. The
+    // row on its own changed nothing: measured on 2026-08-25, the cascade went tier
+    // 0 to tier 0 with the row added and to TIER 1 only once this line was there
+    // too. Tiers 1, 2, 3 and 5 are all behind `if (row)`, and tier 4 reads the
+    // anchor, whose text is the key -- so with no summary field named, a row buys
+    // this view nothing at all.
+    //
+    // `$=` and not the two-segment widening the cards above needed: the renderer
+    // gives every cell a `link-datasource-render-type--*` name, and the leaf is
+    // what separates the summary from `--icon-text`, `--status--text` and
+    // `--datetime`.
+    //
+    // THE KNOWN LIMIT: it is the COLUMN ORDER that makes this the summary, not the
+    // name -- `--text` is the renderer's generic text cell, and the first non-empty
+    // match in document order wins. A table configured with another text column to
+    // the left of Summary would read that instead. The row's own `aria-label` says
+    // `"<text>, Summary field, edit"` and would settle it by name, but tier 2 wants
+    // a label that STARTS with the key and this one starts with the value, so
+    // using it means a new tier rather than a new selector. Not built: a wrong
+    // column is a wrong summary, and §2.2 already says an item is valid with a key
+    // alone.
+    '[data-testid$="link-datasource-render-type--text"]',
     ISSUE_HEADING, // the issue view. Tier 6 names it directly as well
   ].join(",");
 
@@ -322,6 +366,22 @@
     // name rots while this one holds. What it buys then is silence rather than a
     // false warning on a view that has 37 keys and is not broken.
     '[data-testid*="roadmap.timeline-table-kit"]',
+    // ROVO SEARCH'S RESULTS LIST, and it is here rather than in ROW_SELECTOR on
+    // purpose. Each result holds ONE anchor whose text is `KEY: summary`, so tier 4
+    // strips the key and answers correctly today -- confirmed by a live press on
+    // 2026-08-25, which logged `(tier 4)` with the right title. A row would put
+    // tiers 1, 2 and 3 in front of that, and tier 2 takes any `aria-label` in the
+    // row that starts with the key; nothing has measured what those labels say
+    // here, so promoting this to a row could only trade a summary that works for
+    // one that might. Naming it a region buys the one thing needed -- silence from
+    // the contract check on a search that returns no answer table -- and changes no
+    // summary. Promote it if a result ever grows a second anchor.
+    '[data-testid$="search-page-result"]',
+    // The cells of the table two entries above. Same bargain as the two entries
+    // above this one: it earns its place only if the longer row name rots while
+    // this one holds, and what it buys then is silence instead of a false warning
+    // on a view that is not broken.
+    '[data-testid*="datasource-table-view--cell-"]',
   ].join(",");
 
   const DEFAULT_COLLECTION_NAME = "Scratch";
@@ -1283,9 +1343,17 @@
    * it. `closest()` on the row list is the only safe direction (§2.1).
    *
    * Returns the tier as well. It reaches no UI: it is written to the console at
-   * debug level, which is how §7 step 5 is checked on each of the EIGHT views --
-   * seven from the survey, plus the Team's Timeline tab that using the Cart found
-   * (§2.1). Risk 19 says to expect a ninth.
+   * debug level, which is how §7 step 5 is checked on each of the NINE views --
+   * seven from the survey, plus the Team's Timeline tab and Rovo search, both of
+   * which USING the Cart found (§2.1). Risk 19 now expects a tenth, and names a
+   * candidate: the table this file's ROW_SELECTOR calls `datasource-table-view` is
+   * a smart-link table, so it is embedded in places no survey has opened.
+   *
+   * ROVO SEARCH IS WHY TIER 1's PAIRING WITH A ROW IS SPELLED OUT HERE. Four of the
+   * six tiers -- 1, 2, 3 and 5 -- are behind `if (row)`, so naming a row for a view
+   * whose summary field is NOT also named moves nothing: measured on 2026-08-25, the
+   * cascade went tier 0 to tier 0, and reached tier 1 only when both were there. A
+   * row entry without a summary entry is a change that looks like a fix.
    */
   function readSummary(anchor, key) {
     const row = anchor.closest(ROW_SELECTOR);
@@ -1649,7 +1717,17 @@ ${selectors.join(",\n")} {
       }
       // Document order decides, so the key column wins over anything later in
       // the row that also says only the key.
-      if (!keyed && stripKeyPrefix(cleanText(other.textContent), key) === "") {
+      //
+      // AN ANCHOR WITH NO TEXT AT ALL DOES NOT COUNT, and that guard arrived with
+      // rovo search's table on 2026-08-25. Its first cell is an issue-type ICON
+      // wrapped in a link to the same issue, and an empty string strips to an empty
+      // string -- so document order handed the rail to the icon and the `+` sat
+      // beside a picture instead of beside the key. "Says nothing but the key"
+      // means its text IS the key, never that it has none. The views that already
+      // relied on this test still pass it: the timeline's `RDC-21069, (opens new
+      // window)` and the backlog's visible key both have text.
+      const otherText = cleanText(other.textContent);
+      if (!keyed && otherText && stripKeyPrefix(otherText, key) === "") {
         keyed = other;
       }
     }
@@ -4223,6 +4301,23 @@ ${selectors.join(",\n")} {
     // bug §2.2 walks up from the anchor to avoid. The row above is what tier 1
     // uses.
     ['[data-testid="sr-timeline"]', "timeline"],
+    // ROVO SEARCH, and it names the whole VIEW for the same reason `sr-timeline`
+    // above it does: the page has TWO issue-link regions -- the answer card's
+    // datasource table and the results list -- and both are "the search page" to
+    // the person reading the drawer. Added on 2026-08-25 with the ninth view. All
+    // 70 of that page's anchors were measured inside this one container, so it
+    // labels every row on it and nothing off it.
+    //
+    // IT IS DELIBERATELY NOT IN KNOWN_REGION, and the difference is worth keeping
+    // straight. A label is cosmetic: naming a whole view costs a coarse label at
+    // worst. A KNOWN_REGION entry this wide would tell the contract check that
+    // every key on the page is explained, for ever, including on the day both row
+    // names rot -- which is the one thing the check exists to catch.
+    //
+    // It sits ABOVE the two entries below it, so anything nested inside a search
+    // result still reads as "search". Nothing inside a result has been measured;
+    // the coarse answer is the honest one until something has.
+    ['[data-testid="search-page-body"]', "search"],
     ['[data-testid*="issue-line-card"]', "linked work items"],
     [".ak-renderer-document", "description or comments"],
   ];
