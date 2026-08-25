@@ -77,7 +77,13 @@ const drawerRuleEarly = rules.find((r) => r.sel === "aside#gt-cart-drawer");
 // until someone adds it here.
 const HIDDEN_ABLE = [
   "aside#gt-cart-drawer",             // the drawer itself, hidden by the html attribute
-  "button#gt-cart-toggle",
+  // THE RAIL, AND NOT THE PLUS INSIDE IT. `button#gt-cart-toggle` was here until
+  // 1.3.0 and it is gone on purpose: the plus is no longer the floating element, so
+  // nothing sets `hidden` on it any more and a rule to undo that would be a rule for
+  // a state that cannot happen. What hides is the box, and the copy button hides on
+  // its own as well -- that is the preference (§2.7).
+  "div#gt-cart-rail",
+  "button#gt-cart-copy",
   "aside#gt-cart-drawer p.gt-cart-alert",
   "aside#gt-cart-drawer div#gt-cart-prefs",
   "aside#gt-cart-drawer input#gt-cart-rename",
@@ -91,7 +97,7 @@ const HIDDEN_ABLE = [
   "aside#gt-cart-drawer button.gt-cart-restore",
 ];
 is("the script still hides exactly the elements this list names",
-   (src.match(/\.hidden = /g) || []).length, 15);
+   (src.match(/\.hidden = /g) || []).length, 16);
 
 const hidingRules = rules.filter((r) => /display:\s*none/.test(r.body));
 const showsDisplay = (sel) =>
@@ -267,11 +273,50 @@ const allRings = rules
 is("the reset is scoped to the drawer, so the badge and the toggle keep their rings",
    [focusReset.sel.startsWith("aside#gt-cart-drawer"),
     allRings.filter((sel) => !sel.startsWith("aside#gt-cart-drawer")).sort()],
-   [true, ["button#gt-cart-badge:focus-visible", "button#gt-cart-toggle:focus-visible"]]);
+   [true, ["button#gt-cart-badge:focus-visible", "button#gt-cart-copy:focus-visible",
+           "button#gt-cart-toggle:focus-visible"]]);
 const ringSelectors = allRings.filter((sel) => sel.startsWith("aside#gt-cart-drawer"));
 is("and every ring inside the drawer strictly beats the reset",
    [ringSelectors.length, ringSelectors.filter((sel) => beats(spec(sel), spec(focusReset.sel))).length],
    [ringSelectors.length, ringSelectors.length]);
+
+/* ---- 2f. THE HOVER RAIL, ADDED AT 1.3.0, AND THE ONE BUG IT CAN HAVE THAT
+   JAVASCRIPT CANNOT SEE. The plus stopped being the floating element when it got a
+   neighbour: the rail is `position: fixed` and the plus is a flex child of it. But
+   the plus's glyph is TWO ABSOLUTELY POSITIONED BARS with `inset: 0`, and those
+   resolve against the nearest positioned ancestor -- so a plus with no `position`
+   of its own draws its two bars in the viewport's corner and shows an empty blue
+   circle. Nothing in `boot-smoke` can see that: the bars are still its children,
+   still have their classes, and the button still reports the state it should.
+
+   The mutation is one word. Take `position: relative` off the plus and this goes
+   red; it was verified by doing exactly that. */
+const railRule = rules.find((r) => r.sel === "div#gt-cart-rail");
+is("the rail is the fixed box, so the buttons inside it do not place themselves",
+   /position:\s*fixed/.test(railRule?.body ?? ""), true);
+is("and it lays them out in a row with a gap, which is what makes the pair one target",
+   [/display:\s*flex/.test(railRule?.body ?? ""), /gap:\s*4px/.test(railRule?.body ?? "")],
+   [true, true]);
+const plusRule = rules.find((r) => r.sel === "button#gt-cart-toggle");
+is("THE PLUS IS STILL A CONTAINING BLOCK, or the two bars that draw it escape to the viewport",
+   /position:\s*(relative|absolute|fixed|sticky)/.test(plusRule?.body ?? ""), true);
+is("and it is no longer fixed itself, because the rail is",
+   /position:\s*fixed/.test(plusRule?.body ?? ""), false);
+// The flip. On the right of the link the row reverses, so the plus is the near
+// button on BOTH sides -- the rule that keeps a week of muscle memory intact (§2.7).
+const flipRule = rules.find((r) => r.sel === 'div#gt-cart-rail[data-gt-side="right"]');
+is("a rail on the right reverses its row, so the plus is beside the key either way",
+   /flex-direction:\s*row-reverse/.test(flipRule?.body ?? ""), true);
+/* THE COPY BUTTON'S GROUND DOES NOT MOVE WHEN ITS GLYPH DOES. The tick and the
+   warning triangle are colour emoji, so painting a green or a yellow ground under
+   them is worse than leaving the ground alone -- and the foot's four buttons already
+   flash by swapping the label only. The attribute IS written, so this asserts the
+   absence of a paint rather than the absence of the state. */
+const copyStatePaints = rules.filter((r) =>
+  r.sel.split(",").map((one) => one.trim())
+    .some((one) => one.startsWith("button#gt-cart-copy[data-gt-state")));
+is("no rule paints the copy button by its flash state, so a colour emoji keeps its ground",
+   copyStatePaints.map((r) => r.sel), []);
 
 // ---- 3. The generated collected-keys sheet (§2.7) paints EVERY anchor whose href
 // names a collected key, and since 0.4.0 the drawer holds such anchors itself. Our

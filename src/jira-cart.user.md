@@ -1,9 +1,33 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 1.2.0 implements the whole of section 2 and has
+- **Status:** Accepted. **Version 1.3.0 implements the whole of section 2 and has
   been checked against it.** A version number here means *the spec is built and
   checked*, not *nothing is left to want* — §6 will always hold open items, so
   waiting for an empty §6 would mean never reaching any of them.
+  **1.3.0 added one gesture: a `🔗` beside the floating `+` that puts THAT ONE ISSUE
+  on the clipboard and never opens it (§2.7.1).** It is a minor version because it
+  changes no output and no stored shape: the bytes are 🔗 Links' own at **item
+  scope**, which §2.8 designed four versions ago as a seam and which nothing had ever
+  called. **Nothing had to be added to that seam**, and that is the only evidence
+  available that the scope was the right shape rather than a plausible one — so it is
+  recorded as such rather than passed over. Three smaller things came with it: the
+  right-click menu gained `Copy link to KEY`, which is the second thing that
+  interception takes away and now gives back; the `+` and its new neighbour share one
+  floating **rail**, so the 4px between them belongs to the Cart and not to the page;
+  and the Cart gained **its first preference that ships ON**, because this one takes
+  nothing away — it only takes room, which is what the switch is for.
+  **THE ONE CONSTRAINT THE WHOLE THING IS BUILT AROUND: the `+` does not move.** Its
+  distance from the hovered key has been the same since 0.1.1 and its side was
+  reversed into from a day of use, so the new button went on the outside and the rail
+  reverses its row on the flipped side to keep that true there too. `boot-smoke`
+  asserts the pixel, which is the one claim in §2.7.1 a reader would otherwise have to
+  take on trust.
+  **What it does NOT know is what a 52px rail lands on in a real row** — §6 item 19
+  and §7 step 36, and it is the thing to press first. The harnesses have no layout, so
+  they can prove the `+` is unmoved and cannot see whether the copy button now covers
+  the issue-search table's own checkbox. **The remedy is decided rather than open**
+  (stack the rail), and the switch shipped with the feature so the answer is
+  recoverable either way.
   **1.2.0 made the exports CONFIGURABLE, and it is a minor version because it
   breaks nothing: every default is exactly what 1.1.0 emitted**, so an existing
   user sees no change until they ask for one. Three things became settings — the
@@ -48,11 +72,13 @@
   preference changed in one tab reached the other at an arbitrary later moment
   (§2.5, §2.9, risk 12).
   What is left is the part of §7 that only a browser can answer: a live visit to
-  each of the eight views, a store damaged by hand, and a real logout. The two
+  each of the eight views, a store damaged by hand, a real logout, and **1.3.0's own
+  three steps — 36, 37 and 38 — none of which has been run.** The two
   probes of appendix C are still not run, and 1.0.0 added a third
-- **Date:** 2026-08-19; §2.14 was added on 2026-08-20, and the configurable
-  exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25
-- **Applies to:** `src/jira-cart.user.js` (version 1.2.0)
+- **Date:** 2026-08-19; §2.14 was added on 2026-08-20, the configurable
+  exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25, and §2.7.1 —
+  the copy button — was added on 2026-08-25
+- **Applies to:** `src/jira-cart.user.js` (version 1.3.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository. **§2.14 was decided by a grilling session and six real
   pastes instead**, because the question it answers — what a detailed list looks
@@ -169,6 +195,21 @@ The second is not for references the first cannot reach. After `02`, the live
 list reaches every reference on the page. The second gesture exists for
 ergonomics. The user's words: *"I do not want to: 1. open the side panel, 2.
 have the page scanned, 3. find the ticket in the list, 4. add it."*
+
+**1.3.0 adds a THIRD gesture, and it is not an add gesture at all.** It shares
+the hover with the second one and it puts one issue on the clipboard:
+
+| Gesture | The situation |
+| --- | --- |
+| The **copy button** beside the floating toggle (§2.7) | "I want this link somewhere else. I do not want it in a collection, and I do not want to open the issue to get it." |
+
+It is listed here rather than folded into the row above it because it answers a
+different question. The two gestures above both end with an issue in a
+collection; this one ends with bytes on the clipboard and the collection
+untouched. **A collection is not on the way to a paste any more.** The user's own
+framing, which is the whole request: *"the ability to have an extra button next
+to the + button that would allow to quickly copy the link of a ticket without
+actually opening it."*
 
 ### 1.4 Design principles from the two other ADRs
 
@@ -1044,6 +1085,170 @@ whole row would swallow Jira's card menu instead, which is a bigger loss (`07`
 The switch lives in `gt-jira-cart.prefs`, off by default, in the drawer's
 preferences area (§2.9).
 
+**Since 1.3.0 that menu has three entries, not two.** `Copy link to KEY` was
+added, and it is the second give-back: switching the menu on costs *Copy link
+address*, and this is the answer to that. It is not a clone of Chrome's entry and
+the label does not pretend to be — it copies the issue in the shape ⚙ names, so on
+a default install it is a markdown link and not a bare URL. Somebody who wants
+Chrome's exact bytes sets `URL only` on that dropdown. The order is the browser's
+own: the Cart's own action first, then open, then copy.
+
+#### 2.7.1 The copy button beside the `+`, and the one thing it may not do (1.3.0)
+
+**The request, in the user's words:** *"the ability to have an extra button next
+to the + button that would allow to quickly copy the link of a ticket without
+actually opening it."*
+
+**One rail, two buttons, and THE `+` DOES NOT MOVE.** That last clause is the
+constraint everything else here is arranged around, and it is the reason this is a
+subsection rather than a sentence. The `+` has been exactly `TOGGLE_GAP` from the
+hovered key since 0.1.1; the left-hand side was not designed, it was **reversed
+into** after a day of use; and it has been reached for daily ever since. A second
+button that pushed the `+` 28px further out would spend that, silently, to make
+room for something new. So the copy button is added on the **outside** — further from the
+link — and the `+` keeps its pixel.
+
+| What | How |
+| --- | --- |
+| The floating element | a `div` rail, `position: fixed`, holding both buttons in a flex row with a 4px gap |
+| Document order | copy, then `+` |
+| Placed on the left of the key | the rail's **right edge** lands where the `+`'s right edge used to, so the `+` — the last child — is unmoved |
+| Placed on the right (no room on the left) | the rail gets `flex-direction: row-reverse`, so the `+` is the near button on that side too |
+| The width used for the placement maths | arithmetic from two constants, never a measurement |
+
+**Why a rail rather than two fixed buttons.** Two independently placed fixed
+buttons leave a 4px gap between them that belongs to the **page**. A `pointerover`
+landing in that gap reaches whatever is underneath, which starts the grace period
+and takes the affordance away *while the pointer is crossing from one half of its
+own control to the other*. One box means the gap is inside our own element, so
+`closest` still answers. That is the whole argument, and it is the same shape of
+argument as the one that made the `+` float in the first place.
+
+**Why the width is computed and not measured.** Asking the rail for a rect is
+wrong twice: while it is hidden it reports zero, and once it is shown the read is a
+forced layout in the middle of a pointer move. `TOGGLE_SIZE + RAIL_GAP +
+TOGGLE_SIZE` is the same number with neither cost. The rail's height is
+`TOGGLE_SIZE`, because the buttons are square and the same size.
+
+**The `+` must stay a containing block, and this is the one bug here that
+JavaScript cannot see.** The `+` was `position: fixed`, which gave it a containing
+block for free — and the two bars that *draw* the plus are `position: absolute;
+inset: 0`. As a flex child it has none. Dropping `fixed` without putting
+`relative` in its place sends both bars to the viewport's corner and leaves an
+empty blue circle: the button still has its children, still has their classes, and
+still reports the right state, so nothing in `boot-smoke` can see it. `css-smoke`
+asserts the plus is positioned, and that check was verified by taking the word out
+and watching it go red.
+
+**What it copies: the `Issue reference` shape, at ITEM SCOPE.** Not a fixed
+markdown link and not a bare URL. One setting decides what a collected issue looks
+like everywhere, and this is one collected issue, so it reads the same setting —
+which also means all five shapes are already reachable from this button, `URL only`
+included. **It is the first caller item scope has ever had.** §2.8 built three
+scopes when there was one gesture and said in as many words that two of them were
+"the seam that makes a fifth format one entry in a list". Nothing had to be added
+to that seam here: the `- ` bullet drops, the `<ul>` drops, and the bytes land
+exactly on `jira-ux-improvements`' own 🔗 button. **That is the only evidence the
+seam was the right shape, and it is worth recording as such** — a seam nothing has
+ever used is a guess, and this one turned out not to be.
+
+Which of the six formats a single-issue gesture means is a **flag on the entry**
+(`single: true`), not the literal `"links"` in two handlers. Same treatment `opens`
+gets for 🔍 Search, and for the same reason. Links is the entry that can carry it:
+📃 Names and 🔑 Keys emit no URL, so neither is a link; 📋 Details and 📊 Report
+would put a field tail on one hovered issue; and 🔍 Search has no single-item form
+by §2.8's own rule.
+
+**The summary comes from the page, through the same six tiers the `+` uses.** The
+two gestures have to agree about what the issue is called. The alternative — read
+the *stored* summary when the issue happens to be collected — was declined: the
+same hover would then copy different bytes before and after an add, which reads as
+a defect (§4). **The cost is stated rather than hidden:** on a link with no row
+around it, tier 5 does not run and the page gives no summary, so the copy is the
+reference alone — even when that issue is sitting in the collection with a summary
+beside it.
+
+**Secondary on purpose, and it is the one place "loud, not subtle" is deliberately
+not followed.** That finding was about a **lone** affordance with nothing on the
+page pointing at it. This button never appears alone: it is always flush against
+the bold blue circle, so the eye finds the pair and then reads the pair. Two
+equally loud circles would compete, and adding an issue to the Cart is what the
+Cart is for. So it takes the page's own surface, a hairline in the page's own
+border colour, and the same drop shadow. **The risk is named rather than argued
+away:** §2.7 killed exactly this treatment once, for the `+`, and if this button
+turns out to be hard to pick out, the remedy is that one rule.
+
+**The glyph is typed, not drawn, and that is not a reversal of the `+`'s rule.**
+The `+` is drawn because a plus sits on the font's math axis and read as low.
+`🔗`, `✅` and `⚠️` are emoji with their own metrics and their own colour, and flex
+centring is exact for them. They are also not new vocabulary: `🔗` is the label the
+drawer's own button for these exact bytes already carries, and `✅` and `⚠️` are the
+two outcomes the foot already flashes. 13px rather than the `+`'s 14px, and the
+reason is which glyph has to fit: the button usually shows a chain link, but the two
+it shows at the moment that matters are a tick and a warning triangle, and colour
+emoji are typically drawn wider than their em box. **That is reasoning and not a
+measurement**, exactly like the paragraph above it about being findable at all — §7
+step 37 presses both.
+
+**The ground does not move when the glyph does.** `✅` and `⚠️` carry their own
+colour, so a green ground under a green tick is mud. The foot's four buttons flash
+by swapping the label and leaving the button alone; this is the same rule. The
+state *is* written to the element as a `data-` attribute, so a harness can read it,
+and no rule paints from it.
+
+**The receipt is a VALUE that `render` reads, and NOT a label written onto the
+button.** This is the one place the rail differs in kind from the foot. `flash`
+writes `✅` straight onto a foot button and gets away with it because `renderFoot`
+is the only thing that rebuilds that label. The rail is re-rendered by **every**
+signal the script has, because its position is derived from the hovered anchor — so
+a glyph written on the click is replaced by the next `animationstart` React fires,
+which on a busy page is within a frame or two. So the flash is a per-session
+variable, and the receipt lasts its full 900 ms. **That is stronger than the
+foot's, whose `✅` an unrelated re-render can still clear early**, and §2.8 says so
+about itself. The two are inconsistent; the inconsistency is recorded in §6 rather
+than resolved here, because changing the foot is a change to shipped behaviour that
+nobody asked for. Neither is in storage, which is the part they do agree on.
+
+**The pointer on the copy button may not offer to remove anything.** On a collected
+link, the pointer on the `+` turns it red and names removal, because removal has no
+undo. The copy button is a different action on the same issue. So the hover state
+is kept alive by the **rail** and the red is decided by the **button**: one test
+against the rail's id, one against the toggle's. Merging them would make the `+`
+threaten a removal you were not reaching for.
+
+**It is a preference, and it is the first switch in this file that ships ON.**
+Every other boolean in `gt-jira-cart.prefs` ships off and reads *anything that is
+not exactly `true` is off*. This one reads *anything that is not exactly `false` is
+on*, and the asymmetry is the decision: **a switch ships off when turning it on
+takes something away**, which is the right-click menu's whole story, and this takes
+nothing away. What it *does* cost is room — the rail is about 52px wide instead of
+24px, so it covers more of the row's own left margin — and that is what the switch
+is for. Off, the rail is the single `+` it was at 1.2.0, to the pixel. It lives on
+the ⚙ Appearance tab, **above** the right-click row, which is the one place on that
+tab where the order was chosen rather than inherited: this switch is on for
+everybody and the one below it is off for everybody, so the tab reads from the mild
+control to the expensive one.
+
+**What is NOT measured, and it is the thing to press first.** Whether a 52px rail
+covers something that matters in a real row. **What IS known is the DOM order, not
+the pixels:** the issue-navigator markup captured in `research/02c-live-dom-survey.md`
+puts a checkbox cell, then a type icon, then the key anchor — so the row's left margin
+really does hold a **selection checkbox**, and the rail's outer edge is now
+`TOGGLE_GAP + TOGGLE_SIZE + RAIL_GAP + TOGGLE_SIZE` = about 58px left of the key.
+Whether 58px reaches that checkbox depends on Jira's own padding, which nothing here
+has ever measured, and `boot-smoke` cannot help: it has no layout, so the rail's
+placement there is arithmetic against a stub rectangle. **If it does cover the checkbox, the remedy is
+already decided rather than open** — stack the rail vertically, which is one
+`flex-direction` and moves the same argument to the same place, because a 24×52
+rail leaks about 7px into each neighbouring row's own left margin instead. It is
+§7 step 36.
+
+**One combination has no receipt at all:** the right-click menu on and the copy
+button switched off. The menu closes on every entry, so the flash has nowhere to
+land. It is a corner of a preference that itself ships off, the remedy is the
+switch, and a failed write is still on the console — so it is recorded here rather
+than paid for with a toast this script has no other use for.
+
 ### 2.8 Copy-out: four formats, and the copy is synchronous
 
 **Four formats ship.** The worked example is one collection of three items, where
@@ -1224,6 +1429,14 @@ list syntax, and one item is not a list. A selection that holds a single item
 still gets a bullet, because a list was asked for. A single-item copy gets none.
 The gesture decides it, so nothing has to count the items. The single-item outputs
 then land exactly on `jira-ux`'s three copy buttons.
+
+> **AND SINCE 1.3.0 THERE IS A GESTURE THAT DECIDES IT.** This paragraph was written
+> when `item` was a seam with no caller, and it stayed that way for four versions.
+> §2.7.1's copy button is the caller: one hovered issue, `item` scope, 🔗 Links'
+> bytes. **Nothing had to be added to this design to serve it**, which is the only
+> evidence available that the scope was the right shape rather than a plausible one.
+> Two of the three scopes are still unreached — `selection` has no gesture, and the
+> collection is still the selection (§2.9).
 
 **No format emits the collection's name as a heading.** It is redundant wherever
 you paste, because you have already written the subject line. It is wrong for a
@@ -1734,6 +1947,15 @@ reference` governs all three exports, so a tab that owned it would tell a small 
 about its scope. It also keeps each export tab to one group of about ten rows. **The
 cost is real: `Appearance` sits as a peer of two export tabs, which is not a clean
 taxonomy.**
+
+> **`Appearance` HOLDS FOUR CONTROLS SINCE 1.3.0, not three.** The copy button's
+> switch joined the two checkboxes and the two dropdowns, and it went **above** the
+> right-click row — the one place on that tab where the order was chosen rather than
+> inherited. The reason: this switch is on for everybody and the one below it is off
+> for everybody, so the tab reads from the mild control to the expensive one. Nothing
+> about the structure above changed, and the taxonomy cost recorded in §6 item 17 is
+> unchanged: a switch about a gesture on the page is an appearance setting, which is
+> what the right-click row above it already was.
 
 **The last tab is a stored preference** (decision 19), on this section's own
 precedent for `open`: a reload is not the end of a sitting. **An unrecognised id
@@ -2601,9 +2823,15 @@ later session does not read it as a press that happened.
   > may say *which* fields and *in what order*, and may never say what a field looks
   > like. The moment a setting reaches `detailChip` this bullet is back, unamended.
 - **Not a per-row or per-selection copy.** There is no selection — the collection
-  is the selection (§2.9) — so `collection` is the only scope that exists. The
-  `item` scope is honoured in the code because it is the seam, not because
-  anything reaches it.
+  is the selection (§2.9) — so `collection` is the only scope 📋 Details is reached
+  at. The `item` scope was honoured in the code because it is the seam, not because
+  anything reached it.
+  > **Amended 2026-08-25, at 1.3.0.** `item` now has a caller — §2.7.1's copy
+  > button — and this bullet is still true about **📋 Details**, which is what it is
+  > about. The copy button is 🔗 Links at item scope, deliberately: a field tail and
+  > a heading on one hovered issue is a document nobody asked for, which is why the
+  > `single` flag sits on the Links entry and not on this one. What is still refused
+  > is copying **one row out of the collection**, and its reason is unchanged.
 - **Not about the live list.** The user's instruction: the detailed fields are
   wanted when exporting a collection, so a live-list row shows nothing new and
   **nothing is fetched for links merely drawn on the page**.
@@ -2884,14 +3112,16 @@ sections to somebody's page.
 
 ## 3. What the script gives the user
 
-Two things on the page: a badge in a bottom corner, and one floating button that
-follows the hovered issue link. Everything else is inside the drawer.
+Two things on the page: a badge in a bottom corner, and one floating **rail** that
+follows the hovered issue link — the `+`, and since 1.3.0 a `🔗` beside it.
+Everything else is inside the drawer.
 
 | Control | Where | What it does |
 | --- | --- | --- |
 | 🛒 `Scratch 7 ▾` | the badge, bottom-right | Opens and closes the drawer. The label is the active collection's name and its item count |
 | ⚠️ on the badge | the badge | The last write failed. The drawer carries the sentence |
 | `+` / `✓` / `−` | floating, left of the hovered issue link | `+` adds. `✓` says it is in the collection. `−` (the pointer is on the button) removes |
+| `🔗` | floating, on the far side of the `+` | Copies **that one issue** and does not open it. The bytes are 🔗 Links' at item scope, so **the `Issue reference` setting decides them** and both flavours are written. It flashes `✅`, or `⚠️` if the write was refused. The `+` does not move to make room for it (§2.7.1) |
 | A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it. **The key itself is a link**: click to open the issue, middle-click or Ctrl-click for a new tab |
 | A key, in either section | drawer | A real link to the issue, so the browser's own gestures all apply, including its context menu |
 | `✕` on a collection row | drawer, the collection | Removes that item |
@@ -2917,11 +3147,12 @@ follows the hovered issue link. Everything else is inside the drawer.
 | `Then by` | drawer, `📊 Report` | The second heading level, the same seven fields plus `None` for one level only. **The field `Group by` holds is shown greyed here rather than hidden**, so it says why it cannot be chosen; choosing the other dropdown's field **swaps the pair in one press** (§2.15) |
 | Sections | drawer, `Appearance` | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
 | Corner | drawer, `Appearance` | Bottom right or bottom left. The drawer's chrome mirrors it |
+| A `🔗` beside the `+` | drawer, `Appearance` | **On by default** — the only switch here that is. Off, the hovered rail is the single `+` it was at 1.2.0, which is what to do if the wider rail covers something in your rows (§2.7.1) |
 | ↺ Restore export defaults | drawer, the export tabs | Puts the line shape, both field lists and both bands back to what 1.1.0 emitted. Click once to arm it — the label becomes `Restore?` — and again to commit. It leaves the appearance switches and the tab you are on alone |
 | ✕ | drawer, the head | Closes the drawer. **The same on both screens**: it never means "go back" |
 | The grip | drawer, the free corner | Drag to resize. Double-click to let the drawer size itself again |
 | The divider | drawer, between the sections | Drag to give one section more room. Double-click to hand it back |
-| Right-click an issue link | the page | **Off by default.** A preference, on the `Appearance` tab. When on, it opens the Cart's own menu instead of the browser's |
+| Right-click an issue link | the page | **Off by default.** A preference, on the `Appearance` tab. When on, it opens the Cart's own menu instead of the browser's — three entries: add or remove, `Open link in new tab`, and `Copy link to KEY` |
 
 Notes on the controls:
 
@@ -3016,6 +3247,14 @@ Notes on the controls:
 | **Both band dropdowns greying out each other's field** | The tidiest-looking answer to the duplicate defect, and the one that never moves a control you did not press. It costs **three clicks to reorder a report** — `Then by` to `None`, `Group by` to the field, `Then by` back — through an intermediate state that exists only to get around the rule. Reordering is what the two dropdowns are FOR, so the version that makes it one press wins even though it moves a second control (§2.15, 2026-08-25) |
 | **A duplicate clearing `Then by` to `None`** | Simpler to explain than the swap and it throws a field away: the sub-band you had is gone and you re-pick it, which is two presses for the reorder and a value lost in between. The swap costs the same one moved control and keeps both fields |
 | **Time remaining as a band** | It is a field like the other seven and it is the one that may not band: the order would be string order over durations, and `"10m" < "2d" < "9h"` is a report that reads as broken rather than as configured (decision 14). It stays a row field, where a duration is read and never sorted |
+| **Putting the copy button between the `+` and the link** | It is the obvious place — nearest the pointer's approach — and it moves the `+` 28px further out. The `+`'s distance from the key has been the same since 0.1.1 and its SIDE was reversed into from a day of use; spending a week of habit to make room for a new control is the wrong way round. The copy button is on the outside, and the rail reverses its row on the flipped side so this stays true there too (§2.7.1, 1.3.0) |
+| **Two separately placed fixed buttons instead of one rail** | Less code and one less element. It also leaves a 4px gap that belongs to the **page**, so a `pointerover` in it starts the grace period and takes the affordance away while the pointer crosses between the two halves of its own control |
+| **A fixed shape for the copy button — always `[KEY](url) Summary`** | Predictable, and it makes `Issue reference` a setting that governs three exports and not the fourth thing that writes a link. Two places would then decide what a collected issue looks like, and somebody who set `Key and URL, no summary` because their destination does not render markdown would get markdown from this button anyway |
+| **A bare URL, always, matching Chrome's *Copy link address*** | The most predictable answer and the closest to the browser's own gesture. It puts the ⚙ setting out of reach of this gesture entirely, and `URL only` is already one of the five shapes — so choosing it costs one dropdown instead of costing everybody else the setting |
+| **Reading the STORED summary when the hovered issue is already collected** | It never loses a summary, and the store's may be fresher than the page's (that is what ↻ is for). It also means the same hover copies different bytes before and after an add, which reads as a defect — and it makes `+` and `🔗` disagree about what the issue is called. The page, through the same six tiers, for both (§2.7.1) |
+| **No summary at all from the copy button** | It removes the question. It also makes two of the five shapes silently stop carrying a summary from this one button, which is a setting that quietly fails to apply — the exact failure §2.14 warns about |
+| **Shipping the copy button with no switch** | Fewer knobs, and it takes nothing away, which is the test every other switch here was chosen by. But it does cost **room**: the rail is 52px instead of 24px over the row's own left margin, and on the issue-search table that may reach the selection checkbox. That is a cost use can find and nothing here can measure, so the switch ships with it rather than after it. It is on by default (§2.7.1) |
+| **A toast for a copy made from the right-click menu** | The menu closes on every entry, so a copy made there has no receipt when the rail's copy button is switched off. A toast would fix it and would be the only thing in the script that used one — for a corner of a preference that itself ships off. Recorded as a cost instead |
 
 ---
 
@@ -3055,10 +3294,16 @@ Notes on the controls:
    user: the Cart is not intended to be operated by keyboard input.** An audit of
    every focusable control at 1.0.0 found that it can be, mostly, and that fact is
    recorded so that nobody mistakes the three shortfalls below for defects. Body
-   order is badge → floating toggle (hidden, so skipped) → drawer, so Tab from the
+   order is badge → the hover rail (hidden, so skipped) → drawer, so Tab from the
    badge lands in the drawer with no focus trap needed, and every action has a
    focusable control: add and remove, rename, empty, delete, activate, create, all
-   four foot buttons and all three preferences. Three shortfalls, each accepted:
+   four foot buttons and all three preferences.
+   **1.3.0 put a SECOND button in that rail** (§2.7.1). It changes nothing here: the
+   rail is `hidden` whenever nothing is hovered, so Tab still skips the whole box, and
+   both buttons inside it are reachable in the same circumstances the `+` alone was —
+   which is to say while a pointer is holding the rail open. The copy button is
+   therefore in exactly the same standing as the `+`: focusable, ringed, and not part
+   of a keyboard path that was never designed. Three shortfalls, each accepted:
    closing with ✕ destroys the focused element, so **focus falls to `<body>` and
    the keyboard user loses their place**; the key link and the row body are **two
    tab stops per row**, so a twenty-row live list costs forty; and the Cart's own
@@ -3357,6 +3602,32 @@ These are not gaps in the design. Each was named, and each was left.
     **Nothing about this is a defect and nothing depends on it.** A tab added later
     arrives visible, because a bar shows every tab whether it has been pressed or
     not (decision 21), so the structure can change without a migration.
+18. **Two copy receipts that behave differently, and 1.3.0 left them that way on
+    purpose.** The foot's `✅` is written straight onto the button by `flash`, so an
+    unrelated re-render can clear it early — §2.8 says so about itself and calls the
+    feedback a blink rather than a receipt. The rail's `✅` is a per-session value
+    that `render` derives the glyph from, so it lasts its full 900 ms. **The rail's
+    is not a nicety; it is forced**: the rail re-renders on every signal the script
+    has, because its position comes from the hovered anchor, so a label written on
+    the click would be gone within a frame or two (§2.7.1).
+    **Why the foot was not brought into line.** It is a change to shipped behaviour
+    that nobody asked for, on the one path where §2.8's scar lives, and it would be
+    made in the same session as a new feature. The fix is small and known — one
+    module-level value per foot button, keyed by kind, derived in `renderFoot` — and
+    the reason to want it is that the two now visibly differ: press 🔗 Links and the
+    `✅` may blink out early, press the rail's `🔗` and it does not.
+19. **Whether a 52px rail covers anything that matters in a real row.** The one
+    thing about 1.3.0 that nothing in this repository can answer, and the one to
+    press first. `boot-smoke` has no layout, so the rail's placement there is
+    arithmetic against a stub rectangle. On the issue-search table the row's left
+    margin holds the type icon and then the selection **checkbox**, and the rail's
+    outer edge now reaches about 58px left of the key.
+    **The remedy is already decided rather than open**, which is why this is an open
+    ITEM and not a risk: stack the rail vertically. That is one `flex-direction`, and
+    it moves the same argument to the same place — a 24×52 rail leaks about 7px into
+    each neighbouring row's own left margin instead of 28px into this row's. The
+    switch shipped with the feature so that the answer is recoverable either way
+    (§2.7.1). It is §7 step 36.
 
 
 ---
@@ -3367,16 +3638,24 @@ There is no test system in this repository. Use these steps in a browser, with
 `jira-ux-improvements` and `jira-backlog-sprints` also installed.
 
 **What is confirmed outside a browser, and by what.** Seven Node harnesses hold
-**1,089 checks at 1.2.0**, against 372 at 1.0.0: the pure helpers, the store and every
+**1,137 checks at 1.3.0**, against 372 at 1.0.0: the pure helpers, the store and every
 preference it clamps, the (row, key) group, the six formats and the API's response
 validation, the whole script against a fake DOM, the generated stylesheet's cascade,
 and the script run twice over one store. They pull the real functions out of the file
 by brace matching, so they cannot drift from it and a rename breaks them loudly.
-**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0** — so this version more than doubled
-them, and almost all of the 604 it added are in two files: `format-smoke` holds every
+**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0, 1,137 at 1.3.0** — 1.2.0 more than
+doubled them, and almost all of the 604 it added are in two files: `format-smoke` holds every
 byte each setting can reach, and `boot-smoke` drives the ⚙ screen's own controls.
 That ratio is what a configurable output costs to keep checkable: the outputs are
 still a finite set, and asserting them means asserting all of them.
+
+**1.3.0's 48 checks were mutated the same way, on the same day: 14 single edits, 0
+survived.** Ten against the script's behaviour and four against the stylesheet, and
+the stylesheet ones are the reason that file exists — *the `+` is still a containing
+block* is invisible to JavaScript, because a plus whose two bars have escaped to the
+viewport's corner still has its children, still has their classes, and still reports
+the right state. The full list is in [the harnesses'
+README](../test/jira-cart/README.md).
 
 **AND THEY WERE PROVEN ABLE TO FAIL, on 2026-08-25, rather than assumed to be.** A
 green harness says nothing until you know its checks CAN go red — `css-smoke`'s first
@@ -3427,6 +3706,7 @@ replaced by something else.
 | 33 | **NOT RUN, and it is the cheapest step in this section** | The truncation the ⚙ screen replaces, in devtools, at the 300×215 floor. Every argument for the screen rests on it and nobody has looked at it. It confirms a REJECTED design was as bad as this document says — the one step here with that job |
 | 34 | **NOT RUN. Appendix A.9.1 says in its own words what it does not record** | Each of the five line shapes pasted into Outlook and into Teams in both skins, itemised. A.9.1 answered the yes/no that was blocking — a visible URL survives and stays clickable — from the user's own report rather than from a screenshot matrix, so **there is no per-target table for the shapes** the way there is for the chips. Nothing blocks on it, and 1.2.0 shipped without it |
 | 35 | **Needs Tampermonkey's storage view** | The remembered tab across a reload, and a tab id no build knows landing on the first tab **with content drawn**. `boot-smoke` holds both in state; what is missing is the paint, and this is the one preference whose failure mode is an empty screen rather than a wrong value |
+| 36, 37, 38 | **NOT RUN. 1.3.0's own three, and 36 is the one that matters** | The copy button (§2.7.1). What the harnesses hold: that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued; that a press reaches **item scope** and writes both flavours with no bullet and no `<ul>`; that the shape is read at the press; that the summary comes off the page through the same six tiers the `+` uses, with its tier on the console; that the flash survives a re-render where the foot's cannot; that the pointer on the copy button leaves the `+` green rather than red; that the switch reads *anything that is not exactly `false` is on*; that exactly one export is marked as the single-issue one; and that the menu's third entry copies the same bytes through the same path. **What none of it can see is layout**: whether the 52px rail covers the issue-search table's own checkbox (step 36, §6 item 19), whether the `🔗` can be picked out beside the blue circle, and what a single line with **no `<ul>` around it** does in Outlook and in Teams — which appendix A.9's whole lesson says is not a thing to reason about (step 37) |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
 | 23 | **Needs both** | It is the standing condition on every step above |
 
@@ -3462,6 +3742,10 @@ pass each, and they are cheap.
    loud, and centred in its box. Click it. The link must go green and the badge count
    must go up. Hover it again: the `✓` must become a red `−` **before** any click.
    Click to remove.
+   **Since 1.3.0 there is a `🔗` on the far side of the `+`, and this step gains one
+   line:** with the issue collected, put the pointer on the `🔗`. **The `+` must stay
+   green.** A red `−` there is the defect — the copy button would be offering a
+   removal you were not reaching for. Steps 36 to 38 are the rest of that button.
 8. **Twenty in a row.** Add twenty links without irritation. Nothing may reflow, and
    no row may change height.
 9. **Virtualisation costs nothing.** Add a link, scroll it out of view, scroll back.
@@ -3732,6 +4016,49 @@ pass each, and they are cheap.
     `layout` and `corner` have always had (§2.4), and the reason it is worth pressing
     rather than reading is that a tab id is the one preference whose failure mode is
     an **empty screen** rather than a wrong value.
+36. **THE RAIL'S FOOTPRINT, WHICH IS THE ONE THING 1.3.0 CANNOT ANSWER FROM THIS
+    REPOSITORY (§2.7.1, §6 item 19).** `boot-smoke` has no layout, so the rail's
+    placement there is arithmetic against a stub rectangle: it proves the `+` does
+    not move, and it says nothing about what the rail lands on.
+    Open **Jira's issue search** — the view whose rows carry a selection checkbox —
+    and hover a key in the middle of the list. Then, in this order:
+    - **Can you still tick the row's checkbox** without the rail getting in the way?
+      That is the whole question. The rail's outer edge is about 58px left of the
+      key, and the checkbox is roughly there.
+    - Do the same on the **backlog**, the **board**, and a **prose paragraph** in an
+      issue description, where there is no checkbox and the margin is emptier.
+    - Turn the `🔗` **off** on the ⚙ Appearance tab and confirm the `+` is where you
+      have always reached for it. Turn it back on and confirm the same thing.
+    **If the checkbox is unreachable, the remedy is decided rather than open:** stack
+    the rail vertically, which is one `flex-direction` on `div#gt-cart-rail`. Do not
+    re-derive it — a 24×52 rail leaks about 7px into each neighbouring row's own left
+    margin instead of 28px into this row's, which is the trade §6 item 19 records.
+37. **THE COPY BUTTON, PRESSED, AND THE ONE THING A HARNESS CANNOT SEE ABOUT IT.**
+    `boot-smoke` presses it and asserts the bytes, the flash, and that a re-render
+    does not clear the flash. Two things are left, and both are paint:
+    - **Can you pick the `🔗` out?** It is the page's own surface with a hairline
+      border, which is the treatment §2.7 killed once for the `+` on the grounds that
+      it cannot be picked out (§2.7.1 says why the case is different here). If it
+      cannot be found beside the blue circle, that one CSS rule is the remedy.
+    - **Paste it.** Into Outlook and into Teams, and with at least two of the five
+      shapes — the default markdown link and one of the URL-bearing ones. The bytes
+      are 🔗 Links' own at item scope, which appendix A.9.1 already pasted **as list
+      items**; what has never been pasted is a single line with **no `<ul>` around
+      it**, and appendix A.9's whole lesson is that the wrapper is exactly the sort
+      of thing a target treats differently. Change one thing at a time (§2.14 rule
+      5).
+    Then, on a **prose link with no row around it**, press `🔗` and read what
+    arrives: the reference alone, with no summary, is the correct answer and the
+    stated cost of reading the page rather than the store (§2.7.1). Confirm it is not
+    a dangling separator.
+38. **THE RIGHT-CLICK MENU'S THIRD ENTRY.** Switch the menu on, right-click an issue
+    key, and press `Copy link to KEY`. The menu must close, the clipboard must hold
+    the same bytes the rail's button gives, and **the `✅` must appear on the rail's
+    copy button**, which is up because right-clicking a link means hovering it. Then
+    switch the `🔗` **off**, leave the menu on, and press the entry again: the copy
+    still happens and **there is no receipt at all**. That is the recorded cost, not
+    a defect — confirm it is that and not a silent failure by watching the console at
+    debug level (§2.7.1).
 
 ---
 

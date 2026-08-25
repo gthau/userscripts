@@ -202,6 +202,31 @@ is("right-click is off unless it is exactly true", tab.loadPrefs().rightClickMen
 tab = reset({ [PREFS_KEY]: JSON.stringify({ rightClickMenu: true, layout: "split" }) });
 is("right-click on", tab.loadPrefs().rightClickMenu, true);
 is("layout pinned", tab.loadPrefs().layout, "split");
+
+/* 11a. THE COPY BUTTON'S SWITCH, added at 1.3.0, and IT IS THE ONE BOOLEAN HERE THAT
+   READS THE OTHER WAY ROUND. Every switch above ships off and reads "anything that is
+   not exactly true is off". This one ships ON, so it reads "anything that is not
+   exactly false is on" -- and the asymmetry is the decision rather than a slip: a
+   switch ships off when turning it on takes something away, which is the right-click
+   menu's whole story, and this one takes nothing away (§2.7).
+
+   The consequence worth checking is the hand-edited blob. A string, a number and a
+   null all have to come back ON, because none of them is a state a click can make --
+   which is the same rule the switches above follow, in the other direction. */
+tab = reset({});
+is("the copy button ships ON, so an install that never opens ⚙ has it", tab.loadPrefs().copyButton, true);
+tab = reset({ [PREFS_KEY]: JSON.stringify({ copyButton: false }) });
+is("and exactly false is the only thing that turns it off", tab.loadPrefs().copyButton, false);
+for (const junk of ["no", 0, null, "false"]) {
+  tab = reset({ [PREFS_KEY]: JSON.stringify({ copyButton: junk }) });
+  is(`a stored ${JSON.stringify(junk)} is not off, because it is not a state a click makes`,
+     tab.loadPrefs().copyButton, true);
+}
+tab = reset({});
+tab.savePrefs({ copyButton: false });
+is("turning it off writes the preference", JSON.parse(store[PREFS_KEY]).copyButton, false);
+is("and it leaves the collections alone", STORE_KEY in store, false);
+tab = reset({ [PREFS_KEY]: JSON.stringify({ layout: "sideways", rightClickMenu: "yes" }) });
 is("a divider below the floor is clamped", tab.readStoredBasis(2), tab.BASIS_MIN);
 is("a divider above the ceiling is clamped", tab.readStoredBasis(99), tab.BASIS_MAX);
 is("a divider that is not a number is forgotten", tab.readStoredBasis("62"), null);
@@ -361,7 +386,7 @@ is("every key it names is a real preference with a default",
 // dragging the grip again (risk 10), and being thrown to another tab because you
 // reset a field list would be a second change nobody asked for.
 is("and reaches neither the appearance switches, the size, nor the tab you are on",
-   ["corner", "layout", "rightClickMenu", "size", "basisStacked", "basisSplit", "settingsTab", "open"]
+   ["corner", "layout", "rightClickMenu", "copyButton", "size", "basisStacked", "basisSplit", "settingsTab", "open"]
      .filter((key) => tab.EXPORT_PREF_KEYS.includes(key)), []);
 
 // 15. The two field lists, and they are ONE FUNCTION, so every check runs against

@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
-// @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts.
+// @version      1.3.0
+// @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Or press the 🔗 beside it to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
@@ -26,6 +26,12 @@
  *   is already collected, and a red `−` while the pointer is on the button,
  *   which is the click that removes it. The warning arrives before the click,
  *   because a removal has no undo.
+ * - A `🔗` BESIDE THAT `+` SINCE 1.3.0, on the outside of it. It puts that one
+ *   issue on the clipboard -- in whatever shape `Issue reference` names, so the
+ *   same bytes 🔗 Links would give for it, plain and rich -- and it never opens
+ *   the issue. It flashes `✅`. The `+` did not move a pixel to make room: the
+ *   copy button is further from the link, on both sides. Turn it off on the
+ *   ⚙ Appearance tab and the hovered rail is the single `+` it was at 1.2.0.
  * - Every collected link is tinted green on the page, including in the rows
  *   React has not built yet, so scrolling a virtualised list costs nothing and
  *   re-applies nothing.
@@ -67,16 +73,23 @@
  *     - How 📊 Report is banded: `Group by` and `Then by`, over seven fields,
  *       where 1.1.0 could only do priority and then team.
  *   ↺ `Restore export defaults` puts all five back. The appearance switches —
- *   sections, corner, and the right-click menu, which still ships off — are on
- *   their own tab and it leaves them alone.
+ *   sections, corner, the `🔗` beside the `+`, and the right-click menu, which
+ *   still ships off — are on their own tab and it leaves them alone.
+ * - If you do switch the right-click menu on, it now has THREE entries: add or
+ *   remove, `Open link in new tab`, and `Copy link to KEY`. The last two are
+ *   the two things the interception takes away, given back.
  *
- * What is still absent: keyboard shortcuts, multi-select, per-row copy,
- * importing a JQL query into a collection, and any ordering or grouping of the
- * COLLECTION itself. 📊 Report groups a document built from the collection; the
- * collection's own array keeps its insertion order in every format.
+ * What is still absent: keyboard shortcuts, multi-select, copying a row out of
+ * the drawer, importing a JQL query into a collection, and any ordering or
+ * grouping of the COLLECTION itself. 📊 Report groups a document built from the
+ * collection; the collection's own array keeps its insertion order in every
+ * format. Note that "per-row copy" left this list at 1.3.0 in one direction
+ * only: copying ONE HOVERED ISSUE off the page is what the `🔗` does, and
+ * copying one row out of the collection is still refused, because the
+ * collection is the selection (§2.9).
  *
  * The reasons for all of it are in `jira-cart.user.md` beside this file. Read
- * that before changing anything here: it lists 64 rejected alternatives, and
+ * that before changing anything here: it lists 72 rejected alternatives, and
  * most of the surprising lines below are one of them. The section numbers in
  * the comments point into it.
  *
@@ -149,14 +162,26 @@
   const COLLECTED_STYLE_ID = "gt-cart-collected-style";
 
   const BADGE_ID = "gt-cart-badge";
+  // THE RAIL IS THE BOX THAT FLOATS; THE BUTTONS INSIDE IT DO NOT POSITION
+  // THEMSELVES. Until 1.3.0 the `+` was the floating element itself. It has a
+  // neighbour now, and two independently placed fixed buttons would leave a gap
+  // between them that belongs to the page: a `pointerover` landing in that gap
+  // reaches whatever is underneath, which starts the grace timer and takes the
+  // affordance away while the pointer is travelling between its own two halves.
+  // One box means the gap is inside our own element, so `closest` still answers
+  // (§2.7.1).
+  const RAIL_ID = "gt-cart-rail";
   const TOGGLE_ID = "gt-cart-toggle";
+  const COPY_ID = "gt-cart-copy";
   const DRAWER_ID = "gt-cart-drawer";
   const MENU_ID = "gt-cart-menu";
   const WARNING_ID = "gt-cart-warning";
   const MOUNT_ANIMATION = "gt-cart-mount";
 
-  // Both of our own elements carry this attribute, so the scan can exclude the
-  // Cart's own UI with one selector (§2.3).
+  // EVERY element of our own carries this attribute, so the scan can exclude the
+  // Cart's own UI with one selector (§2.3). `closest` walks up, so the rail carrying
+  // it answers for the two buttons inside it as well -- they carry it anyway, because
+  // it costs nothing and a button that is reparented later must not lose it.
   const UI_ATTRIBUTE = "data-gt-cart-ui";
   const UI_SELECTOR = `[${UI_ATTRIBUTE}]`;
 
@@ -174,6 +199,13 @@
   const TOGGLE_SIZE = 24;
   const TOGGLE_GAP = 6;
   const EDGE_MARGIN = 4;
+
+  // The gap BETWEEN the two buttons on the rail, and it is smaller than the gap
+  // between the rail and the link on purpose: 4px reads as two buttons that
+  // belong together, and the 6px above reads as the rail standing off the row.
+  // Nothing measures the rail, so this number is also arithmetic -- see
+  // `positionRail`.
+  const RAIL_GAP = 4;
 
   // The detector, and the whole of it. It found every issue reference on all
   // seven views of the live survey (§2.1). No text regex over the page: a key
@@ -794,6 +826,16 @@
     corner: "bottom-right",
     layout: "auto",
     rightClickMenu: false,
+    // ON BY DEFAULT, WHICH MAKES IT THE FIRST SWITCH HERE THAT IS. Every other
+    // boolean above ships off, and each reads "anything that is not exactly `true`
+    // is off". This one is the mirror of that -- "anything that is not exactly
+    // `false` is on" -- and the asymmetry is the point rather than an oversight: a
+    // switch ships off when turning it on TAKES SOMETHING AWAY, which is the
+    // right-click menu's whole story (§2.7). The copy button takes nothing away,
+    // so it ships on, and the switch exists for the one cost it does have: the
+    // rail is about 52px wide instead of 24px, so it covers more of the row's own
+    // left margin (§2.7.1).
+    copyButton: true,
     size: null,
     basisStacked: null,
     basisSplit: null,
@@ -840,9 +882,10 @@
      literals in the handler so that a seventh export preference is one entry here
      and nothing to remember (decision 22).
 
-     What it deliberately leaves alone, each for its own reason. The three
-     APPEARANCE switches, because the drawer's size is in the same key and a dragged
-     size is only recoverable by dragging the grip again (risk 10) -- so a control
+     What it deliberately leaves alone, each for its own reason. The FOUR APPEARANCE
+     switches -- three until 1.3.0 added the copy button's -- because the drawer's
+     size is in the same key and a dragged size is only recoverable by dragging the
+     grip again (risk 10) -- so a control
      called "restore" that silently resized the drawer would be the worst kind of
      surprise. And `settingsTab`, because which tab you are on is not an export
      setting: throwing you to another tab because you reset a field list would be a
@@ -941,6 +984,13 @@
       // Off by default, and it is the one preference that TAKES SOMETHING AWAY
       // (§2.7). Anything that is not exactly `true` is off.
       rightClickMenu: source.rightClickMenu === true,
+      // AND THIS ONE IS THE MIRROR, because it is the one switch that ships ON:
+      // anything that is not exactly `false` is on. Written this way round rather
+      // than as `source.copyButton ?? true` so that a hand-edited blob holding a
+      // string, a number or a null cannot leave the rail in a state no click
+      // produced -- which is the rule every boolean above already follows, in the
+      // other direction (§2.4).
+      copyButton: source.copyButton !== false,
       size: readStoredSize(source.size),
       basisStacked: readStoredBasis(source.basisStacked),
       basisSplit: readStoredBasis(source.basisSplit),
@@ -1611,21 +1661,31 @@ ${selectors.join(",\n")} {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
-    if (target.closest(`#${TOGGLE_ID}`)) {
-      // The pointer is on the button. On a collected link that names removal, so
-      // the label goes red BEFORE any click: removal is the one destructive
-      // thing this gesture does and there is no undo, so the warning is the
-      // safety margin, and it costs one CSS rule (§2.7).
+    if (target.closest(`#${RAIL_ID}`)) {
+      // The pointer is on the rail, so the hover is kept alive whichever of the
+      // two buttons it is over -- that is the whole reason the two share one box.
+      //
+      // WHETHER THE `+` GOES RED IS DECIDED BY THE BUTTON AND NOT BY THE RAIL. On
+      // a collected link, the pointer on the `+` names removal, so the label goes
+      // red BEFORE any click: removal is the one destructive thing this gesture
+      // does and there is no undo, so the warning is the safety margin, and it
+      // costs one CSS rule (§2.7). The pointer on the COPY button must not make
+      // that offer -- it is a different action on the same issue -- so the test is
+      // against the toggle's own id and not the rail's.
       cancelGrace();
-      setHover(hoveredAnchor, hoveredReadAnchor, true);
+      setHover(
+        hoveredAnchor,
+        hoveredReadAnchor,
+        !!target.closest(`#${TOGGLE_ID}`),
+      );
       return;
     }
 
     // OUR OWN UI NEVER SUMMONS THE FLOATING BUTTON, and since 0.4.0 that is
     // load-bearing rather than defensive: the drawer's rows hold real issue links
     // now, so hovering a key in the live list would otherwise park the `+` beside
-    // it and offer to collect what is already collected. The toggle's own check is
-    // above this one, because the toggle carries the same attribute.
+    // it and offer to collect what is already collected. The rail's own check is
+    // above this one, because the rail carries the same attribute.
     if (target.closest(UI_SELECTOR)) {
       startGrace();
       return;
@@ -1654,8 +1714,25 @@ ${selectors.join(",\n")} {
     startGrace();
   }
 
-  function ensureToggle() {
-    const existing = document.getElementById(TOGGLE_ID);
+  /**
+   * ONE RAIL, TWO BUTTONS, AND THE `+` DOES NOT MOVE. That last part is the
+   * constraint the whole geometry is built around: the `+` has sat exactly
+   * `TOGGLE_GAP` from the hovered key since 0.1.1, its SIDE was reversed into after
+   * a day of use, and it has been reached for daily since. So the copy button is
+   * added on the OUTSIDE of it -- further from the link -- and the `+` keeps the
+   * position it already had, to the pixel (§2.7.1).
+   *
+   * `positionRail` and the sheet's `row-reverse` rule are the two halves of that:
+   * the rail's right edge sits where the `+`'s right edge used to, and when there
+   * is no room on the left and the rail flips to the other side of the link, the
+   * flex direction flips with it so the `+` is STILL the button next to the key.
+   *
+   * The copy button is a preference and ships on (see `DEFAULT_PREFS`). With it
+   * off the rail holds one button and is the width it always was, so the switch
+   * gives back the 1.2.0 geometry exactly.
+   */
+  function ensureRail() {
+    const existing = document.getElementById(RAIL_ID);
     if (existing?.isConnected) return existing;
 
     const mount = document.body;
@@ -1663,10 +1740,63 @@ ${selectors.join(",\n")} {
     // straight back here.
     if (!mount) return null;
 
+    const rail = document.createElement("div");
+    rail.id = RAIL_ID;
+    rail.hidden = true;
+    // The rail carries it, which is what makes the exclusion work for everything
+    // inside it: `closest` walks up. The two buttons carry their own as well, so
+    // neither can lose the exclusion if it is ever reparented (§2.3).
+    rail.setAttribute(UI_ATTRIBUTE, "");
+
+    // Document order is copy, then toggle, and the sheet turns that into
+    // `[🔗][+] link` on the left and `link [+][🔗]` on the right. Neither order is
+    // written twice: there is one DOM order and one CSS rule that reverses it.
+    rail.append(buildCopy(), buildToggle());
+
+    mount.append(rail);
+    logger.debug("hover rail built");
+    return rail;
+  }
+
+  /**
+   * The copy button. It puts the hovered issue on the clipboard at ITEM SCOPE, in
+   * whatever shape `Issue reference` names, and it never opens the issue -- which
+   * is the whole request: the link of a ticket, without a page load (1.3.0).
+   *
+   * THE GLYPH IS TYPED, NOT DRAWN, and that is not a reversal of the `+`'s rule.
+   * The `+` is drawn because a plus is laid out on the font's math axis and reads
+   * as sitting low; `🔗`, `✅` and `⚠️` are emoji with their own metrics and their
+   * own colour, and flex centring is exact for them. They are also not new
+   * vocabulary: `🔗` is the label the drawer's own button for these bytes already
+   * carries, and `✅`/`⚠️` are the two outcomes the foot already flashes (§2.8).
+   */
+  function buildCopy() {
+    const copy = document.createElement("button");
+    copy.id = COPY_ID;
+    copy.type = "button";
+    copy.setAttribute(UI_ATTRIBUTE, "");
+    copy.addEventListener("click", (event) =>
+      guard(() => {
+        // The rail sits over whatever is under the pointer, so this click must
+        // not reach Jira's own row handlers either.
+        event.preventDefault();
+        event.stopPropagation();
+        // RETURNED, not called and dropped: `copyOneIssue` is async, and `guard`
+        // only catches what it is handed. Its own `try` already reports a failed
+        // write, so this is the belt for anything thrown before that.
+        return copyOneIssue(
+          hoveredAnchor ? keyFromHref(hoveredAnchor.getAttribute("href")) : null,
+          hoveredReadAnchor ?? hoveredAnchor,
+        );
+      }),
+    );
+    return copy;
+  }
+
+  function buildToggle() {
     const toggle = document.createElement("button");
     toggle.id = TOGGLE_ID;
     toggle.type = "button";
-    toggle.hidden = true;
     toggle.setAttribute(UI_ATTRIBUTE, "");
 
     // Draw the `+`. Do not type it. The `+` read as sitting too low in its box
@@ -1702,15 +1832,13 @@ ${selectors.join(",\n")} {
       }),
     );
 
-    mount.append(toggle);
-    logger.debug("floating toggle built");
     return toggle;
   }
 
-  // Lists scroll inside their own containers, so the button is REPOSITIONED on
+  // Lists scroll inside their own containers, so the rail is REPOSITIONED on
   // scroll rather than hidden: hiding on scroll made a one-notch wheel nudge kill
   // the affordance (§2.7).
-  function positionToggle(toggle) {
+  function positionRail(rail, withCopy) {
     if (!hoveredAnchor) return false;
 
     // A virtualised row can unmount under the pointer. A detached or hidden node
@@ -1722,6 +1850,15 @@ ${selectors.join(",\n")} {
       return false;
     }
 
+    // THE RAIL'S WIDTH IS ARITHMETIC AND NEVER A MEASUREMENT. Asking the rail for
+    // a rect is wrong twice over: while it is hidden it reports zero, and after it
+    // is shown the read is a forced layout in the middle of a pointer move. Two
+    // constants and a boolean give the same number with neither cost -- and it is
+    // the same reason the `top` below uses `TOGGLE_SIZE` rather than the rail's own
+    // height. The buttons are square and the same size, so the rail's height IS
+    // `TOGGLE_SIZE`.
+    const width = TOGGLE_SIZE + (withCopy ? RAIL_GAP + TOGGLE_SIZE : 0);
+
     // Left, not right. It was built on the right, and the user asked for the
     // left after a day of use: on every list view surveyed the key sits at the
     // row's left edge and the summary runs off to the right, so a button on the
@@ -1729,13 +1866,23 @@ ${selectors.join(",\n")} {
     // the row's own margin, where nothing else is. It also meets the pointer on
     // the way in. It flips to the right only when there is no room at all (§2.7).
     //
+    // `width` AND NOT `TOGGLE_SIZE` IS WHAT KEEPS THE `+` STILL. The rail's right
+    // edge lands where the `+`'s right edge landed at 1.2.0, so the `+` -- the
+    // rail's last child, and its rightmost on this side -- is exactly where it has
+    // always been, and the copy button is the thing that occupies the new pixels.
+    // Subtracting `TOGGLE_SIZE` here instead would move the `+` 28px further from
+    // the key, which is the one outcome this whole arrangement is arranged to
+    // avoid.
+    //
     // Physical `left`/`top` rather than the logical properties, because this is
     // pixel maths against a viewport rectangle.
-    let left = rect.left - TOGGLE_GAP - TOGGLE_SIZE;
+    let side = "left";
+    let left = rect.left - TOGGLE_GAP - width;
     if (left < EDGE_MARGIN) {
+      side = "right";
       left = Math.min(
         rect.right + TOGGLE_GAP,
-        window.innerWidth - TOGGLE_SIZE - EDGE_MARGIN,
+        window.innerWidth - width - EDGE_MARGIN,
       );
     }
     const top = Math.min(
@@ -1743,8 +1890,13 @@ ${selectors.join(",\n")} {
       window.innerHeight - TOGGLE_SIZE - EDGE_MARGIN,
     );
 
-    toggle.style.left = `${Math.round(left)}px`;
-    toggle.style.top = `${Math.round(top)}px`;
+    // WHICH SIDE THE RAIL IS ON IS AN ATTRIBUTE, AND THE SHEET READS IT. On the
+    // right, `flex-direction: row-reverse` puts the first child at the far end, so
+    // the `+` -- the second child -- is the one beside the key again. The
+    // alternative was a second DOM order, which is two orders that can disagree.
+    rail.dataset.gtSide = side;
+    rail.style.left = `${Math.round(left)}px`;
+    rail.style.top = `${Math.round(top)}px`;
     return true;
   }
 
@@ -1756,8 +1908,11 @@ ${selectors.join(",\n")} {
     requestAnimationFrame(() =>
       guard(() => {
         scrollScheduled = false;
-        const toggle = document.getElementById(TOGGLE_ID);
-        if (toggle && !toggle.hidden) positionToggle(toggle);
+        const rail = document.getElementById(RAIL_ID);
+        // The preference is read here rather than remembered, the way every other
+        // reader of it does: a scroll after the switch was flipped in another tab
+        // has to place the width the rail actually has.
+        if (rail && !rail.hidden) positionRail(rail, loadPrefs().copyButton);
       }),
     );
   }
@@ -1798,15 +1953,37 @@ ${selectors.join(",\n")} {
     logAdd(key, outcome, written);
   }
 
-  function renderToggle(state) {
-    const toggle = ensureToggle();
-    if (!toggle) return;
+  /* THE THREE GLYPHS THE COPY BUTTON CAN SHOW, and they are all borrowed rather
+     than invented. `🔗` is the drawer's own label for these exact bytes, and `✅`
+     and `⚠️` are the two outcomes the foot already flashes for a copy, so there is
+     one vocabulary for one operation whichever control performs it (§2.8).
+
+     Keyed by the flash state so the idle glyph is an entry in the same table
+     rather than a fallback beside it. */
+  const COPY_GLYPHS = { idle: "🔗", done: "✅", failed: "⚠️" };
+
+  function renderRail(state, prefs) {
+    const rail = ensureRail();
+    if (!rail) return;
+    const toggle = document.getElementById(TOGGLE_ID);
+    const copy = document.getElementById(COPY_ID);
+    // Both are built with the rail and neither is ever removed, so this cannot be
+    // false. It is here because everything below writes to both, and a missing one
+    // would be a `TypeError` inside `render`.
+    if (!toggle || !copy) return;
+
+    // THE SWITCH IS READ ON EVERY RENDER, like every other preference, so it lands
+    // from another tab with nothing to re-wire. Hiding the button rather than
+    // leaving it out of the rail is what makes that possible: there is nothing to
+    // build or tear down, and the rail's width is told to `positionRail` from the
+    // same read.
+    copy.hidden = !prefs.copyButton;
 
     const key = hoveredAnchor
       ? keyFromHref(hoveredAnchor.getAttribute("href"))
       : null;
-    if (!key || !positionToggle(toggle)) {
-      toggle.hidden = true;
+    if (!key || !positionRail(rail, prefs.copyButton)) {
+      rail.hidden = true;
       return;
     }
 
@@ -1830,7 +2007,44 @@ ${selectors.join(",\n")} {
           ? `Remove ${key} from ${collection.name}`
           : `${key} is in ${collection.name}`,
     );
-    toggle.hidden = false;
+
+    /* THE COPY BUTTON'S GLYPH IS DERIVED HERE, AND THAT IS THE WHOLE REASON THE
+       FLASH IS A VALUE RATHER THAN A LABEL. `flash` in the foot writes `✅`
+       straight onto the button and gets away with it because `renderFoot` is the
+       only thing that rebuilds that label. This button is different in kind: the
+       rail is re-rendered by every signal the script has, because its POSITION is
+       derived from the hovered anchor -- so a glyph written on the click would be
+       replaced by the next `animationstart` React fires, which on a busy page is
+       within a frame or two.
+
+       So `copyFlash` is a value `render` reads, and the receipt lasts the full
+       900 ms. That is stronger than the foot's, whose `✅` an unrelated re-render
+       can still clear early (§2.8 calls it a blink, not a receipt, and says so).
+       The two are inconsistent and the inconsistency is recorded rather than
+       resolved -- see §6. Nothing here is in storage, which is the part they DO
+       agree on. */
+    const flashState = copyFlash ?? "idle";
+    copy.dataset.gtState = flashState;
+    copy.textContent = COPY_GLYPHS[flashState];
+    copy.setAttribute(
+      "aria-label",
+      flashState === "done"
+        ? `Copied the link to ${key}`
+        : flashState === "failed"
+          ? `Could not copy the link to ${key}`
+          : `Copy the link to ${key}`,
+    );
+    // The tooltip names the setting, because what this button emits is not fixed:
+    // somebody who set `URL only` gets a bare URL from it, and the button has to
+    // say where that came from or it looks broken.
+    copy.title =
+      flashState === "idle"
+        ? `Copy the link to ${key}, in the shape ⚙ Issue reference names. The issue is not opened.`
+        : flashState === "done"
+          ? `${key} is on the clipboard`
+          : "The clipboard write was refused. Press again.";
+
+    rail.hidden = false;
   }
 
   // ------------------------------------------------------------------- badge
@@ -2960,6 +3174,18 @@ ${selectors.join(",\n")} {
       title:
         "Copy the whole collection as a markdown list, and as live links when pasted into an editor",
       build: formatLinks,
+      // WHICH FORMAT THE SINGLE-ISSUE GESTURES MEAN, and it is a flag for the same
+      // reason `opens` is one: the rail's copy button and the right-click menu's
+      // `Copy link` both want "one issue, written the way this collection would
+      // write it", and a literal `"links"` inside each of them would be two more
+      // places that decide which of six formats that is (§2.7.1).
+      //
+      // Links is the entry that can carry it because it is the one format with a
+      // rich flavour AND no field tail: 📃 Names and 🔑 Keys emit no URL at all, so
+      // neither is a link; 📋 Details and 📊 Report would put a field tail and a
+      // heading on a single hovered issue; and 🔍 Search has no single-item form by
+      // §2.8's own rule. `format-smoke` asserts exactly one entry carries this.
+      single: true,
     },
     {
       kind: "names",
@@ -3135,6 +3361,96 @@ ${selectors.join(",\n")} {
     } catch (e) {
       logger.error("clipboard write failed", e);
       flash(button, "⚠️");
+    }
+  }
+
+  /* THE RAIL'S RECEIPT, as a value rather than as a label. `renderRail` says why
+     this cannot be `flash`: the rail is re-rendered by every signal the script
+     has, so a glyph written onto the button is gone within a frame or two.
+
+     NOT IN STORAGE, and that part is the same rule the foot's `✅` follows: a
+     flash is a blink, and a stored "flashing until" timestamp is exactly the kind
+     of value the two earlier ADRs deleted (§2.8).
+
+     ONE TIMER, RESTARTED. Two copies in quick succession must not leave the first
+     one's timer to clear the second one's `✅` early. */
+  let copyFlash = null;
+  let copyFlashTimer = null;
+
+  function flashCopy(state) {
+    copyFlash = state;
+    if (copyFlashTimer !== null) clearTimeout(copyFlashTimer);
+    copyFlashTimer = setTimeout(
+      () =>
+        guard(() => {
+          copyFlash = null;
+          copyFlashTimer = null;
+          render();
+        }),
+      COPY_FEEDBACK_MS,
+    );
+    scheduleRender();
+  }
+
+  /**
+   * ONE ISSUE ON THE CLIPBOARD, WITHOUT OPENING IT. The gesture asked for at
+   * 1.3.0, and it is served by both the rail's copy button and the right-click
+   * menu's `Copy link` entry.
+   *
+   * THIS IS THE FIRST CALLER `format`'s ITEM SCOPE HAS EVER HAD. §2.8 built the
+   * three scopes when there was only one gesture, and said in as many words that
+   * the other two were "the seam that makes a fifth format one entry in a list".
+   * Item scope has been asserted byte for byte by `format-smoke` since 1.2.0 and
+   * reached by nothing. Nothing had to be added to it here, which is the only
+   * evidence that the seam was the right shape: the bullet drops, the `<ul>` drops,
+   * and the bytes land exactly on `jira-ux-improvements`' own 🔗 button.
+   *
+   * WHICH EXPORT IT USES IS A FLAG ON THE ENTRY, not the literal `"links"`. The
+   * same treatment `opens` gets for 🔍 Search, and for the same reason: a literal
+   * here would be a second place that decides which of six formats a gesture
+   * means. `format-smoke` asserts exactly one entry carries it.
+   *
+   * THE SUMMARY COMES FROM THE PAGE, through the same six tiers the `+` uses, and
+   * the reason is that the two gestures have to agree about what the issue is
+   * called. The alternative -- read the stored summary when the issue happens to be
+   * collected -- was declined: the same hover would then copy different bytes
+   * before and after an add, which reads as a defect (§4). The cost is stated
+   * rather than hidden: on a link with no row around it the page gives no summary,
+   * so the copy is the reference alone, even when that issue sits in the collection
+   * with a summary beside it.
+   *
+   * SYNCHRONOUS UP TO THE WRITE, like every other copy in this file. `readSummary`
+   * and `format` touch no network, so `navigator.clipboard.write` is called inside
+   * the click's own transient user activation. An `await` before it is the bug
+   * §2.5 forbids by name.
+   */
+  async function copyOneIssue(key, readAnchor) {
+    if (!key) return;
+
+    const { summary, tier } = readAnchor
+      ? readSummary(readAnchor, key)
+      : { summary: "", tier: 0 };
+    const item = { key };
+    // An absent summary is not an empty summary, exactly as in the store: each
+    // shape drops the separator with the value, so a bare key is a correct line
+    // and never a line with a dangling colon (§2.8).
+    if (summary) item.summary = summary;
+
+    const entry = EXPORTS.find((one) => one.single);
+    const payload = format(entry?.kind, [item], "item");
+    // `format` returns null rather than an empty payload, so a refusal here is a
+    // copy that never happened instead of a clipboard that was destroyed.
+    if (!payload) return;
+
+    try {
+      await writeClipboard(payload);
+      // The tier is in the debug line for the same reason the add's is: it is how
+      // §7's per-view check is run without a UI that reports it.
+      logger.debug(`copied the link to ${key} at tier ${tier}`);
+      flashCopy("done");
+    } catch (e) {
+      logger.error("clipboard write failed", e);
+      flashCopy("failed");
     }
   }
 
@@ -3945,6 +4261,7 @@ ${selectors.join(",\n")} {
   const PREFS_ID = "gt-cart-prefs";
   const PREFS_BUTTON_ID = "gt-cart-prefs-button";
   const PREF_RIGHT_CLICK_ID = "gt-cart-pref-right-click";
+  const PREF_COPY_ID = "gt-cart-pref-copy";
   const PREF_LAYOUT_ID = "gt-cart-pref-layout";
   const PREF_CORNER_ID = "gt-cart-pref-corner";
   const PREF_SHAPE_ID = "gt-cart-pref-shape";
@@ -4418,11 +4735,37 @@ ${selectors.join(",\n")} {
     prefs.addEventListener("drop", (event) => guard(() => onFieldDrop(event)));
     prefs.addEventListener("dragend", (event) => guard(() => onFieldDragEnd(event)));
 
+    /* THE COPY BUTTON'S SWITCH, and it is the only checkbox on this tab that ships
+       ON. The two are not the same kind of switch and the labels say so: the
+       right-click one is named by what it TAKES AWAY, because that is the whole
+       question about it; this one is named by what it PUTS THERE, because it takes
+       nothing away and the only reason to turn it off is the room the second button
+       occupies.
+
+       ABOVE the right-click row, which is the one place on this tab where order was
+       chosen rather than inherited: this switch is on for everybody and the one below
+       it is off for everybody, so the tab reads from the mild control to the
+       expensive one instead of the other way round (§2.7.1). */
+    const copyPref = el("label", "gt-cart-pref");
+    copyPref.title =
+      "A 🔗 beside the + on any issue link you hover. It puts that one issue on the clipboard in the shape ⚙ Issue reference names — the same bytes 🔗 Links would give for it — and it never opens the issue. Turn it off and the hovered rail is the single + it was before, which is worth doing if the wider rail covers something in your rows.";
+    const copyInput = el("input");
+    copyInput.type = "checkbox";
+    copyInput.id = PREF_COPY_ID;
+    copyPref.append(
+      copyInput,
+      el(
+        "span",
+        null,
+        "A 🔗 beside the + copies the hovered issue's link, without opening it",
+      ),
+    );
+
     const rightClick = el("label", "gt-cart-pref");
     // Labelled by WHAT IT TAKES AWAY, which is the words §2.9 gives it, and the
     // tooltip carries the whole trade from §2.7. It ships OFF.
     rightClick.title =
-      "While this is on, right-clicking an issue link no longer gives you the browser's own menu: no Open link in new window, no Copy link address, no Save link as, no Search with…, and none of your extensions' entries. Open link in new tab is given back inside the Cart's menu. On Chromium there is no way to bypass it.";
+      "While this is on, right-clicking an issue link no longer gives you the browser's own menu: no Open link in new window, no Copy link address, no Save link as, no Search with…, and none of your extensions' entries. Open link in new tab and Copy link are given back inside the Cart's menu. On Chromium there is no way to bypass it.";
     const rightClickInput = el("input");
     rightClickInput.type = "checkbox";
     rightClickInput.id = PREF_RIGHT_CLICK_ID;
@@ -4527,7 +4870,9 @@ ${selectors.join(",\n")} {
       panel.setAttribute("role", "tabpanel");
       panel.setAttribute("aria-labelledby", tabButtonId(tab.id));
       panel.hidden = true;
-      if (tab.id === "appearance") panel.append(rightClick, layout, corner);
+      if (tab.id === "appearance") {
+        panel.append(copyPref, rightClick, layout, corner);
+      }
       // THE BANDS GO ABOVE THE LIST, because a band is what takes a field into a
       // heading and the list is what says what is left on the row -- so the panel
       // reads in the order the document is built. Both are driven off
@@ -5047,6 +5392,15 @@ ${selectors.join(",\n")} {
       savePrefs({ rightClickMenu: input.checked === true });
       return;
     }
+    // `=== true` here as well, even though this preference reads `!== false` on the
+    // way out. A checkbox can only produce a boolean, and writing the raw property
+    // would put whatever the DOM handed us into storage; `normalisePrefs` is what
+    // decides what a stored non-boolean means, and it must not be the only guard
+    // (§2.4).
+    if (input.id === PREF_COPY_ID) {
+      savePrefs({ copyButton: input.checked === true });
+      return;
+    }
     if (input.id === PREF_LAYOUT_ID) {
       savePrefs({ layout: input.value });
       return;
@@ -5460,7 +5814,7 @@ ${selectors.join(",\n")} {
    * them can act on anything while the panel is up. The accepted cost is one press
    * to get back.
    *
-   * WHAT IS STILL RUNNING BEHIND IT: collecting from the page. `renderToggle` reads
+   * WHAT IS STILL RUNNING BEHIND IT: collecting from the page. `renderRail` reads
    * the hovered anchor and the active collection and nothing about the drawer's
    * body, so the floating `+`, the badge count, the right-click entry and the page
    * decoration all keep working while ⚙ is up (decision 25). An add re-renders the
@@ -5510,6 +5864,8 @@ ${selectors.join(",\n")} {
 
     // Set, not rebuilt: a rebuild would take the focus off the control being used,
     // and these three are the controls most likely to be mid-interaction.
+    const copyBox = document.getElementById(PREF_COPY_ID);
+    if (copyBox) copyBox.checked = prefs.copyButton;
     const rightClick = document.getElementById(PREF_RIGHT_CLICK_ID);
     if (rightClick) rightClick.checked = prefs.rightClickMenu;
     const layout = document.getElementById(PREF_LAYOUT_ID);
@@ -6107,7 +6463,22 @@ ${selectors.join(",\n")} {
     // which CONTAINS the key, so leaving the event to propagate would open both
     // menus on the one element this feature is about (§2.7).
     event.stopPropagation();
-    menuAt = { x: event.clientX, y: event.clientY, key, href: anchor.href };
+    /* `read` IS THE GROUP'S READING ANCHOR AND NOT THE ONE THAT WAS CLICKED, and
+       it is resolved here rather than at the copy, for one reason: the group is a
+       fact about the page at the moment of the gesture, and by the time the menu is
+       clicked React may have replaced the row. One node is held rather than two --
+       the key is on the object already, and `groupFor` guarantees the reading
+       anchor points at that same key, so nothing else is needed to copy from it
+       (§2.7). A node held across a render is the same bet the drag already makes;
+       if it has been detached, `readSummary` falls through to the tiers that read
+       the anchor itself. */
+    menuAt = {
+      x: event.clientX,
+      y: event.clientY,
+      key,
+      href: anchor.href,
+      read: groupFor(anchor, key).read,
+    };
     render();
   }
 
@@ -6151,7 +6522,23 @@ ${selectors.join(",\n")} {
       : `Add ${menuAt.key} to ${collection.name}`;
     const open = actionButton("gt-cart-menu-item", "menu-open");
     open.textContent = "Open link in new tab";
-    menu.append(toggle, open);
+
+    /* THE SECOND GIVE-BACK, added at 1.3.0. Switching this menu on costs the
+       browser's own entries, and §2.7 lists them by name: *Open link in new window*,
+       *Copy link address*, *Save link as*, *Search with…*. `Open link in new tab`
+       has been here since the menu was built so that the trade would be visible;
+       this entry gives back the other one that has an answer inside the Cart.
+
+       It is NOT `Copy link address`, and the label does not pretend to be: it copies
+       the issue in the shape ⚙ names, which on a default install is a markdown link
+       rather than a bare URL. Somebody who wants Chrome's exact bytes has `URL only`
+       on that dropdown.
+
+       IN THE BROWSER'S OWN ORDER -- the Cart's action first, then the two entries
+       the browser would have offered, open before copy, as Chromium lists them. */
+    const copyLink = actionButton("gt-cart-menu-item", "menu-copy");
+    copyLink.textContent = `Copy link to ${menuAt.key}`;
+    menu.append(toggle, open, copyLink);
 
     if (!menu.isConnected) {
       menu.addEventListener("click", (event) =>
@@ -6161,7 +6548,9 @@ ${selectors.join(",\n")} {
               ? event.target.closest("[data-gt-action]")
               : null;
           if (!target) return;
-          onMenuAction(target.dataset.gtAction);
+          // RETURNED, so `guard` sees the promise the copy entry hands back. It was
+          // a bare call while every entry was synchronous.
+          return onMenuAction(target.dataset.gtAction);
         }),
       );
       mount.append(menu);
@@ -6189,6 +6578,21 @@ ${selectors.join(",\n")} {
     if (action === "menu-toggle") {
       toggleKey(at.key);
       return;
+    }
+    /* THE MENU CLOSES AND THE RECEIPT IS ON THE RAIL. Every entry here closes the
+       menu -- §2.9 calls a menu that stays open after a click broken -- so there is
+       nowhere in the menu to put a `✅`. `copyOneIssue` sets the rail's flash
+       instead, and the rail is up: reaching this entry means right-clicking an issue
+       link, which means the pointer is on that link, which is what summons the rail.
+
+       THE ONE COMBINATION WITH NO RECEIPT AT ALL is this menu on and the copy button
+       switched off, because then the rail has no button to flash. It is a corner of
+       a preference that itself ships off, the remedy is the switch, and a failed
+       write is still on the console -- so it is recorded here rather than paid for
+       with a toast this script has no other use for (§2.7). */
+    if (action === "menu-copy") {
+      scheduleRender();
+      return copyOneIssue(at.key, at.read);
     }
     scheduleRender();
   }
@@ -6231,7 +6635,10 @@ ${selectors.join(",\n")} {
     // future work and needs a DOM survey that does not exist (§6, item 8).
     if (!onJira()) {
       document.getElementById(BADGE_ID)?.remove();
-      document.getElementById(TOGGLE_ID)?.remove();
+      // THE RAIL, NOT THE TWO BUTTONS. Removing the box removes what is in it, and
+      // naming the children here would be a list that a third button silently falls
+      // off (§2.7).
+      document.getElementById(RAIL_ID)?.remove();
       document.getElementById(DRAWER_ID)?.remove();
       document.getElementById(MENU_ID)?.remove();
       applyCollectedCss([]);
@@ -6241,7 +6648,9 @@ ${selectors.join(",\n")} {
     const state = load();
     applyCollectedCss(activeCollection(state).items.map((item) => item.key));
     renderBadge(state);
-    renderToggle(state);
+    // The preferences are handed down rather than read again: the rail needs the
+    // copy button's switch, and `render` has already performed the one read.
+    renderRail(state, prefs);
 
     // One walk, two jobs (§2.1, §2.3). The widths the live list needs are measured
     // only while the drawer is open.
@@ -6392,13 +6801,45 @@ button#${BADGE_ID}[data-gt-state="failed"] {
   color: var(--gt-cart-warning-text);
 }
 
+/* THE RAIL IS THE ONLY FIXED BOX HERE SINCE 1.3.0, and the buttons inside it are
+   laid out by flex. The plus was the fixed element until it acquired a neighbour;
+   two independently placed fixed buttons would leave a gap between them that
+   belongs to the page, and a pointerover in that gap takes the affordance away
+   while the pointer is crossing from one half of its own control to the other.
+   NO BACKTICKS IN THIS SHEET: it is one template literal, so a stray one ends the
+   extraction and every rule after it (§2.7, and test/jira-cart/README.md). */
+div#${RAIL_ID} {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: ${RAIL_GAP}px;
+}
+div#${RAIL_ID}[hidden] {
+  display: none;
+}
+/* THE ONE RULE THAT KEEPS THE PLUS BESIDE THE KEY ON BOTH SIDES. positionRail puts
+   the rail's right edge where the plus's right edge used to be, so on the left the
+   plus -- the second child -- is already the one next to the link. When there is no
+   room and the rail flips to the right of the link, the row reverses with it, so the
+   second child is the near one again. The alternative was a second DOM order built
+   for the flipped case, which is two orders that can disagree. */
+div#${RAIL_ID}[data-gt-side="right"] {
+  flex-direction: row-reverse;
+}
+
 /* Loud, not subtle. The first build was an outlined chip in the subtle palette,
    and the verdict was that it cannot be picked out. This is a solid bold fill
    with a ring in the page's own surface colour and a drop shadow, which reads
    against any Jira background in both themes (§2.7). */
 button#${TOGGLE_ID} {
-  position: fixed;
-  z-index: 9999;
+  /* RELATIVE, AND IT WAS FIXED UNTIL 1.3.0. The two bars that draw the plus are
+     position: absolute with inset: 0, so this button HAS TO BE A CONTAINING BLOCK.
+     Fixed provided one for free; a flex child provides none, so dropping the
+     property without putting relative in its place would send both bars to the
+     viewport's own corner and leave the button blank. That is the whole visible
+     consequence, and it is why css-smoke asserts this button is positioned. */
+  position: relative;
   display: block;
   inline-size: ${TOGGLE_SIZE}px;
   block-size: ${TOGGLE_SIZE}px;
@@ -6413,13 +6854,67 @@ button#${TOGGLE_ID} {
   line-height: 1;
   cursor: pointer;
 }
-button#${TOGGLE_ID}[hidden] {
-  display: none;
-}
 button#${TOGGLE_ID}:focus-visible {
   outline: 2px solid var(--gt-cart-focus);
   outline-offset: 2px;
 }
+
+/* THE COPY BUTTON IS SECONDARY ON PURPOSE, and it is the one place §2.7's "loud,
+   not subtle" is deliberately not followed. That finding was about a LONE
+   affordance that nothing else on the page pointed at. This button never appears
+   alone: it is always flush against the bold blue circle, so the eye finds the pair
+   and then reads the pair. Two equally loud circles would compete, and adding an
+   issue to the Cart is what the Cart is for.
+
+   So: the page's own surface, a hairline in the page's own border colour, and the
+   same drop shadow. THE RISK IS NAMED RATHER THAN ARGUED AWAY, because it is not
+   measured: §2.7 killed exactly this treatment once, for the plus, on the report
+   that it could not be picked out -- and if this button turns out the same way, this
+   rule is the remedy and nothing else has to change. §7 step 37 is the press.
+
+   THE TWO RINGS NEARLY TOUCH, AND THAT IS ALLOWED. The plus carries a 2px ring and
+   this button a 1px one, so 3px of the 4px gap between them is ring. That reads as
+   one control with two halves, which is what the paragraph above wants; it is
+   written down because it looks like an oversight and is not. Widening RAIL_GAP is
+   the change if it reads as cramped.
+
+   NO POSITION PROPERTY, because it needs no containing block: its glyph is text
+   centred by flex, not two absolute bars. */
+button#${COPY_ID} {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: ${TOGGLE_SIZE}px;
+  block-size: ${TOGGLE_SIZE}px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--gt-cart-surface);
+  color: var(--gt-cart-text);
+  box-shadow: 0 0 0 1px var(--gt-cart-border), var(--gt-cart-shadow);
+  font-family: inherit;
+  /* 13px and not the toggle's 14px, and the reason is which glyph has to fit. This
+     button usually shows a chain link, but the two it shows at the moment that
+     matters are a tick and a warning triangle, and colour emoji are typically drawn
+     wider than their em box. A point smaller buys the margin. NOT MEASURED -- the
+     press is §7 step 37, along with whether the button can be picked out at all. */
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+button#${COPY_ID}[hidden] {
+  display: none;
+}
+button#${COPY_ID}:focus-visible {
+  outline: 2px solid var(--gt-cart-focus);
+  outline-offset: 2px;
+}
+/* THE GROUND DOES NOT MOVE WHEN THE GLYPH DOES. The tick and the warning triangle
+   carry their own colour, so a green ground under a green tick is mud and a yellow
+   one under a yellow triangle is worse. The foot's four buttons flash by swapping
+   the label and leaving the button alone; this is the same rule, and it is why there
+   is no data-gt-state paint here at all. The attribute is still written, because a
+   state that is on the element is a state a harness can read (§2.8). */
 button#${TOGGLE_ID}[data-gt-state="collected"] {
   background: var(--gt-cart-collected);
 }
