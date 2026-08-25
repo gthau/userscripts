@@ -73,10 +73,12 @@
   cross-tab notification was registered on the collections key only, so a
   preference changed in one tab reached the other at an arbitrary later moment
   (§2.5, §2.9, risk 12).
-  What is left is the part of §7 that only a browser can answer: a live visit to
-  each of the NINE views, a store damaged by hand, a real logout, and **1.3.0's own
-  three steps — 36, 37 and 38 — none of which has been run.** The two
-  probes of appendix C are still not run, and 1.0.0 added a third
+  **Three of the four browser-only parts of §7 were run on 2026-08-25**, at 1.3.1,
+  in the session that named the ninth view: **step 5 across all nine views**,
+  **1.3.0's steps 36, 37 and 38** — the `🔗`, which until then had shipped
+  unexercised — and **a store damaged by hand**, whose result is recorded in §2.4.
+  **What is left is a real logout**, the event the `@grant` exists to survive. The
+  two probes of appendix C are still not run, and 1.0.0 added a third
 - **Date:** 2026-08-19; §2.14 was added on 2026-08-20, the configurable
   exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25, and §2.7.1 —
   the copy button — was added on 2026-08-25, and **the ninth view was named the
@@ -839,6 +841,24 @@ Before the first write under a new `v`, the old value is copied to
 `gt-jira-cart.collections.bak`. It is written once per upgrade and never read, so
 it introduces no second value that must agree with anything. It exists so that a
 bad migration is recoverable by hand.
+
+> **Run for real on 2026-08-25, at 1.3.1, and the paragraph above held.** §7's
+> damaged-store step had never been performed against a live Tampermonkey store. The
+> blob was edited by hand to nonsense, and the Cart **started empty and refused to
+> write**, saying so on the page: *"The stored collections could not be read, so the
+> Cart started empty. The stored value was NOT overwritten: recover it from
+> Tampermonkey's storage view for this script."*
+>
+> **"Nothing survives" is the property, not the failure**, and it is worth naming
+> because it reads like a loss and is the opposite of one. The damaged blob is still
+> in storage, untouched, which is the whole of `state.writable`: the Cart will not
+> overwrite what it could not read. **The `.bak` is not a rescue and must never be
+> mistaken for one** — it is written only ahead of a schema migration and never read,
+> so a store damaged by hand has no automatic recovery by design. The alternative is
+> the one §2.4 rejects two paragraphs above: a collection is the user's data, and
+> falling back to defaults would destroy it to make the UI look healthy.
+> `store-smoke` asserts the state (`unreadable` → not writable); this run is the
+> evidence that the sentence a person actually sees says what to do about it.
 
 ### 2.5 Every write is a read-modify-write, and the write is the commit
 
