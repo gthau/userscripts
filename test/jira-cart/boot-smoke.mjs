@@ -366,6 +366,33 @@ await Promise.resolve();
 is("Links wrote both flavours", Object.keys(clipboard.at(-1)), ["text/plain", "text/html"]);
 is("nothing threw on a copy", errors(), []);
 
+/* ---- THE LINE SHAPE REACHES THE CLIPBOARD, and it is read AT THE PRESS.
+   `format-smoke` asserts the bytes of all five shapes; what only this harness can
+   say is that the stored preference is what a real click actually consults. The
+   store is poked with no re-render on purpose -- if `format` held the shape in a
+   variable instead of reading it at the press, this check would go on copying the
+   default and would be measuring nothing (§2.8, decision 5). */
+const prefsRaw = () => JSON.parse(store["gt-jira-cart.prefs"]);
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "url" });
+dispatch(copy("links"), "click");
+await Promise.resolve();
+is("a stored shape is what the press copies, both flavours",
+  [clipboard.at(-1)["text/plain"].text, clipboard.at(-1)["text/html"].text],
+  ["- https://dalet.atlassian.net/browse/RDC-77",
+   '<ul><li style="line-height:1.5;margin-bottom:8px">' +
+   '<a href="https://dalet.atlassian.net/browse/RDC-77">https://dalet.atlassian.net/browse/RDC-77</a></li></ul>']);
+// A SHAPE THIS BUILD DOES NOT KNOW MUST NOT REACH A FORMATTER. `normalisePrefs`
+// sends it back to `markdown` on the way out of the store, which is the opposite of
+// what a malformed COLLECTION gets, and the whole reason the two live in different
+// keys (§2.4).
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "haiku" });
+dispatch(copy("links"), "click");
+await Promise.resolve();
+is("an unknown shape id copies the default rather than nothing",
+  clipboard.at(-1)["text/plain"].text,
+  "- [RDC-77](https://dalet.atlassian.net/browse/RDC-77) The linked issue's own summary");
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "markdown" });
+
 // The fourth button does not copy. It opens Jira's search on the collection.
 is("its label says so", copy("jql").textContent, "🔍 Search");
 const wrote = clipboard.length;
@@ -725,41 +752,586 @@ is("adding from it stores the key AND the title",
 is("and the debug line names tier 1, which is how §7 step 5 is read",
   logs.some(([l, m]) => l === "debug" && m.includes("RDC-21069") && m.includes("(tier 1)")), true);
 
-// ---- THE ⚙, which was INERT FOR TWO VERSIONS. A rule at (2,0,2) beat the hiding
-// rule at (1,1,1), so the area was permanently visible and the button toggled an
-// attribute that changed nothing (§2.11). `css-smoke` proves the cascade; this
-// proves the attribute flips and the switch writes.
+// ---- ⚙ IS A SCREEN, NOT A STRIP (1.2.0, decision 17). It was three checkboxes in
+// a strip above the sections; the configurable exports bring about twenty-two
+// controls, and this drawer can be 300x215 with every container on `overflow: clip`,
+// so a panel sharing the box would be SILENTLY TRUNCATED. It is now a MODE over the
+// whole body.
+//
+// The ⚙ was also INERT FOR TWO VERSIONS: a rule at (2,0,2) beat the hiding rule at
+// (1,1,1), so the area was permanently visible and the button toggled an attribute
+// that changed nothing (§2.11). `css-smoke` proves the cascade; this proves the
+// attributes flip, the controls write, and the body really goes.
 const gear = () => byId.get("gt-cart-head").querySelector('[data-gt-action="prefs"]');
-const prefsArea = () => byId.get("gt-cart-prefs");
-is("the preferences area starts hidden", prefsArea().hidden, true);
+const panel = () => byId.get("gt-cart-prefs");
+const drawerBody = () => byId.get("gt-cart-body");
+const headTitle = () => byId.get("gt-cart-head-title");
+const closeButton = () => byId.get("gt-cart-head").querySelector('[data-gt-action="close"]');
+const tabButton = (id) => byId.get(`gt-cart-tab-${id}`);
+const tabPanel = (id) => byId.get(`gt-cart-tabpanel-${id}`);
+const restoreButton = () => byId.get("gt-cart-restore");
+const prefsOf = () => JSON.parse(store["gt-jira-cart.prefs"]);
+// A RENDER FROM A CAUSE THAT IS NOT A CLICK: the mount animation, which is the
+// script's real signal that React built something (§2.10). `visibilitychange` will
+// NOT do -- it compares the collections blob with the last one parsed and returns
+// early when it has not changed, so a preference poked into the store would never
+// be re-read and the check would pass while measuring nothing.
+const rerender = () => {
+  dispatch(document, "animationstart", { animationName: "gt-cart-mount" });
+  flush();
+};
+// Preferences with no control yet -- ticket 05's bands, ticket 04's field lists --
+// are put there by poking the store and letting the next render read it back out.
+const setPrefs = (patch) => {
+  store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), ...patch });
+  rerender();
+};
+
+is("the settings panel starts hidden", panel().hidden, true);
+is("and the two standing sections are what is on screen", drawerBody().hidden, false);
+is("the head names the Cart", headTitle().textContent, "🛒 Cart");
+// THE BUTTON SAYS SO TOO, and it did not until 1.2.0. A use report said the ⚙ was
+// "bordered in blue after clicking" whether the click had opened the settings or
+// closed them -- that was the FOCUS ring standing in for a state that did not exist,
+// and clicking anywhere else took it away. `css-smoke` proves the paint; this proves
+// the attribute it paints from follows the panel.
+//
+// `aria-pressed` and no longer `aria-expanded`: once ⚙ replaces the body the panel
+// is not a region BESIDE the content, it IS the content, which is a mode toggle
+// rather than a disclosure. One constant moved both the render and the sheet.
+is("and the ⚙ says it is not pressed before anything is pressed",
+  gear().getAttribute("aria-pressed"), "false");
+is("it no longer claims to control a region beside it", gear().getAttribute("aria-controls"), null);
+
 dispatch(gear(), "click");
 flush();
-is("THE ⚙ OPENS IT", prefsArea().hidden, false);
+is("THE ⚙ OPENS THE SETTINGS SCREEN", panel().hidden, false);
+is("and it REPLACES the two standing sections, rather than sitting above them",
+  drawerBody().hidden, true);
+// ONE BOOLEAN MOVES ALL THREE, and it costs one `hidden` because the foot is a child
+// of the collection section, which is a child of the body. Six buttons and a border
+// is about 40px, a fifth of the drawer at MIN_BLOCK, and none of them can act on
+// anything while the panel is up.
+is("so the six foot buttons go with them, because the foot is inside the body",
+  byId.get("gt-cart-foot").closest("#gt-cart-body") === drawerBody(), true);
+is("and the button now says it is pressed", gear().getAttribute("aria-pressed"), "true");
+is("the head names the screen you are on", headTitle().textContent, "⚙ Settings");
+is("and the ⚙'s own tooltip says what the next press does",
+  /go back to the collection/.test(gear().title), true);
+
+// The three switches did not move house: they are the appearance tab's contents now.
 is("all three switches are there, not just the one 08 specified",
   [byId.get("gt-cart-pref-right-click"), byId.get("gt-cart-pref-layout"), byId.get("gt-cart-pref-corner")].map((n) => !!n),
+  [true, true, true]);
+is("and they live on the appearance tab",
+  [byId.get("gt-cart-pref-right-click"), byId.get("gt-cart-pref-layout"), byId.get("gt-cart-pref-corner")]
+    .map((n) => n.closest("#gt-cart-tabpanel-appearance") === tabPanel("appearance")),
   [true, true, true]);
 is("and each carries what storage says",
   [byId.get("gt-cart-pref-right-click").checked, byId.get("gt-cart-pref-layout").value, byId.get("gt-cart-pref-corner").value],
   [false, "auto", "bottom-right"]);
 is("the right-click switch ships OFF", byId.get("gt-cart-pref-right-click").checked, false);
 
-// Flipping one writes the preference and nothing else.
-byId.get("gt-cart-pref-right-click").checked = true;
-dispatch(byId.get("gt-cart-pref-right-click"), "change");
+/* ---- `Issue reference` IS PINNED ABOVE THE BAR (decision 29). It governs all
+   three exports, so a tab that owned it would tell a small lie about its scope --
+   which is the only reason this screen has three tabs and not four. */
+const shapeSelect = () => byId.get("gt-cart-pref-shape");
+is("the line-shape control is on the settings screen", !!shapeSelect(), true);
+is("and it is pinned, not filed under one of the three tabs",
+  ["appearance", "details", "report"]
+    .some((id) => shapeSelect().closest(`#gt-cart-tabpanel-${id}`) === tabPanel(id)), false);
+// BUILT FROM `SHAPES`, so a shape added or dropped there moves this dropdown with
+// it. A second list of names here is a value that can disagree with the bytes.
+is("its options are the shape table, in the shape table's order",
+  shapeSelect().children.map((option) => option.value),
+  ["markdown", "markdown-key", "key-summary-url", "key-url", "url"]);
+is("and they are shown by their labels, not their ids",
+  shapeSelect().children.map((option) => option.textContent),
+  ["Markdown link on the key", "Markdown link, no summary", "Key, summary, then the URL",
+   "Key and URL, no summary", "URL only"]);
+is("it carries what storage says", shapeSelect().value, "markdown");
+// THE LAST PLACEHOLDER WENT AT 1.2.0. `Nothing to configure here yet.` stood in for
+// each group until the ticket that filled it arrived; ticket 03 took the pinned
+// group's and ticket 04 took both export tabs', so the class is gone from the script
+// and from the stylesheet with it. This asserts it is gone from the whole screen and
+// not just from one group, because a placeholder left on a tab nobody opened is a
+// screen that reads as unfinished to the one person who does open it.
+is("no placeholder note is left anywhere on the settings screen",
+  byId.get("gt-cart-prefs").querySelectorAll(".gt-cart-note").length, 0);
+
+shapeSelect().value = "key-summary-url";
+dispatch(shapeSelect(), "change");
 flush();
-is("the switch wrote the preference", JSON.parse(store["gt-jira-cart.prefs"]).rightClickMenu, true);
-is("and left the collections alone", JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.length, 1);
-byId.get("gt-cart-pref-corner").value = "bottom-left";
-dispatch(byId.get("gt-cart-pref-corner"), "change");
+is("choosing a shape writes the preference", prefsOf().lineShape, "key-summary-url");
+is("and the control still says what storage says after the render it caused",
+  shapeSelect().value, "key-summary-url");
+// Back to the default, so nothing below this line is reading a shape it did not set.
+shapeSelect().value = "markdown";
+dispatch(shapeSelect(), "change");
 flush();
-is("the corner is a preference a control can set", html.dataset.gtCartCorner, "bottom-left");
-byId.get("gt-cart-pref-corner").value = "bottom-right";
-dispatch(byId.get("gt-cart-pref-corner"), "change");
-byId.get("gt-cart-pref-right-click").checked = false;
-dispatch(byId.get("gt-cart-pref-right-click"), "change");
+is("and back again", prefsOf().lineShape, "markdown");
+
+// THE BAR SHOWS EVERY TAB whether it has been pressed or not, so there is no
+// open/closed set to store and a tab added later is visible the moment it exists
+// (decision 20). That is the whole difference from the collapsible layout the
+// prototype tried and use reversed.
+is("the bar is a real tablist", byId.get("gt-cart-tabs").attrs.role, "tablist");
+is("with three tabs, and each one is a tab", 
+  byId.get("gt-cart-tabs").children.map((b) => b.attrs.role), ["tab", "tab", "tab"]);
+is("Appearance beside the two exports it is a peer of",
+  byId.get("gt-cart-tabs").children.map((b) => b.textContent),
+  ["Appearance", "📋 Details", "📊 Report"]);
+is("a fresh install opens on the first tab",
+  ["appearance", "details", "report"].map((id) => tabButton(id).attrs["aria-selected"]),
+  ["true", "false", "false"]);
+is("and exactly one panel is on screen",
+  ["appearance", "details", "report"].map((id) => tabPanel(id).hidden), [false, true, true]);
+// ON THE TABS THAT HOLD EXPORT SETTINGS AND NOWHERE ELSE (decision 22). On the
+// appearance tab it is an offer to reset something you are not looking at.
+is("the restore is not offered on the appearance tab", restoreButton().hidden, true);
+
+// ---- SWITCHING TAB IS A WRITE, and nothing holds a copy of which tab is open.
+dispatch(tabButton("details"), "click");
+flush();
+is("switching tab writes the preference", prefsOf().settingsTab, "details");
+is("the bar says which one", 
+  ["appearance", "details", "report"].map((id) => tabButton(id).attrs["aria-selected"]),
+  ["false", "true", "false"]);
+is("and the panels swapped", 
+  ["appearance", "details", "report"].map((id) => tabPanel(id).hidden), [true, false, true]);
+is("the restore appears on a tab that holds export settings", restoreButton().hidden, false);
+is("and it is an offer before it is a question", restoreButton().textContent, "↺ Restore export defaults");
+
+/* ---- TWO SELECTIONS OVER ONE CATALOGUE (§2.14, decisions 7 to 11). Each export
+   tab carries an ordered, ticked list of the SAME eight fields, and a preference can
+   only say which of them a document uses and in what order -- so the ids, the labels
+   and every measured style stay in one copy each and nothing a user can click
+   reaches the five paste rules.
+
+   THE DRAG ITSELF IS NOT DRIVEN HERE AND CANNOT BE: this harness has no layout and
+   no paint, so there is no top half of a row to put a pointer in. `format-smoke`
+   covers `moveField` directly and §7 step 31 is the browser pass that covers the
+   pointer plumbing. What IS driven here is everything else -- the rows, the ticks,
+   the writes, and the order the panel draws a stored list in. */
+const fieldRows = (tab) => byId.get(`gt-cart-fields-${tab}`).children;
+const fieldIds = (tab) => fieldRows(tab).map((row) => row.attrs["data-gt-field"]);
+const fieldRow = (tab, id) => fieldRows(tab).find((row) => row.attrs["data-gt-field"] === id);
+const fieldBox = (tab, id) => fieldRow(tab, id).querySelector("input");
+const fieldNote = (tab, id) => fieldRow(tab, id).querySelector(".gt-cart-field-note").textContent;
+const ticked = (key) => prefsOf()[key].filter((one) => one.on).map((one) => one.id);
+const CATALOGUE = ["type", "status", "priority", "assignee", "team", "fixv", "remaining", "parent"];
+
+is("each export tab carries a field list", 
+  ["details", "report"].map((tab) => !!byId.get(`gt-cart-fields-${tab}`)), [true, true]);
+is("and the appearance tab does not, because it configures no export",
+  byId.get("gt-cart-fields-appearance"), undefined);
+// OFF IS NOT ABSENT. Every catalogue field has a row whether it is ticked or not, so
+// a field is always findable and one click turns it on -- which is the other half of
+// `normaliseFieldList`'s step 5 and why a stored empty list is still completed.
+is("every catalogue field has a row in both lists, ticked or not",
+  [fieldIds("details"), fieldIds("report")], [CATALOGUE, CATALOGUE]);
+is("and it is named once, in the catalogue, rather than beside the checkbox",
+  fieldRows("details").map((row) => row.querySelector("label").textContent || 
+    row.querySelector("label").children.map((k) => k.textContent).join("")),
+  [" Type", " Status", " Priority", " Assignee", " Team", " Fix version", " Time remaining", " Parent"]);
+is("each box says what storage says",
+  fieldIds("details").map((id) => fieldBox("details", id).checked),
+  [true, true, true, true, false, true, true, true]);
+// TWO SELECTIONS. Report's own list is the same catalogue with priority off, because
+// priority is its first band -- and at 1.2.0 that is what the DEFAULT says rather
+// than what the renderer does (decision 8).
+is("📊 Report's list is its own, and it differs from 📋 Details' by the band",
+  fieldIds("report").map((id) => fieldBox("report", id).checked),
+  [true, true, false, true, false, true, true, true]);
+is("team is off in both: a NEW FIELD ARRIVES OFF where a new tab arrives visible",
+  ["details", "report"].map((tab) => fieldBox(tab, "team").checked), [false, false]);
+
+// Every row is a drag target that names the preference a drop writes. The row and
+// its checkbox both carry it, because the delegated `change` listener is handed the
+// input and the delegated drag listeners are handed the row.
+is("every row is draggable and names the key it writes",
+  fieldRows("details").map((row) => `${row.attrs.draggable}:${row.attrs["data-gt-list"]}`),
+  CATALOGUE.map(() => "true:detailsFields"));
+is("and so does every checkbox inside one",
+  fieldRows("report").map((row) => row.querySelector("input").attrs["data-gt-list"]),
+  CATALOGUE.map(() => "reportFields"));
+
+// A FIELD THAT IS ALSO A HEADING IS MARKED, NOT VETOED (decision 8). A field that
+// appeared only in a heading would be a field whose meaning depends on the row's
+// position, which is what §2.14 rule 4 is about -- so somebody who drags a line out
+// of its band in the pasted mail can choose to keep the value readable on the row.
+is("📊 Report marks the two fields that are also its headings",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["priority", "team"]);
+is("and it says so in words", fieldNote("report", "priority"), "also a heading");
+is("📋 Details marks nothing, because it has no headings at all",
+  fieldIds("details").filter((id) => fieldNote("details", id)), []);
+
+/* ---- TICKET 05'S TWO BAND DROPDOWNS. `format-smoke` holds every byte they can
+   produce; what is here is the CONTROL -- that it exists on the tab that owns the
+   headings and nowhere else, that its options are the script's own band vocabulary,
+   that a change writes the preference, and that the `also a heading` marks beside it
+   MOVE when a band does. That last one is the reason this section sits here rather
+   than in `format-smoke`: it is one preference redrawing a control that reads a
+   different one, which is exactly the kind of thing a pure-function harness cannot
+   see.
+
+   The comment above says the preferences with no control yet are poked into the
+   store. From here on the bands have one, so they are driven by a real change event
+   like every other control on this screen. */
+const bandSelect = (key) => byId.get(`gt-cart-pref-${key.toLowerCase()}`);
+const BAND_IDS = ["priority", "team", "category", "assignee", "type", "fixv", "parent"];
+
+is("both band dropdowns are on the settings screen",
+  [!!bandSelect("reportBand1"), !!bandSelect("reportBand2")], [true, true]);
+// ON THE TAB THAT OWNS THE HEADINGS, and nowhere else. 📋 Details has no headings at
+// all, and the pinned `Issue reference` row is pinned because it governs all three
+// exports -- a band governs one, so it belongs under that one's tab.
+is("and both are on 📊 Report's tab, because it is the only export with headings",
+  ["reportBand1", "reportBand2"].map((key) => bandSelect(key).closest("#gt-cart-tabpanel-report") === tabPanel("report")),
+  [true, true]);
+is("they sit ABOVE the field list, because a band is what takes a field into a heading",
+  tabPanel("report").children.indexOf(bandSelect("reportBand1").closest(".gt-cart-bands")) <
+    tabPanel("report").children.indexOf(byId.get("gt-cart-fields-report")), true);
+// BUILT FROM `BANDS`, so a band added or dropped there moves both dropdowns with it.
+// A second list of names here is a value that can disagree with the headings.
+is("band 1's options are the seven bandable fields, in the script's own order",
+  bandSelect("reportBand1").children.map((option) => option.value), BAND_IDS);
+is("band 2's are the same seven with None in front, and only band 2 has it",
+  bandSelect("reportBand2").children.map((option) => option.value), ["none", ...BAND_IDS]);
+is("and they are shown by their labels, not their ids",
+  bandSelect("reportBand1").children.map((option) => option.textContent),
+  ["Priority", "Team", "Status category", "Assignee", "Type", "Fix version", "Parent"]);
+// TIME REMAINING IS NOT THERE (decision 14). Its band order would be string order
+// over durations, and "10m" < "2d" < "9h" reads as a broken report.
+is("time remaining is offered as a row field and never as a band",
+  [fieldIds("report").includes("remaining"), BAND_IDS.includes("remaining")], [true, false]);
+is("both carry what storage says",
+  ["reportBand1", "reportBand2"].map((key) => bandSelect(key).value), ["priority", "team"]);
+
+/* ---- THE TWO BANDS MAY NOT NAME THE SAME FIELD (§2.15, REVERSED FROM USE ON
+   2026-08-25). It shipped allowed, on the reasoning that `Team` under `Team` is
+   useless, truthful and visible the moment it is pasted. The user pressed it and
+   reported it as a defect. `format-smoke` holds `bandPatch` directly and
+   `store-smoke` holds the blob that arrives duplicated; what is here is the two
+   controls, driven by real change events, because the rule lives in BOTH of them and
+   neither half is the whole of it. */
+const optionsOf = (key) => bandSelect(key).children
+  .filter((option) => !option.disabled).map((option) => option.value);
+
+is("`Group by` offers all seven, always, which is what leaves the swap reachable",
+  optionsOf("reportBand1"), BAND_IDS);
+is("but `Then by` does not offer the field `Group by` holds",
+  optionsOf("reportBand2"), ["none", ...BAND_IDS.filter((id) => id !== "priority")]);
+is("and None is never greyed, because it is not a field",
+  bandSelect("reportBand2").children.find((option) => option.value === "none").disabled, false);
+
+// THE GREYED ONE FOLLOWS BAND 1, because it is derived on every render rather than
+// written when the dropdown changed -- a flag would disagree the moment another tab
+// moved the band.
+setPrefs({ reportBand1: "fixv", reportBand2: "team" });
+is("the greyed option follows `Group by` when it moves",
+  optionsOf("reportBand2"), ["none", ...BAND_IDS.filter((id) => id !== "fixv")]);
+is("and `Group by` is still ungreyed all the way across",
+  optionsOf("reportBand1"), BAND_IDS);
+
+// ---- THE SWAP, THROUGH A REAL PRESS. Asking to group by the field that was the
+// sub-band is a REORDER, which is the one thing these two dropdowns exist to do -- so
+// it is one press and nothing is thrown away. It is the only place on this screen
+// where a press moves a control other than the one pressed, and what band 2 receives
+// is not a value nobody chose: it is the one band 1 just gave up.
+setPrefs({ reportBand1: "priority", reportBand2: "team" });
+bandSelect("reportBand1").value = "team";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("moving `Group by` onto `Then by`'s field SWAPS the two, in one press",
+  [prefsOf().reportBand1, prefsOf().reportBand2], ["team", "priority"]);
+is("and both controls say so after the render it caused",
+  [bandSelect("reportBand1").value, bandSelect("reportBand2").value], ["team", "priority"]);
+is("the greying swapped with them", optionsOf("reportBand2"),
+  ["none", ...BAND_IDS.filter((id) => id !== "team")]);
+is("and the `also a heading` marks are still the same two fields, in the new order",
+  fieldIds("report").filter((id) => fieldNote("report", id)).sort(), ["priority", "team"]);
+// PRESSING IT AGAIN PUTS IT BACK, which is what makes the swap a gesture rather than
+// a one-way door.
+bandSelect("reportBand1").value = "priority";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("pressing it again swaps them back", [prefsOf().reportBand1, prefsOf().reportBand2],
+  ["priority", "team"]);
+// AN ORDINARY CHANGE IS STILL ONE KEY. The swap must not fire when there is nothing
+// to swap with, or every press would move both controls.
+bandSelect("reportBand1").value = "type";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("an ordinary change leaves the other band exactly alone",
+  [prefsOf().reportBand1, prefsOf().reportBand2], ["type", "team"]);
+// Back to the shipped pair, so the section below is a real change rather than a write
+// of the value that was already there -- see this repo's test README on why a check
+// that cannot fail is worse than no check.
+setPrefs({ reportBand1: "priority", reportBand2: "team" });
+
+// ---- CHOOSING A BAND IS A WRITE, and the marks beside it follow.
+bandSelect("reportBand1").value = "type";
+dispatch(bandSelect("reportBand1"), "change");
+flush();
+is("choosing a band writes the preference", prefsOf().reportBand1, "type");
+is("and the control still says what storage says after the render it caused",
+  bandSelect("reportBand1").value, "type");
+// THE MARK IS A FUNCTION OF THE STORED BANDS, which is why moving a band moves it
+// with no line in `renderFieldList` naming a band by hand.
+is("the `also a heading` mark followed the band off priority and onto type",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["type", "team"]);
+is("and 📋 Details still marks nothing, because a band belongs to one export",
+  fieldIds("details").filter((id) => fieldNote("details", id)), []);
+
+// ---- `None` IS BAND 2's ALONE, and it takes the second heading away.
+bandSelect("reportBand2").value = "none";
+dispatch(bandSelect("reportBand2"), "change");
+flush();
+is("None on band 2 writes it too", prefsOf().reportBand2, "none");
+is("and the field it used to band stops being marked",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["type"]);
+
+// ---- THE NOTE THAT SAYS WHAT A FIX-VERSION BAND COSTS. It is DERIVED on every
+// render from the stored bands, so it appears when the band does and goes when it
+// goes -- a flag set on the change would be a second value, and it would disagree the
+// moment another tab moved the band (principle 1). It is a description and not a
+// warning: there is nothing to dismiss.
+const bandNote = () => byId.get("gt-cart-bandnote-report").textContent;
+is("no note while both bands are single-valued", bandNote(), "");
+bandSelect("reportBand2").value = "fixv";
+dispatch(bandSelect("reportBand2"), "change");
+flush();
+is("a fix-version band says out loud that the report has more lines than issues",
+  bandNote(),
+  "An issue with two fix versions is listed under both, so this report has more lines than issues.");
+is("and the note appears for band 1 as well, because it describes the pair",
+  (() => {
+    setPrefs({ reportBand1: "fixv", reportBand2: "none" });
+    return bandNote();
+  })(),
+  "An issue with two fix versions is listed under both, so this report has more lines than issues.");
+// ANOTHER TAB'S WRITE LANDS ON THESE CONTROLS without either of them knowing about
+// it, because every render reads storage -- the same treatment the line shape gets.
+setPrefs({ reportBand1: "assignee", reportBand2: "category" });
+is("a band written from outside this panel lands on both dropdowns and clears the note",
+  [bandSelect("reportBand1").value, bandSelect("reportBand2").value, bandNote()],
+  ["assignee", "category", ""]);
+is("and the marks moved with it, status because the band is its CATEGORY",
+  fieldIds("report").filter((id) => fieldNote("report", id)), ["status", "assignee"]);
+
+// Back to the shipped pair, so nothing below reads a band it did not set.
+setPrefs({ reportBand1: "priority", reportBand2: "team" });
+is("and back to the pair 1.1.0 emitted",
+  [bandSelect("reportBand1").value, bandSelect("reportBand2").value], ["priority", "team"]);
+
+// ---- TICKING A FIELD IS A WRITE, and the panel reads it back out of storage.
+const teamBox = fieldBox("details", "team");
+teamBox.checked = true;
+dispatch(teamBox, "change");
+flush();
+is("ticking a field writes the preference", ticked("detailsFields"),
+  ["type", "status", "priority", "assignee", "team", "fixv", "remaining", "parent"]);
+is("and the box still says what storage says after the render it caused",
+  fieldBox("details", "team").checked, true);
+// ONE CATALOGUE, TWO SELECTIONS: what is duplicated is the selection, and it costs a
+// second list of checkboxes and nothing else.
+is("the OTHER list was not touched by it", ticked("reportFields"),
+  ["type", "status", "assignee", "fixv", "remaining", "parent"]);
+
+// A TICK IS NOT A REORDER. The entry keeps its place, which is the whole reason the
+// list stores { id, on } in order rather than an array of enabled ids: unticking
+// would otherwise lose the position and re-ticking would send the field to the end.
+const priorityBox = fieldBox("details", "priority");
+priorityBox.checked = false;
+dispatch(priorityBox, "change");
+flush();
+is("unticking writes too", ticked("detailsFields"),
+  ["type", "status", "assignee", "team", "fixv", "remaining", "parent"]);
+is("AND THE FIELD KEEPS ITS PLACE rather than being sent to the end",
+  prefsOf().detailsFields.map((one) => one.id), CATALOGUE);
+is("so the row is still where it was, unticked", 
+  [fieldIds("details")[2], fieldBox("details", "priority").checked], ["priority", false]);
+
+// ---- THE PANEL DRAWS THE STORED ORDER. This is the state half of the drag: the
+// preference a drop writes is poked in directly, and what is checked is that the
+// panel puts the rows where it says. No pointer is involved and none could be.
+const parentRow = fieldRow("details", "parent");
+setPrefs({ detailsFields: 
+  ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]
+    .map((id) => ({ id, on: prefsOf().detailsFields.find((one) => one.id === id).on })) });
+is("a stored reorder is what the panel draws, not the catalogue's order",
+  fieldIds("details"),
+  ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]);
+// MOVED, NOT REBUILT. A rebuilt row would take the focus off the box you are
+// clicking and would pull the floor out from under a drag already in flight, which
+// is the rule ticket 02 wrote for this panel and the reason it only ever SETS.
+is("and the row was MOVED rather than built again, which is the panel's whole rule",
+  fieldRows("details")[0] === parentRow, true);
+is("so its checkbox came with it, still saying what storage says",
+  fieldBox("details", "parent").checked, true);
+is("📊 Report's list did not move with it", fieldIds("report"), CATALOGUE);
+
+// ---- COLLECTING FROM THE PAGE KEEPS WORKING WHILE ⚙ IS UP (decision 25). What ⚙
+// replaces is the inside of the DRAWER; the floating `+` beside a hovered issue link
+// is a different element on the page, and `renderToggle` reads only the hovered
+// anchor and the active collection. The two things that had to be checked rather
+// than read are that the add lands, and that the render it causes does not close the
+// panel or move the tab -- which is what makes the panel a pure function of
+// `prefsOpen` rather than something a re-render can take away.
+const floating = () => byId.get("gt-cart-toggle");
+const keysNow = () => JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.map((i) => i.key);
+is("the collection holds one item before the add", keysNow(), ["RDC-21069"]);
+dispatch(card.children[0], "pointerover");
+flush();
+is("hovering an issue link on the page still summons the floating +, panel or no panel",
+  floating().hidden, false);
+dispatch(floating(), "click");
+flush();
+is("AN ADD FROM THE PAGE LANDS WHILE ⚙ IS UP", keysNow(), ["RDC-21069", "RDC-77"]);
+is("the badge counts it, which is where you see it now", badge.textContent, "🛒 Scratch 2 ▾");
+is("and the panel is still up, on the same tab",
+  [panel().hidden, prefsOf().settingsTab, tabPanel("details").hidden], [false, "details", false]);
+
+// The same again from OUTSIDE this tab: the store is poked directly and the script
+// is told to re-read it, which is what another tab's write looks like from here.
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [{ key: "RDC-1" }] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("another tab's write re-renders the drawer under the panel", badge.textContent, "🛒 Scratch 1 ▾");
+is("and does not close it either", [panel().hidden, tabPanel("details").hidden], [false, false]);
+
+/* ---- A HELD FETCH SURVIVES A PREFERENCE CHANGE, and that is the visible half of
+   the decision that the selection is applied at RENDER and never at fetch.
+   `DETAIL_FIELDS` asks Jira for all nine whatever the two lists say, so the held rows
+   carry every field and a field ticked while a copy is armed costs a re-render and
+   nothing else. Narrowing the fetch to the ticked fields is the obvious-looking
+   optimisation and it would disarm the button you had already armed -- including
+   from ANOTHER TAB, where nobody pressed anything (§2.14).
+
+   What throws the held fetch away is a change to the KEY LIST, and only that. */
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [{ key: "RDC-1513" }] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("📋 Details is armed while the settings are up", details().textContent, "📋 Copy");
+const fixvBox = fieldBox("details", "fixv");
+fixvBox.checked = false;
+dispatch(fixvBox, "change");
+flush();
+is("a field unticked mid-arm wrote the preference", ticked("detailsFields").includes("fixv"), false);
+is("AND THE ARMED COPY IS STILL ARMED", details().textContent, "📋 Copy");
+is("and still offers the same two items it fetched", /^Copy 1 item/.test(details().title), true);
+// The same from outside this tab, which is where nobody pressed anything.
+setPrefs({ reportFields: prefsOf().reportFields.map((one) => ({ ...one, on: false })) });
+is("another tab emptying the OTHER list does not disarm it either",
+  details().textContent, "📋 Copy");
+// And the copy it makes is the list as it stands NOW, not as it stood at the press.
+dispatch(details(), "click");
+await settle();
+is("the copy took the fields as they stand at the COPY, not at the fetch",
+  /Pyr 2026\.8\.0/.test(clipboard.at(-1)["text/plain"].text), false);
+is("and the fields still ticked are all there, in the order the drag left them",
+  clipboard.at(-1)["text/plain"].text.split(" — ")[1],
+  "↳ [RDC-26701](https://dalet.atlassian.net/browse/RDC-26701) · Story · Dev Resolved · William CHUANG · 0m left");
+await settle();
+await settle();
+network.body = null;
+
+// ---- ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention:
+// ⌫ becomes `Empty 3?` before it will empty anything.
+// `url` and not a made-up id: since ticket 03 the shapes are real, and a restore
+// that only ever put back a value the UI could not produce would be measuring less
+// than it looks like it is.
+setPrefs({ lineShape: "url", reportBand2: "none", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
+is("five export settings are away from their defaults",
+  [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
+// Both field lists too, and by real clicks and a real reorder rather than a poke:
+// the section above ticked team, unticked priority and fixv, moved the parent to the
+// top, and emptied 📊 Report's list altogether.
+is("and so are both field lists, which is what the two sections above did to them",
+  [ticked("detailsFields"), ticked("reportFields"), prefsOf().detailsFields[0].id],
+  [["parent", "type", "status", "assignee", "team", "remaining"], [], "parent"]);
+dispatch(restoreButton(), "click");
+flush();
+is("ONE PRESS ARMS IT and the label becomes the question", restoreButton().textContent, "Restore?");
+is("and writes nothing", [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
+is("the tooltip says there is no undo", /no undo/.test(restoreButton().title), true);
+// A render is not a click. The armed state is derived from `armed` inside `render`,
+// so a re-render REBUILDS the question rather than wiping it -- which is the same
+// treatment ⌫ gets, and the reason the label is derived rather than written on the
+// click. Anything that is a click walks away; see below.
+rerender();
+is("a re-render leaves it armed, because the label is derived and not written",
+  restoreButton().textContent, "Restore?");
+dispatch(byId.get("gt-cart-tabs"), "click");
+flush();
+is("but a click on the panel's dead space disarms it", restoreButton().textContent, "↺ Restore export defaults");
+is("and still nothing was written", prefsOf().lineShape, "url");
+
+dispatch(restoreButton(), "click");
+dispatch(restoreButton(), "click");
+flush();
+is("TWO PRESSES PUT THE FIVE EXPORT SETTINGS BACK",
+  [prefsOf().lineShape, prefsOf().reportBand1, prefsOf().reportBand2],
+  ["markdown", "priority", "team"]);
+is("both field lists with them", 
+  [ticked("detailsFields"), ticked("reportFields")],
+  [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"],
+   ["type", "status", "assignee", "fixv", "remaining", "parent"]]);
+// THE ORDER COMES BACK WITH THE TICKS, because a restore puts the whole stored list
+// back and the order is half of what one says.
+is("and the ORDER comes back with them, not just the ticks",
+  prefsOf().detailsFields.map((one) => one.id), CATALOGUE);
+is("the panel followed it, which is a render reading storage rather than a click",
+  [fieldIds("details"), fieldBox("details", "priority").checked, fieldBox("details", "team").checked],
+  [CATALOGUE, true, false]);
+// IT IS AN EXPORT RESTORE AND NOTHING ELSE (decision 22). A dragged size is only
+// recoverable by dragging the grip again (risk 10), and being thrown to another tab
+// because you reset a field list would be a second change nobody asked for.
+is("and it leaves the appearance switches and the tab you are on exactly alone",
+  [prefsOf().settingsTab, prefsOf().corner, prefsOf().layout, prefsOf().rightClickMenu],
+  ["details", "bottom-left", "split", true]);
+is("the panel did not move out from under the press", tabPanel("details").hidden, false);
+setPrefs({ corner: "bottom-right", layout: "auto", rightClickMenu: false });
+
+// ---- A STORED TAB THIS BUILD DOES NOT KNOW must not leave the panel blank
+// (decision 20). `store-smoke` proves `normalisePrefs` folds it to the first tab;
+// this proves the panel that reads it actually draws something.
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), open: true, settingsTab: "haiku" });
+rerender();
+is("an unrecognised tab lands on the first one", tabButton("appearance").attrs["aria-selected"], "true");
+is("and the panel is not blank", tabPanel("appearance").hidden, false);
+is("nor is the stored value rewritten by merely reading it", prefsOf().settingsTab, "haiku");
+
+// ---- ✕ KEEPS EXACTLY ONE MEANING ON BOTH SCREENS: close the drawer. A ✕ that went
+// back from the settings instead would leave no way to close the Cart from this
+// screen at all.
+dispatch(closeButton(), "click");
+flush();
+is("✕ closes the drawer from the settings screen", html.dataset.gtCartOpen, "false");
+is("and it did not quietly mean go back", panel().hidden, false);
+dispatch(badge, "click");
+flush();
+// STATED RATHER THAN INCIDENTAL: `prefsOpen` is in memory and ✕ does not touch it,
+// so re-opening inside the same sitting lands where you left. A RELOAD does not,
+// because the flag is not stored -- which is the whole reason it is not (§2.9).
+is("re-opening in the same sitting comes back to the settings", panel().hidden, false);
+
 dispatch(gear(), "click");
 flush();
-is("and the ⚙ closes it again", prefsArea().hidden, true);
+is("and the ⚙ puts the collection back", [panel().hidden, drawerBody().hidden], [true, false]);
+is("the head names the Cart again", headTitle().textContent, "🛒 Cart");
+is("and says so, so the state cannot outlive the panel",
+  gear().getAttribute("aria-pressed"), "false");
 
 // ---- 🔍 SEARCH SHOWS EXACTLY THE COLLECTION (§7 step 14), with three items and
 // one of them summary-less -- which is the step's own setup. A format that dropped

@@ -1,11 +1,56 @@
 # Session prompt: making the exports configurable
 
-> **THIS IS THE ONE LIVE FILE IN `docs/`.** Everything else here is the frozen
-> working record of the map effort, and its README says so. This prompt has not been
-> run. Delete the banner and record the outcome when it has.
+> **RUN on 2026-08-21 and 2026-08-22. The outcome is
+> [`configurability/`](configurability/)** — the decision record, and six
+> implementation tickets, one per session. **All six landed, and 1.2.0 shipped on
+> 2026-08-25.** The decisions are in the ADR, amended in place and dated; the
+> tickets' own record marks each one done and says what changed when it met real
+> code.
 >
 > Written 2026-08-21, at the end of the 1.1.0 session, by the person who built it —
 > so it names the traps from the inside rather than from a reading of the code.
+> **The prompt below is left exactly as it was written.** It is the question; the
+> tickets are the answer, and the two are worth reading against each other.
+>
+> **What it got right.** Grilling first, and not building until the shape was
+> settled. Naming the five paste rules as the argument against a template — that is
+> what killed the template. Sending every question about how the output looks to the
+> rig instead of to a structured question.
+>
+> **Where the session went somewhere it did not predict.** It offered four shapes
+> in rising cost and expected one to win; the answer was **two mechanisms at once**,
+> because the issue reference and the field tail want different kinds of control —
+> punctuation and where a URL sits cannot be expressed by toggles. It listed the
+> foot as full and settings as belonging in ⚙, which held — but ⚙ turned out to need
+> to be a **whole screen**, forced by a measurement the prompt did not anticipate:
+> ~22 controls in a drawer that can be 300×215px, where every container is
+> `overflow: clip`. And its closing lesson proved itself twice more inside this
+> session — the panel's layout was settled by argument, prototyped, chosen, and then
+> **reversed by pressing it**, twice.
+>
+> **One thing it asked for that was refused, and one it was wrong about.** §2.8's
+> template finding is **upheld**, not overturned; the evidence went the other way and
+> the section stands with its reason restated. And §4's rejection of
+> `[KEY] Summary — URL` — *"its only distinct paste target cannot be named"* — was
+> **overturned**, because the user named it in one sentence: a destination that does
+> not render markdown.
+>
+> **What the six sessions added, which the prompt could not have.** Its instruction to
+> send every question about the output to the rig was right, and it was right for a
+> reason the prompt did not state: **the rig is where a decision gets pressed.** Four
+> answers were overturned after they had been argued through, costed and written down
+> — the panel's layout twice, the ⚙'s missing state, and the duplicate band pair — and
+> a fifth line shape was asked for by a paste. One more was *confirmed* the same way
+> rather than overturned: the drag's usability at the 300px floor, which had been
+> decided rather than measured, and which came back working. Every one of them came
+> from pressing a control or pasting an output.
+>
+> **And one thing it could not have predicted, which is about the rig itself.** The
+> prototype this prompt asked for was thrown away by ticket 06 — merged into
+> `paste-test.html` — and the merge found that **both** rigs had been broken for as
+> long as they had been tracked, each throwing on every render, with nothing under
+> `test/` able to see it. If a later prompt asks for a prototype, ask it to boot the
+> page once against a fake DOM as well.
 
 ## The task
 

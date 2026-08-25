@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.2.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -38,23 +38,45 @@
  *   page` mirrors the issue links drawn right now, and the whole row is the
  *   button. Below it is the active collection, with its name editable in place,
  *   a ↻ that asks Jira for every summary again, chips for the other
- *   collections, and five buttons at the foot: 🔗 Links, 📃 Names and 🔑 Keys
- *   copy the collection, 📋 Details fetches and then copies a richer list, and
- *   🔍 Search opens the whole of it in Jira's own issue search, in a new tab.
- * - 📋 Details takes TWO presses: the first asks Jira for type, status,
- *   priority, assignee, fix version and parent, and the label changes to say it
- *   has them; the second copies. Nothing it fetches is ever stored, so a
- *   detailed list cannot be pasted with last week's status in it.
+ *   collections, and six buttons at the foot: 🔗 Links, 📃 Names and 🔑 Keys
+ *   copy the collection, 📋 Details fetches and then copies a richer list,
+ *   📊 Report copies that list grouped under headings, and 🔍 Search opens
+ *   the whole of it in Jira's own issue search, in a new tab.
+ * - 📋 Details and 📊 Report each take TWO presses: the first asks Jira for
+ *   type, status, priority, assignee, team, fix version, time remaining and
+ *   parent, and the label changes to say it has them; the second copies. Nothing
+ *   either fetches is ever stored, so a detailed list cannot be pasted with last
+ *   week's status in it.
  * - An item that reached the collection with no summary is filled in from
  *   Jira's API while the drawer is open. An item is valid with a key alone, so
  *   nothing waits for it.
- * - A ⚙ with the preferences, including the right-click menu, which ships off.
+ * - A ⚙ in the drawer's head, which since 1.2.0 opens a whole SETTINGS SCREEN
+ *   rather than a strip: it replaces the two sections and the foot, and the head
+ *   reads `⚙ Settings` while it is up. Press it again to go back.
+ * - THREE THINGS ABOUT THE EXPORTS ARE YOURS TO SET, and the defaults are exactly
+ *   what 1.1.0 emitted, so an existing user sees no change until they ask for
+ *   one:
+ *     - `Issue reference` — one of five named shapes for how an issue is written
+ *       at the head of a line, from the markdown link 1.1.0 shipped to the plain
+ *       `KEY: Summary - url` a destination that does not render markdown wants.
+ *       It governs 🔗 Links, 📋 Details and 📊 Report together.
+ *     - Which fields 📋 Details and 📊 Report print, and in what order. Each
+ *       has its own ordered list over the same eight fields, on its own tab, with
+ *       a checkbox per field and a drag to reorder. Zero ticked is allowed — the
+ *       line is then the issue reference alone.
+ *     - How 📊 Report is banded: `Group by` and `Then by`, over seven fields,
+ *       where 1.1.0 could only do priority and then team.
+ *   ↺ `Restore export defaults` puts all five back. The appearance switches —
+ *   sections, corner, and the right-click menu, which still ships off — are on
+ *   their own tab and it leaves them alone.
  *
  * What is still absent: keyboard shortcuts, multi-select, per-row copy,
- * importing a JQL query into a collection, grouping, and reordering.
+ * importing a JQL query into a collection, and any ordering or grouping of the
+ * COLLECTION itself. 📊 Report groups a document built from the collection; the
+ * collection's own array keeps its insertion order in every format.
  *
  * The reasons for all of it are in `jira-cart.user.md` beside this file. Read
- * that before changing anything here: it lists 38 rejected alternatives, and
+ * that before changing anything here: it lists 64 rejected alternatives, and
  * most of the surprising lines below are one of them. The section numbers in
  * the comments point into it.
  *
@@ -566,6 +588,195 @@
     save({ v: SCHEMA_VERSION, collections: state.collections }, state);
   }
 
+  // --------------------------------------------------- the export vocabulary
+
+  /* WHAT THE EXPORT PREFERENCES ARE ALLOWED TO SAY. Four lists of ids, and they are
+     the whole vocabulary: a stored preference that names something absent from them
+     is not honoured (see `normalisePrefs`).
+
+     ONE CATALOGUE, TWO SELECTIONS -- the answer to the question configurability
+     raises, which is what stops 📋 Details and 📊 Report drifting apart once each
+     has its own field list. The ids and their labels live HERE, once. Every measured
+     style stays in `detailChip`, once. A preference can only say WHICH fields a
+     document uses and IN WHAT ORDER, so nothing a user can click reaches the styling
+     the five paste rules of §2.14 protect.
+
+     WHY THESE LISTS SIT ABOVE THE PREFERENCES AND NOT BESIDE THE RENDERERS THAT DRAW
+     THEM. `DEFAULT_PREFS` is BUILT from the catalogue, and a `const` declared further
+     down the file is in its temporal dead zone at that line -- the script would throw
+     on load. The renderers read these from below, which costs nothing.
+
+     They are also the SINGLE SOURCE for the tickets that fill them in: the shape
+     table, the band accessors and the ⚙ panel each build OVER these ids rather than
+     restating them. A second list of ids beside one of these would be two values that
+     can disagree, which is principle 1 and the reason the store has no active
+     pointer. */
+
+  // The row fields, in the reading order §2.14 chose -- what it is, how it is going,
+  // how urgent, who has it, when it ships, where it belongs -- plus `team`.
+  //
+  // `team` is NEW as a row field. It is fetched today for the report's headings
+  // only, and 📋 Details has no headings, so the field is currently unreachable from
+  // that export. Off by default in both lists, so no output changes.
+  //
+  // The labels are the ⚙ panel's. They are here rather than in the panel because the
+  // panel is the second reader: `detailBits` already owns the id, and a label kept
+  // beside the checkbox instead would be a second place a field is named.
+  const FIELD_CATALOGUE = [
+    { id: "type", label: "Type" },
+    { id: "status", label: "Status" },
+    { id: "priority", label: "Priority" },
+    { id: "assignee", label: "Assignee" },
+    { id: "team", label: "Team" },
+    { id: "fixv", label: "Fix version" },
+    { id: "remaining", label: "Time remaining" },
+    { id: "parent", label: "Parent" },
+  ];
+
+  // A default field list is DERIVED from the catalogue rather than written out, so a
+  // field added to the catalogue later arrives in both defaults automatically, and
+  // arrives OFF unless it is named here. That is the same rule `normaliseFieldList`
+  // applies to a stored list, and having one rule rather than two is the point.
+  function defaultFieldList(on) {
+    return FIELD_CATALOGUE.map((field) => ({
+      id: field.id,
+      on: on.includes(field.id),
+    }));
+  }
+
+  /* The named shapes the issue reference can take. ONE PREFERENCE, SHARED BY ALL
+     THREE EXPORTS, so §2.14's promise that 📋 Details' head is 🔗 Links' line stays
+     true; a per-export override is left in §6 and costs one nullable key each.
+
+     Ids only, here. The bytes each shape emits -- and it must define BOTH FLAVOURS,
+     or it silently does nothing in Outlook, Word, Teams and Confluence, which all
+     take the HTML -- belong beside the formatters that emit them. This list is what
+     a stored value is checked against, and it is the list a shape is added to or
+     dropped from: drop one and every blob naming it falls back to `markdown` on the
+     next read, with nothing else to change.
+
+     FIVE, AND ALL FIVE SURVIVED A REAL PASTE (appendix A.9.1, 2026-08-24). Every
+     shape read correctly in the paste targets and a visible URL arrived clickable,
+     which is what makes the three URL-bearing ones available on all three exports
+     rather than on 🔗 Links alone.
+
+       markdown          [KEY](url) Summary -- what 1.1.0 shipped
+       markdown-key      [KEY](url) -- the link with no summary. ASKED FOR BY THE
+                         PASTE rather than offered by the prototype, which had no
+                         such row
+       key-summary-url   KEY: Summary - url
+       key-url           KEY - url
+       url               url
+
+     Ticket 03 owns the bytes. It must assert that its shape table and this list name
+     the same ids, because a table with an id this list lacks is unreachable and an id
+     with no table is a preference that renders nothing. */
+  const LINE_SHAPE_IDS = [
+    "markdown",
+    "markdown-key",
+    "key-summary-url",
+    "key-url",
+    "url",
+  ];
+
+  /* The fields that may BAND 📊 Report. Seven, where the catalogue above has eight,
+     and both differences carry their reason so that a later session cannot quietly
+     erase them on the reasonable-sounding grounds that a field is a field.
+
+     TIME REMAINING MAY NOT BAND. Its band order would be string order over
+     durations, and "10m" < "2d" < "9h" means nothing -- a report that reads as broken
+     rather than as configured.
+
+     STATUS BANDS BY CATEGORY AND NEVER BY NAME, which is why the id here is
+     `category` where the row field is `status`. The names are this instance's own,
+     and `Dev In progress` < `Dev Resolved` < `To Do` is alphabetical noise dressed as
+     a workflow. The three categories are Atlassian's own fixed vocabulary, which is
+     exactly why they may carry a rank where §2.15 refused priority one: a rank over
+     this instance's priority names could only fall out of step with Jira.
+
+     `fixv` is MULTI-VALUED, and an issue in two releases appears in both bands --
+     the one place a paste has a line per issue-and-band rather than per issue. */
+  const BAND_IDS = [
+    "priority",
+    "team",
+    "category",
+    "assignee",
+    "type",
+    "fixv",
+    "parent",
+  ];
+
+  // Band 2 only. A report with no bands at all IS 📋 Details, so band 1 has no
+  // `none` and `normalisePrefs` sends one back to the default.
+  const NO_BAND = "none";
+
+  /* WHICH ROW A BAND IS THE SAME FIELD AS, and it is one entry rather than none
+     because of the one place the two vocabularies use different words: status bands
+     by CATEGORY and the row field is called `status` (see `BAND_IDS`). Every other
+     band id IS a field id, so this map is a lookup with a fallback rather than a
+     second catalogue.
+
+     It exists for the ⚙ panel alone, which MARKS a field that is also a heading.
+     THE MARK IS A STATEMENT AND NOT A VETO (decision 8): a ticked field is printed
+     whether or not it bands, because a field that appears only in a heading is a
+     field whose meaning depends on the row's position, and §2.14 rule 4 is about
+     exactly that -- somebody who drags a line out of its band in the pasted mail
+     can choose to keep the value readable on the row. Ticket 05 makes the bands
+     settable; nothing here decides what a band does. */
+  const BAND_ROW_FIELD = { category: "status" };
+
+  /* The ⚙ panel's tabs. THE LAST TAB IS A STORED PREFERENCE, on §2.9's precedent for
+     the drawer's own `open`: a reload is not the end of a sitting, and being thrown
+     to the first tab every time you come back is the same complaint.
+
+     ONE VALUE, RANGE-CHECKED, and an id this build does not recognise falls back to
+     the FIRST tab rather than to a blank screen -- what `layout` and `corner` already
+     do. There is no open/closed set to keep: a tab bar shows every tab whether it has
+     ever been pressed or not, so a tab added later is visible the moment it exists.
+     A NEW TAB THEREFORE ARRIVES VISIBLE WHERE A NEW FIELD ARRIVES OFF, and the
+     asymmetry is deliberate -- see `normaliseFieldList`.
+
+     Three, because `Issue reference` governs all three exports: a tab that owned it
+     would tell a small lie about its scope, so it is pinned above the bar and each
+     export tab stays at about eight rows, which is the only structure that fits the
+     drawer's 215px floor without scrolling. The cost, stated rather than hidden:
+     `appearance` sits as a peer of two export tabs, which is not a clean taxonomy.
+     Changing the structure is changing this list and nothing else.
+
+     `exports` says whether the tab holds anything `Restore export defaults` reaches,
+     and it is what decides where that button shows. On the appearance tab it would
+     be an offer to reset something you are not looking at (decision 22).
+
+     `fields` NAMES THE PREFERENCE THE TAB'S FIELD LIST EDITS, so the panel builds
+     both lists from this table and there is no second place that says which tab owns
+     which key. It is NOT the same thing as `exports` and the two are deliberately
+     not one flag: `exports` asks whether `Restore` should show, and the pinned
+     `Issue reference` row is an export setting on no tab at all -- so a tab could
+     hold an export setting and no field list.
+
+     `bands` NAMES THE PREFERENCES WHOSE VALUES PUT A FIELD IN A HEADING, and it is
+     what lets the panel mark a row `also a heading` without a literal `"report"`
+     inside the renderer -- which would be a second place the structure is decided.
+     Only 📊 Report has any; 📋 Details has no headings at all, which is why `team`
+     was unreachable from it before 1.2.0. TICKET 05 OWNS THE BANDS THEMSELVES and
+     puts its two dropdowns on that tab; this list is the seam it needs. */
+  const SETTINGS_TABS = [
+    { id: "appearance", label: "Appearance", exports: false },
+    { id: "details", label: "📋 Details", exports: true, fields: "detailsFields" },
+    {
+      id: "report",
+      label: "📊 Report",
+      exports: true,
+      fields: "reportFields",
+      bands: ["reportBand1", "reportBand2"],
+    },
+  ];
+
+  // DERIVED, so the vocabulary `normalisePrefs` range-checks against cannot name a
+  // tab the bar does not draw. The list above is the only place the structure is
+  // written down.
+  const SETTINGS_TAB_IDS = SETTINGS_TABS.map((tab) => tab.id);
+
   // ------------------------------------------------------------ preferences
 
   /* The UI's own switches, in their own key. The user's data and the UI's
@@ -586,9 +797,63 @@
     size: null,
     basisStacked: null,
     basisSplit: null,
+    // Six keys for the configurable exports, added in 1.2.0. `v` IS NOT BUMPED and
+    // there is no migration: preferences are not versioned, and nothing about a
+    // stored item changed shape (§2.4).
+    //
+    // EVERY DEFAULT HERE REPRODUCES 1.1.0'S OUTPUT BYTE FOR BYTE. That is the whole
+    // requirement of the defaults: an install that never opens ⚙ must not be able to
+    // tell that any of this exists.
+    //
+    // The literal `markdown` and not `LINE_SHAPE_IDS[0]`: this is the shape 1.1.0
+    // shipped, which is a fact about the output rather than about a list's order.
+    lineShape: "markdown",
+    detailsFields: defaultFieldList([
+      "type",
+      "status",
+      "priority",
+      "assignee",
+      "fixv",
+      "remaining",
+      "parent",
+    ]),
+    // The same list with `priority` off, because priority is the report's first band
+    // and a band leaves the row. `team` is off in both, as the new field.
+    reportFields: defaultFieldList([
+      "type",
+      "status",
+      "assignee",
+      "fixv",
+      "remaining",
+      "parent",
+    ]),
+    reportBand1: "priority",
+    reportBand2: "team",
+    // Whichever tab is first. A default that named a tab would be a second place the
+    // structure is decided.
+    settingsTab: SETTINGS_TAB_IDS[0],
   };
 
   const LAYOUTS = ["auto", "stacked", "split"];
+
+  /* WHAT `Restore export defaults` REACHES, and it is a list rather than five
+     literals in the handler so that a seventh export preference is one entry here
+     and nothing to remember (decision 22).
+
+     What it deliberately leaves alone, each for its own reason. The three
+     APPEARANCE switches, because the drawer's size is in the same key and a dragged
+     size is only recoverable by dragging the grip again (risk 10) -- so a control
+     called "restore" that silently resized the drawer would be the worst kind of
+     surprise. And `settingsTab`, because which tab you are on is not an export
+     setting: throwing you to another tab because you reset a field list would be a
+     second change you did not ask for. */
+  const EXPORT_PREF_KEYS = [
+    "lineShape",
+    "detailsFields",
+    "reportFields",
+    "reportBand1",
+    "reportBand2",
+  ];
 
   /* WHETHER THE DRAWER IS OPEN IS A STORED PREFERENCE. Reversed on 2026-08-18, at
      the user's request, after using 0.4.0.
@@ -630,6 +895,35 @@
   // treat the result as a fact.
   function normalisePrefs(stored) {
     const source = stored && typeof stored === "object" ? stored : {};
+
+    /* THE TWO BANDS ARE RESOLVED UP HERE, because they are the one pair of keys in
+       this function with a rule BETWEEN them and an object literal has no place to
+       put one. Each is checked against the vocabulary on its own first, exactly as
+       every key below is, and then the one cross-key rule is applied once.
+
+       THE TWO MAY NOT NAME THE SAME FIELD -- reversed on 2026-08-25, from use.
+       Ticket 05 shipped it allowed, on the reasoning that `Team` under `Team` is
+       useless, truthful and visible the moment it is pasted, so refusing it was more
+       machinery than the mistake was worth. THE USER PRESSED IT AND REPORTED IT AS A
+       DEFECT, which is what it is: a report whose every sub-heading repeats the
+       heading above it is not a configuration anybody chose, and "you can see that it
+       is wrong" is not the same as "you meant it" (§2.15).
+
+       BAND 2 IS THE ONE THAT GIVES WAY, always, and never band 1: band 1 is required
+       and band 2 is optional, so the optional one is the one that can yield without
+       producing a state no click can make. That includes the case where band 2's own
+       DEFAULT is what would duplicate -- a hand-edited blob naming `team` for band 1
+       and nonsense for band 2 must not have `team` put back underneath itself. */
+    const band1 = BAND_IDS.includes(source.reportBand1)
+      ? source.reportBand1
+      : DEFAULT_PREFS.reportBand1;
+    const band2 =
+      source.reportBand2 === NO_BAND
+        ? NO_BAND
+        : BAND_IDS.includes(source.reportBand2)
+          ? source.reportBand2
+          : DEFAULT_PREFS.reportBand2;
+
     // The order matches DEFAULT_PREFS above, so the two read as one list.
     return {
       // The drawer starts closed on a fresh install and is remembered after that.
@@ -650,7 +944,143 @@
       size: readStoredSize(source.size),
       basisStacked: readStoredBasis(source.basisStacked),
       basisSplit: readStoredBasis(source.basisSplit),
+      // The six export keys. Each is checked against the vocabulary above, and an id
+      // this build does not know falls back to that key's default -- the same
+      // treatment `layout` and `corner` get, and the OPPOSITE of what a collection
+      // gets, which is the whole reason the two live in different keys.
+      lineShape: LINE_SHAPE_IDS.includes(source.lineShape)
+        ? source.lineShape
+        : DEFAULT_PREFS.lineShape,
+      detailsFields: normaliseFieldList(
+        source.detailsFields,
+        DEFAULT_PREFS.detailsFields,
+      ),
+      reportFields: normaliseFieldList(
+        source.reportFields,
+        DEFAULT_PREFS.reportFields,
+      ),
+      // NEVER `none`. A report with no bands at all is 📋 Details, so a blob asking
+      // for one gets the default band back rather than a second copy of another
+      // export.
+      reportBand1: band1,
+      // `none` IS honoured here, and it is the single-level report -- and it is also
+      // where a duplicate lands, for the reason written above the two.
+      reportBand2: band2 === band1 ? NO_BAND : band2,
+      // The first tab, never blank: an id that is not a tab any more must not leave
+      // the panel with nothing on it.
+      settingsTab: SETTINGS_TAB_IDS.includes(source.settingsTab)
+        ? source.settingsTab
+        : SETTINGS_TAB_IDS[0],
     };
+  }
+
+  /* ONE FUNCTION, BOTH FIELD LISTS. A list is stored as an ORDERED array of
+     `{ id, on }`, and the alternative -- a plain array of the enabled ids, with order
+     carried by the array and "off" meaning absent -- was considered and rejected:
+     unticking a field would lose its position and re-ticking it would send it to the
+     end, so somebody toggling one field to compare two outputs would find their order
+     quietly rearranged.
+
+     A STORED LIST MAY DISAGREE WITH THE CATALOGUE, AND THE CODE WINS. That is the one
+     rule here that is new in kind for this key, and it is applied in this order:
+
+       1. not an array          -> the default for that key, copied
+       2. an id the catalogue does not name -> DROPPED, silently, the way
+          `normalisePrefs` already drops a retired key
+       3. a duplicate id        -> collapsed, the first wins
+       4. `on` is `true` only when it is exactly `true`, so a hand-edited blob cannot
+          produce a state no click made -- `open` and `rightClickMenu` already read
+          this way
+       5. a catalogue field the stored list never mentions -> APPENDED AT THE END,
+          OFF
+
+     STEP 5 IS WHY A NEW FIELD ARRIVES OFF WHERE A NEW TAB ARRIVES VISIBLE. The two
+     differ on purpose: a tab appearing changes nothing about what a button emits,
+     where a field appearing TICKED would change what a button produces without being
+     asked, which is what §2.8 and §2.14 both warn against. It is still in the list,
+     so it is findable, and one click turns it on.
+
+     AN EMPTY SELECTION SURVIVES, AND THE LISTING IS STILL COMPLETED. Zero ticked
+     fields is a real state -- the line is the head alone, which is always there,
+     because the head is the issue reference and not a field -- so nothing here turns
+     an unticked list back on. What step 5 does to a stored `[]` is fill in the
+     catalogue's names, all off, and it is unconditional for a reason: the ⚙ panel
+     draws its rows FROM this list, so a list that mentions nothing would draw a panel
+     with no rows and no click could get back to a field. The export is identical
+     either way, and the tie is broken by which one keeps every field findable --
+     step 5's own argument.
+
+     The catalogue is not a parameter. There is exactly one, and passing it would
+     invite a second. What differs between the two keys is the DEFAULT, so that is
+     what is passed. */
+  function normaliseFieldList(stored, fallback) {
+    // A copy of every ENTRY and not just of the array: `loadPrefs` hands the default
+    // out on every malformed blob, so one entry unticked in place by a caller would
+    // be unticked for every later read in this tab.
+    if (!Array.isArray(stored)) return fallback.map((field) => ({ ...field }));
+
+    const list = [];
+    const seen = new Set();
+    for (const entry of stored) {
+      const id = entry?.id;
+      if (!FIELD_CATALOGUE.some((field) => field.id === id)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      list.push({ id, on: entry.on === true });
+    }
+    for (const field of FIELD_CATALOGUE) {
+      if (!seen.has(field.id)) list.push({ id: field.id, on: false });
+    }
+    return list;
+  }
+
+  /* THE SELECTION, IN ORDER. The stored list carries every catalogue field with a
+     flag; what a document prints is the ticked ones, in the order they are stored.
+     One function, both keys, and it is what `format` hands the two renderers -- so
+     a renderer never sees the flags and cannot be tempted to decide anything about
+     an unticked field.
+
+     ZERO IS A REAL ANSWER (decision 9). An empty selection is a state somebody
+     clicked their way to, so nothing here fills it back in: the line becomes the
+     head alone, with no em dash, which is the shape the renderer already produces
+     for an issue Jira said nothing about. */
+  function enabledFields(list) {
+    return list.filter((field) => field.on).map((field) => field.id);
+  }
+
+  /* THE REORDER, AS A PURE FUNCTION, and that is the point rather than the style.
+     NO HARNESS IN THIS REPOSITORY CAN DRIVE THE DRAG -- `boot-smoke` has no layout
+     and no paint, so it cannot put a pointer at the top half of a row -- so the
+     state change is kept somewhere a harness CAN reach, and only the pointer
+     plumbing ships uncovered. §7 step 31 is the browser pass that stands in for it,
+     and decision 26 is where the drag was chosen over ↑↓ buttons with this cost
+     stated rather than discovered.
+
+     A NEW ARRAY, never the one passed in. `loadPrefs` hands out a fresh object on
+     every read, so mutating would be harmless today and would stop being harmless
+     the first time a caller held a list across a write.
+
+     `to` IS AN INSERTION POINT AND NOT A DESTINATION INDEX -- it is the gap the row
+     lands in, so dropping below the last row is `list.length`. That is what makes
+     the caller's arithmetic `index + (after ? 1 : 0)` and nothing more, and it is
+     where the off-by-one lives: removing the row first shifts every gap after it
+     down by one, which is the `to > from` correction below. Both ends are clamped,
+     so an index from a stale row cannot throw on a path that ends in a preference
+     write. */
+  function moveField(list, from, to) {
+    // `Number.isInteger` and not `>= 0`, because a drop reads its index off a
+    // dataset, where every value is a string: `"3" >= 0` is true and
+    // `splice("3", 1)` would work, but `NaN` passes both comparisons and
+    // `splice(NaN, 1)` silently moves the FIRST row. A move nobody asked for is
+    // worse than a move that does not happen.
+    if (!Number.isInteger(from) || from < 0 || from >= list.length) {
+      return list.slice();
+    }
+    const next = list.slice();
+    const [entry] = next.splice(from, 1);
+    const target = Number.isInteger(to) ? (to > from ? to - 1 : to) : next.length;
+    next.splice(clamp(target, 0, next.length), 0, entry);
+    return next;
   }
 
   function readStoredBasis(value) {
@@ -1566,7 +1996,15 @@ ${selectors.join(",\n")} {
   /**
    * The four formats of §2.8, as four functions with one signature:
    *
-   *     (items, scope) -> { text, html? }
+   *     (items, scope, shape) -> { text, html? }
+   *
+   * `shape` ARRIVES AS AN ARGUMENT AND IS NEVER READ HERE. `format` reads the
+   * preference once and hands the same shape to all three consumers, so the head
+   * of a line cannot differ between 🔗 Links, 📋 Details and 📊 Report -- there is
+   * no second read to fall out of step (§2.8, decision 5). It also keeps these
+   * functions PURE, which is what lets `format-smoke` assert their bytes for every
+   * shape without a store to stand up. The three formats with no head ignore it,
+   * the same way they already ignore `scope`.
    *
    * The four are a SPANNING SET, not a wish list: one rich list a person reads,
    * one plain list a person reads, one list of identifiers, one query. Every
@@ -1586,35 +2024,31 @@ ${selectors.join(",\n")} {
    * NO FORMAT EMITS THE COLLECTION'S NAME AS A HEADING. It is redundant wherever
    * you paste, wrong for a selection, and invalid inside Keys and JQL.
    */
-  function formatLinks(items, scope) {
+  function formatLinks(items, scope, shape) {
     const bullet = scope === "item" ? "" : "- ";
 
-    // The shape is `[KEY](url) Summary`, taken from `jira-ux`'s 🔗 button and
-    // repeated per line. The key alone is the link and the summary sits outside
-    // it, and that is a syntax limit rather than a taste: MARKDOWN CANNOT NEST
-    // SQUARE BRACKETS, so a `[KEY] Summary` label cannot be a link label. Two
-    // consequences worth keeping: the link column is short and uniform, so a
-    // pasted list is scanned down its keys, and the summary stays ordinary text,
-    // so it can be edited in the email you pasted it into (§2.8).
+    // THE LINE IS THE SHAPE, and it was a literal here until 1.2.0. `markdown` is
+    // the shape that literal was, so a default install emits the same bytes it did
+    // at 1.1.0 -- which is the whole requirement of these defaults (§2.8, SHAPES).
     //
-    // THE SEPARATOR GOES WITH THE SUMMARY. The code this comes from writes
+    // What every shape has to honour, and each does it in its own conditional:
+    // THE SEPARATOR GOES WITH ITS VALUE. The code Links comes from writes
     // `${key}](${url}) ${summary}` unconditionally, which leaves a trailing space
-    // when there is no summary. That is harmless there, where a summary is always
-    // derived from `document.title`. Here it is not (§2.8).
-    const text = items
-      .map(
-        (item) =>
-          `${bullet}[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`,
-      )
-      .join("\n");
+    // when there is no summary. That is harmless in `jira-ux`, where a summary is
+    // always derived from `document.title`. Here it is not (§2.8).
+    const text = items.map((item) => `${bullet}${shape.text(item)}`).join("\n");
 
-    // Only Links writes a rich version. The W3C Clipboard API names exactly three
-    // mandatory types -- `text/plain`, `text/html`, `image/png` -- and the Cart
-    // has no image, so `text/plain` + `text/html` is the whole surface. The
-    // `&nbsp;` after the anchor is taken verbatim from `jira-ux`, and it drops
-    // with the summary for the same reason the space above does (§2.8).
-    const cell = (item) =>
-      `<a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(item.key)}</a>${item.summary ? `&nbsp;${escapeHtml(item.summary)}` : ""}`;
+    // Only Links writes a rich version among the four. The W3C Clipboard API names
+    // exactly three mandatory types -- `text/plain`, `text/html`, `image/png` --
+    // and the Cart has no image, so `text/plain` + `text/html` is the whole
+    // surface (§2.8).
+    //
+    // `false`, so the key's anchor is bare. 📋 Details and 📊 Report pass `true`
+    // and bold it, because their lines run long and the bold marks where one issue
+    // starts; this line is a key and a summary, so there is nothing to find. The
+    // two heads have differed here since 📋 Details shipped, and §2.14 said
+    // otherwise until it was corrected on 2026-08-25.
+    const cell = (item) => shape.html(item, false);
 
     // The two versions must agree about what the document is: `- ` bullets on the
     // text side, `<ul><li>` on the HTML side. At single-item scope there is no
@@ -1734,53 +2168,105 @@ ${selectors.join(",\n")} {
   const PRIORITY_INK = { P0: "#d94136", P1: "#d94136" };
 
   /**
-   * The fields after the summary, in reading order: what it is, how it is going,
-   * how urgent, who has it, when it ships, where it belongs.
+   * ONE FIELD'S VALUE, in both flavours, and it is a switch over `FIELD_CATALOGUE`
+   * rather than a list built top to bottom because the ORDER IS NO LONGER HERE. It
+   * is in the preference, and this function answers one question about one id.
    *
    * Each bit carries BOTH forms, because the parent is a reference rather than a
    * value -- markdown on the text side, an anchor on the HTML side. One string
    * could not serve both: escaping the markdown would print the brackets.
    *
-   * An absent value drops out along with its separator, which is the list's
-   * version of §2.8's rule that the separator goes with the summary.
+   * `null` FOR AN ABSENT VALUE, which is how an absent value drops out along with
+   * its separator -- the list's version of §2.8's rule that the separator goes with
+   * the summary.
+   *
+   * A CATALOGUE ID WITH NO CASE HERE IS A FIELD THAT CAN BE TICKED AND DRAWS
+   * NOTHING, which is the same defect shape as a shape id with no entry in `SHAPES`,
+   * and `format-smoke` holds the two together the same way: it ticks every id in the
+   * catalogue against an item carrying every field and requires a bit back. The
+   * `default` is here so that a mismatch is a field that renders nothing rather than
+   * a THROW on the copy path -- a copy that silently never happened is the failure
+   * §2.8's scar is about.
    */
-  function detailBits(item, skip) {
+  function detailBit(id, item) {
+    const bit = (text, html) =>
+      text ? { id, text, html: html ?? escapeHtml(text) } : null;
+
+    switch (id) {
+      case "type":
+        return bit(item.type);
+      case "status":
+        return bit(item.status);
+      case "priority":
+        return bit(item.priority);
+      case "assignee":
+        return bit(item.assignee);
+      // NEW AS A ROW FIELD AT 1.2.0 (decision 10), and off by default in both
+      // lists. It has been fetched since 1.1.0 for 📊 Report's sub-band headings,
+      // and 📋 Details has no headings -- so until this line the field was fetched
+      // on every press of either button and unreachable from one of them.
+      case "team":
+        return bit(item.team);
+      // ONE SPAN AND A COMMA (rule 1). An issue can carry several fix versions and
+      // the box that used to divide them does not exist in Outlook.
+      case "fixv":
+        return bit((item.fixVersions ?? []).join(", "));
+      // `timetracking.remainingEstimate` prints the same string Jira's own backlog
+      // badge shows -- `0m`, `2d`, `1h` -- so the column matches the row it came
+      // from. Blank when the issue has no time tracking, and blank on a board that
+      // estimates in story points, which is a custom field whose id differs per
+      // instance and is out of scope (§2.14).
+      case "remaining":
+        return bit(item.remaining ? `${item.remaining} left` : "");
+      case "parent":
+        // THE KEY ALONE, AND IT IS A LINK. The epic's name repeats identically
+        // down a list built from one epic -- three identical tails in a six-item
+        // sample, each pushing its row onto a second wrapped line -- and the key
+        // being a link puts the name one click away instead. Rule 4 rules out the
+        // clever alternative of naming it only on its first appearance.
+        //
+        // The anchor's colour is NAMED, because a link does not inherit the colour
+        // of the span around it: the browser's own stylesheet wins, and without
+        // this the parent would arrive as a bright blue link competing with the
+        // issue's own key, which is the one link on the line that matters.
+        return item.parent
+          ? bit(
+              `↳ [${item.parent.key}](${issueUrl(item.parent.key)})`,
+              `↳&nbsp;<a href="${escapeHtml(issueUrl(item.parent.key))}" style="color:${MUTED_INK}">${escapeHtml(item.parent.key)}</a>`,
+            )
+          : null;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * The fields after the summary, IN THE ORDER THE PREFERENCE STORES THEM.
+   *
+   * `fields` is the ticked selection of §2.14's one catalogue -- ids, in order --
+   * and it arrives from `format`, which reads it once per copy. It replaced a
+   * `skip` list at 1.2.0, and the direction matters: a skip list says which fields
+   * a FORMAT declines, so the format owns the answer; a selection says which fields
+   * a DOCUMENT uses, so the preference does and the two documents can differ
+   * without either of them knowing about the other.
+   *
+   * ONE CATALOGUE, TWO SELECTIONS. The ids, their labels and every measured style
+   * live once -- in `FIELD_CATALOGUE`, `detailBit` and `detailChip` -- and a
+   * preference can only say which of them a document uses and in what order. That
+   * is what stops 📋 Details and 📊 Report drifting now that each has its own list,
+   * and it is why the five paste rules cannot be reached by a click: they are
+   * properties of the paste target rather than of a format, so one copy of them is
+   * the only safe number.
+   *
+   * AN EMPTY SELECTION RETURNS AN EMPTY LIST, and both renderers already draw that:
+   * the line is the head alone, with no em dash, which is exactly what they emit for
+   * an issue Jira returned nothing about (decision 9).
+   */
+  function detailBits(item, fields) {
     const bits = [];
-    const add = (id, text, html) => {
-      if (skip?.includes(id)) return;
-      if (text) bits.push({ id, text, html: html ?? escapeHtml(text) });
-    };
-
-    add("type", item.type);
-    add("status", item.status);
-    add("priority", item.priority);
-    add("assignee", item.assignee);
-    // ONE SPAN AND A COMMA (rule 1). An issue can carry several fix versions and
-    // the box that used to divide them does not exist in Outlook.
-    add("fixv", (item.fixVersions ?? []).join(", "));
-    // `timetracking.remainingEstimate` prints the same string Jira's own backlog
-    // badge shows -- `0m`, `2d`, `1h` -- so the column matches the row it came
-    // from. Blank when the issue has no time tracking, and blank on a board that
-    // estimates in story points, which is a custom field whose id differs per
-    // instance and is out of scope (§2.14).
-    add("remaining", item.remaining ? `${item.remaining} left` : "");
-
-    if (item.parent) {
-      // THE KEY ALONE, AND IT IS A LINK. The epic's name repeats identically down
-      // a list built from one epic -- three identical tails in a six-item sample,
-      // each pushing its row onto a second wrapped line -- and the key being a
-      // link puts the name one click away instead. Rule 4 rules out the clever
-      // alternative of naming it only on its first appearance.
-      //
-      // The anchor's colour is NAMED, because a link does not inherit the colour
-      // of the span around it: the browser's own stylesheet wins, and without
-      // this the parent would arrive as a bright blue link competing with the
-      // issue's own key, which is the one link on the line that matters.
-      add(
-        "parent",
-        `↳ [${item.parent.key}](${issueUrl(item.parent.key)})`,
-        `↳&nbsp;<a href="${escapeHtml(issueUrl(item.parent.key))}" style="color:${MUTED_INK}">${escapeHtml(item.parent.key)}</a>`,
-      );
+    for (const id of fields) {
+      const bit = detailBit(id, item);
+      if (bit) bits.push(bit);
     }
     return bits;
   }
@@ -1824,36 +2310,53 @@ ${selectors.join(",\n")} {
    * in the editor it was pasted into. That is a stated requirement, not a
    * preference.
    *
-   * `items` arrive ALREADY CARRYING their fetched fields, so the signature stays
-   * `(items, scope)` and this function is as testable as the other four. The
-   * merge happens in `detailedItems`, which is the only place that knows the
-   * fetch is being held in memory.
+   * `items` arrive ALREADY CARRYING their fetched fields, so this function stays a
+   * pure function of its arguments and is as testable as the other four. The merge
+   * happens in `detailedItems`, which is the only place that knows the fetch is
+   * being held in memory.
+   *
+   * `fields` IS THE TICKED SELECTION, read once by `format` and handed down. It is
+   * applied HERE, at render, and never at fetch -- `DETAIL_FIELDS` asks for all nine
+   * whatever the preference says (§2.14).
    */
-  function formatDetails(items, scope) {
+  function formatDetails(items, scope, shape, fields) {
     const bullet = scope === "item" ? "" : "- ";
     const dot = `<span style="color:${MUTED_INK}"> · </span>`;
 
     const text = items
       .map((item) => {
-        const head = `${bullet}[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`;
-        const bits = detailBits(item).map((bit) => bit.text);
-        // The em dash earns its place: without it the metadata runs into the
-        // summary with only a `·` between them, and a summary can contain dashes.
+        // THE HEAD IS 🔗 LINKS' LINE, and now it is that by construction rather
+        // than by two copies of one string agreeing (§2.14, decision 5).
+        const head = `${bullet}${shape.text(item)}`;
+        const bits = detailBits(item, fields).map((bit) => bit.text);
+        /* The em dash earns its place: without it the metadata runs into the
+           summary with only a `·` between them, and a summary can contain dashes.
+
+           WITH A PLAIN SHAPE THE EM DASH LANDS AFTER A URL, and the separator
+           before that URL is a hyphen the summary may itself contain -- which is
+           the exact defect the em dash was invented to prevent, reintroduced by
+           the preset. IT IS ACCEPTED, on the user's ground and in the user's
+           words: these documents are READ AND NEVER PARSED. Nothing regex-parses
+           a pasted report, so the ambiguity costs a machine and not a reader, and
+           the em dash still marks where the metadata starts. Both alternatives
+           are declined rather than untried (A.9.1, decision 28). Do not "fix"
+           this by giving the plain shapes their own separator without pasting
+           one first. */
         return bits.length ? `${head} — ${bits.join(" · ")}` : head;
       })
       .join("\n");
 
     const cell = (item) => {
-      const bits = detailBits(item);
+      const bits = detailBits(item, fields);
       const tail = bits.length
         ? `<span style="color:${MUTED_INK}"> — </span>` +
           bits.map((bit) => detailChip(bit, item)).join(dot)
         : "";
-      return (
-        `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
-        (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : "") +
-        tail
-      );
+      // `true` BOLDS THE KEY, and 🔗 Links passes `false`. That is the one place
+      // the two heads differ, it has been true since this format shipped, and it
+      // is deliberate: this line carries a field tail and runs long, so the bold
+      // key is what says where one issue starts (§2.14, corrected 2026-08-25).
+      return shape.html(item, true) + tail;
     };
 
     // The two versions must agree about what the document is, exactly as Links
@@ -1873,26 +2376,273 @@ ${selectors.join(",\n")} {
      §2.15. The same data as 📋 Details, arranged for the audience that asked for
      it: the Technology Portfolio Office sends these to team leads, grouped BY
      PRIORITY AND THEN BY TEAM. That order is the user's, corrected on 2026-08-20
-     from an earlier note that had it the other way round.
+     from an earlier note that had it the other way round -- and since 1.2.0 it is
+     the DEFAULT PAIR rather than the only one. Two dropdowns choose the bands
+     (decision 12), and the shipped values are still priority then team, so an
+     install that never opens ⚙ gets 1.1.0's bytes.
 
-     WHY A SIXTH BUTTON AND NOT A SETTING ON 📋 Details. Headings over grouped rows
-     is a different DOCUMENT from a flat list, not a different arrangement of one --
-     it reorders the items, drops two fields into headings, and cannot be checked by
-     "lines equals items". A switch that silently changed which of those a button
-     produced is exactly what §2.8 warns against, and a fixed output is checkable.
+     WHY A SIXTH BUTTON AND NOT A SETTING ON 📋 Details, AND THE REASONING SURVIVES
+     THE BANDS BECOMING SETTABLE. Headings over grouped rows is a different DOCUMENT
+     from a flat list, not a different arrangement of one -- it reorders the items,
+     moves fields into headings, and cannot be checked by "lines equals items". A
+     switch that silently decided which of those a button produced is exactly what
+     §2.8 warns against. What the two dropdowns configure is THAT document; they do
+     not turn one document into the other, which is why a report with NO bands at
+     all is not on offer -- it would be 📋 Details spelled differently, so band 1 has
+     no `none` and only band 2 does (decision 12).
 
-     It shares the fetch, though: the held result belongs to the collection rather
-     than to a button, so one press of either arms both (§2.14).
+     THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS. `detailsHeld` carries the KIND
+     that produced it and a button offers a copy only for its own kind -- reversed
+     on 2026-08-21, from use, after a day of one press arming both stepped buttons.
+     The held result really does describe the collection rather than a button, and
+     that argument was right about the DATA and wrong about the CONTROL: watching a
+     button you did not press walk through `Fetching…` is broken however correct its
+     state is. What the two exports still share is the FETCH, which is why one field
+     list serves both requests (§2.14, §2.15).
 
-     TWO FIELDS BECOME HEADINGS AND SO LEAVE THE ROW. Priority is the band and team
-     is the sub-band, so neither is printed again on the line -- the same rule the
-     epic follows in a grouped list. The row keeps type, status, assignee, fix
-     version, time remaining and the parent. */
+     A TICKED FIELD IS PRINTED, BAND OR NOT (decision 8). `DEFAULT_PREFS.reportFields`
+     leaves priority and team unticked, so the report emits exactly what 1.1.0
+     emitted: type, status, assignee, fix version, time remaining and the parent. The
+     ⚙ panel MARKS a field that is also a heading; it does not veto it. A field that
+     appeared only in a heading would be a field whose meaning depends on the row's
+     position, which is what §2.14 rule 4 is about, and these lists are reshuffled by
+     hand after they are pasted. */
+
+  /* THE NAME AN ABSENT VALUE TAKES, one per band, and it is a NAME rather than a
+     blank heading because a fact about the issue must not read as a failure. Said
+     once, in the heading, rather than repeated down a column.
+
+     These two are constants where the other five are literals in `BANDS` below, and
+     the reason is that these two are what the SHIPPED DEFAULTS emit: §2.15's worked
+     example names them, and `format-smoke` asserts that example byte for byte
+     against these identifiers. */
+  const NO_PRIORITY = "No priority";
+  const NO_TEAM = "No team";
+
+  /* THE THREE STATUS CATEGORIES, IN THEIR ORDER. This is the only rank table in the
+     file, and IT DOES NOT REOPEN §2.15's REFUSAL OF ONE FOR PRIORITY -- the
+     difference is the whole reason it is safe. Priority names are THIS INSTANCE's
+     own and already sort correctly as strings, so a rank over them could only fall
+     out of step with Jira's own scheme. These three are ATLASSIAN's fixed
+     vocabulary: `new`, `indeterminate` and `done` are the only values the field
+     returns, they are finite, and they do not sort meaningfully as strings in either
+     direction.
+
+     BANDING BY STATUS NAME IS WHAT THIS AVOIDS, and it is why the band id is
+     `category` where the row field is `status`. The names are this instance's
+     wording, so a band on them gives `Dev In progress`, `Dev Resolved`, `To Do` --
+     alphabetical noise dressed as a workflow (decision 13).
+
+     ONE LIST GIVES BOTH THE LABEL AND THE RANK, so a heading and its position cannot
+     come to disagree. A key this list does not name ranks LAST, which is where an
+     absent value goes in every band. */
+  const STATUS_BANDS = [
+    ["new", "To do"],
+    ["indeterminate", "In progress"],
+    ["done", "Done"],
+  ];
+
+  /* THE SEVEN BANDS, and each answers two questions about an item: WHICH GROUP it
+     joins, and WHAT THAT GROUP IS CALLED. They are separate answers on purpose --
+     GROUP BY ID, LABEL BY NAME. Two teams can be given the same name and a heading
+     that silently merged them would be a WRONG report rather than an ugly one
+     (appendix C.4), which is the same shape of decision as §2.4's opaque collection
+     id against its editable name. Where a value IS its own identity, as a priority
+     name is, the two answers are the same string and nothing is spent saying so.
+
+     `of` RETURNS A LIST, because one band is multi-valued. Six of the seven return
+     exactly one entry. `fixv` returns ONE PER RELEASE, so an issue in two releases
+     appears in two bands and the paste then has a line per issue-and-band rather
+     than per issue -- the one place `lines equals items` is not the check (decision
+     15). §2.14's rule that NO FORMAT EVER DROPS AN ITEM is untouched by that:
+     nothing vanishes, something repeats, and the two must not be conflated.
+
+     AN EMPTY `label` IS AN ABSENT VALUE. It takes `empty` as its heading and it
+     sorts LAST, because "not set" is not a peer of a real value.
+
+     `rank` IS OPTIONAL AND ONLY `category` HAS ONE. Everything else sorts by its
+     label as a plain string, which is already right for priority (`P0` before `P1`),
+     for names, and for release names.
+
+     THE IDS AND THEIR ORDER MUST MATCH `BAND_IDS`, which is what a stored value is
+     range-checked against and what the ⚙ dropdowns are built from. `format-smoke`
+     holds the two together the way it holds `SHAPES` against `LINE_SHAPE_IDS`: a
+     band this table lacks is a preference that groups nothing, and one `BAND_IDS`
+     lacks is unreachable. They are two lists rather than one because `BAND_IDS` is
+     read by `normalisePrefs`, hundreds of lines above anything that can render.
+
+     TIME REMAINING IS ABSENT, AND THAT IS THE POINT. Its band order would be string
+     order over durations -- `"10m" < "2d" < "9h"` -- which reads as a broken report
+     rather than a configured one, so it is a row field and never a band (decision
+     14). Do not add it back on the reasonable-sounding grounds that a field is a
+     field. */
+  const BANDS = [
+    {
+      id: "priority",
+      label: "Priority",
+      empty: NO_PRIORITY,
+      of: (item) => [{ key: item.priority ?? "", label: item.priority ?? "" }],
+    },
+    {
+      id: "team",
+      label: "Team",
+      empty: NO_TEAM,
+      // The id is a UUID and is exact. A team that came back with a name and no id
+      // still gets its own group rather than joining the nameless one, which is
+      // what the `name:` prefix is for -- it cannot collide with a UUID.
+      of: (item) => [
+        {
+          key: item.teamId || (item.team ? `name:${item.team}` : ""),
+          label: item.team ?? "",
+        },
+      ],
+    },
+    {
+      id: "category",
+      label: "Status category",
+      empty: "No status",
+      of: (item) => [
+        {
+          key: item.category ?? "",
+          label: STATUS_BANDS.find(([key]) => key === item.category)?.[1] ?? "",
+        },
+      ],
+      rank: (key) => {
+        const at = STATUS_BANDS.findIndex(([one]) => one === key);
+        return at < 0 ? STATUS_BANDS.length : at;
+      },
+    },
+    {
+      id: "assignee",
+      label: "Assignee",
+      // The one absent-value name that is not "No …", because English already has
+      // the word and a report that said `No assignee` would be saying it worse.
+      empty: "Unassigned",
+      // GROUPED BY ACCOUNT ID, LABELLED BY DISPLAY NAME, for the reason the team is:
+      // two people can carry the same display name, and a heading that merged them
+      // would be a wrong report rather than an ugly one. The id costs nothing --
+      // `accountId` arrives inside the assignee object the Cart already asks for.
+      of: (item) => [
+        {
+          key: item.assigneeId || (item.assignee ? `name:${item.assignee}` : ""),
+          label: item.assignee ?? "",
+        },
+      ],
+    },
+    {
+      id: "type",
+      label: "Type",
+      empty: "No type",
+      of: (item) => [{ key: item.type ?? "", label: item.type ?? "" }],
+    },
+    {
+      id: "fixv",
+      label: "Fix version",
+      empty: "No fix version",
+      // THE FLAG IS ON THE BAND AND NOT IN THE ⚙ PANEL, so the note that tells the
+      // user what a multi-valued band costs is a question asked of this table rather
+      // than a literal `"fixv"` somewhere else that would have to be remembered if a
+      // second one ever arrived. Nothing in the RENDERER reads it: `of` returning a
+      // list is what actually makes the band multi-valued, and this only says so.
+      multi: true,
+      // THE MULTI-VALUED ONE. An issue in two releases yields two entries and so
+      // appears under both headings, which is the only reason to group by release at
+      // all: a per-release section that listed an issue under `Flex 2026.6.x (LTS
+      // track), Flex 2026.9.0` would not be listing that release. The alternatives
+      // are in §4 and both were weighed rather than skipped.
+      of: (item) => {
+        const versions = item.fixVersions ?? [];
+        return versions.length
+          ? versions.map((name) => ({ key: name, label: name }))
+          : [{ key: "", label: "" }];
+      },
+    },
+    {
+      id: "parent",
+      label: "Parent",
+      // `No epic` and not `No parent`: the field is the parent and the thing a
+      // report is grouped by is the epic, which is the word the reader uses.
+      empty: "No epic",
+      /* GROUPED BY KEY, LABELLED BY KEY AND SUMMARY. The key is exact and the
+         summary is what a section heading has to say -- `RDC-26701` alone tells a
+         team lead nothing, and Jira's own issue header is this same pair in this
+         same order.
+
+         §2.14 REJECTED THE EPIC'S SUMMARY ON THE ROW and that rejection does not
+         reach here: its ground was REPETITION -- 21 characters a line, identical on
+         three of six rows, pushing rows onto a second wrapped line -- and a heading
+         says it once, for the whole group.
+
+         THE BAND COMES FROM `bulkfetch` AND NEVER FROM THE DOM. §6 item 7's warning
+         is that a board card renders its parent epic's SUMMARY TEXT and not its key,
+         so grouping read off the page would join on a display string: two epics with
+         the same summary would merge, and one epic renamed mid-list would split. */
+      of: (item) =>
+        item.parent
+          ? [
+              {
+                key: item.parent.key,
+                label: item.parent.summary
+                  ? `${item.parent.key} ${item.parent.summary}`
+                  : item.parent.key,
+              },
+            ]
+          : [{ key: "", label: "" }],
+    },
+  ];
+
+  /* WHICH BAND A STORED ID MEANS, and `undefined` for `none` and for anything this
+     build does not know. Both are handled the same way one line down, and neither
+     can THROW on the copy path -- the same reason `detailBit` has a `default` that
+     returns null. `none` is the ordinary case for band 2; an unknown id cannot
+     normally arrive at all, because `normalisePrefs` range-checks both keys against
+     `BAND_IDS` on the way in and on the way out (ticket 01). */
+  function bandFor(id) {
+    return BANDS.find((band) => band.id === id);
+  }
+
+  /**
+   * WHAT ONE BAND DROPDOWN WRITES, AND IT IS SOMETIMES TWO KEYS. Pure, and it is
+   * pure for the reason `moveField` is: it is the whole of a rule that a user reaches
+   * through a control, so the harness can hold the rule directly and the handler
+   * stays one line.
+   *
+   * THE TWO BANDS MAY NOT NAME THE SAME FIELD (§2.15, reversed from use on
+   * 2026-08-25). Two things enforce that between them and neither is enough alone:
+   * `Then by` never OFFERS the field `Group by` holds, so band 2 cannot make a
+   * duplicate at all; and moving `Group by` onto the field `Then by` holds SWAPS the
+   * two, which is this function.
+   *
+   * A SWAP AND NOT A REFUSAL, and not band 2 cleared either. Somebody who asks to
+   * group by the field that was the sub-band is reordering the report, which is the
+   * one thing the two dropdowns exist to do, and the swap is that reorder in one
+   * press with nothing thrown away. It is the only place on this screen where a
+   * press moves a control other than the one pressed, so it is worth being able to
+   * say why: the second control does not acquire a value nobody chose -- it receives
+   * the one the FIRST control just gave up, in the same gesture.
+   *
+   * THE GUARD IS THAT BAND 1 MAY NEVER RECEIVE `none`. It cannot arise from a click,
+   * because band 2's dropdown does not offer band 1's field; it is here so that the
+   * rule is a property of the function rather than of the options list, which is a
+   * thing a later session can change.
+   *
+   * The pair comes from `SETTINGS_TABS`, which is the one place the structure is
+   * written down, and the OTHER band is found by which one already holds the value
+   * rather than by being "the one that is not this one" -- so a third band would need
+   * no line here.
+   */
+  function bandPatch(key, value, prefs) {
+    const pair = SETTINGS_TABS.find((tab) => tab.bands?.includes(key))?.bands ?? [];
+    const held = pair.find((one) => one !== key && prefs[one] === value);
+    return held && prefs[key] !== NO_BAND
+      ? { [key]: value, [held]: prefs[key] }
+      : { [key]: value };
+  }
 
   // P0 before P1 before P2: the plain string sort is already right, which is why
-  // there is no rank table here to fall out of step with Jira's own scheme. An
-  // empty value sorts LAST in both bands, because "not set" is not a peer of a
-  // real priority or a real team.
+  // there is no rank table for a priority to fall out of step with Jira's own
+  // scheme. An empty value sorts LAST in every band, because "not set" is not a peer
+  // of a real value.
   function byLabel(a, b) {
     if (a === b) return 0;
     if (a === "") return 1;
@@ -1901,50 +2651,81 @@ ${selectors.join(",\n")} {
   }
 
   /**
-   * Priority band, then team sub-band, then the collection's own order inside.
+   * ONE LEVEL OF GROUPING. Every group carries the heading it will print and the
+   * items under it, in the collection's own order -- which survives inside a group
+   * in every format, as it always has.
    *
-   * GROUPED BY `teamId`, LABELLED BY `team`. Two teams can be given the same name,
-   * and a heading that silently merged them would be a wrong report rather than an
-   * ugly one (appendix C.4). Items with no team at all share the one empty group.
+   * NO BAND IS ONE GROUP WITH NO HEADING, and that single line answers two cases at
+   * once: band 2 set to `None`, which is the one-level report decision 12 offers,
+   * and a band 1 that somehow named something this build cannot resolve, which
+   * degrades to a flat list rather than throwing while a copy is in flight.
+   *
+   * A MULTI-VALUED BAND PUTS ONE ITEM IN SEVERAL GROUPS. That is `fixv` and nothing
+   * else today, and it is the stated exception to `lines equals items` (decision
+   * 15). It falls out of `of` returning a list and needs no branch here.
    */
-  function reportGroups(items) {
-    const bands = new Map();
+  function bandGroups(items, band) {
+    if (!band) return [{ key: "", heading: null, items }];
+
+    const groups = new Map();
     for (const item of items) {
-      const priority = item.priority ?? "";
-      const key = item.teamId || (item.team ? `name:${item.team}` : "");
-      if (!bands.has(priority)) bands.set(priority, new Map());
-      const teams = bands.get(priority);
-      if (!teams.has(key)) teams.set(key, { team: item.team ?? "", items: [] });
-      teams.get(key).items.push(item);
+      for (const value of band.of(item)) {
+        if (!groups.has(value.key)) {
+          groups.set(value.key, {
+            key: value.key,
+            heading: value.label || band.empty,
+            label: value.label,
+            items: [],
+          });
+        }
+        groups.get(value.key).items.push(item);
+      }
     }
 
-    return [...bands.keys()].sort(byLabel).map((priority) => ({
-      priority,
-      teams: [...bands.get(priority).values()].sort((a, b) =>
-        byLabel(a.team, b.team),
-      ),
+    // Sorted by the RANK where a band has one and by the LABEL where it does not,
+    // and never by the key -- a key is an opaque UUID for the team and an
+    // Atlassian keyword for the category, so sorting on it would be arbitrary in one
+    // band and alphabetical noise in the other.
+    return [...groups.values()].sort(
+      band.rank
+        ? (a, b) => band.rank(a.key) - band.rank(b.key)
+        : (a, b) => byLabel(a.label, b.label),
+    );
+  }
+
+  /**
+   * The two bands, outer then inner, and the collection's own order inside.
+   *
+   * `bands` IS THE STORED PAIR, read once by `format` and handed down, exactly as
+   * the field selection and the line shape are. Nothing in here reads storage, so
+   * the whole report stays a pure function of its arguments and is as testable as
+   * the other five formats.
+   */
+  function reportGroups(items, bands) {
+    const [outer, inner] = (bands ?? []).map(bandFor);
+    return bandGroups(items, outer).map((band) => ({
+      key: band.key,
+      heading: band.heading,
+      groups: bandGroups(band.items, inner),
     }));
   }
 
-  // Said once, in a heading, rather than repeated down a column. The wording is the
-  // UI's own vocabulary for an absent value and must not read as an error: a
-  // priority or a team that is not set is a fact about the issue, not a failure.
-  const NO_PRIORITY = "No priority";
-  const NO_TEAM = "No team";
-
-  function formatReport(items) {
-    const groups = reportGroups(items);
+  function formatReport(items, scope, shape, fields, bands) {
+    const groups = reportGroups(items, bands);
 
     const text = groups
       .map((band) =>
         [
-          `**${band.priority || NO_PRIORITY}**`,
-          ...band.teams.map((group) =>
+          ...(band.heading === null ? [] : [`**${band.heading}**`]),
+          ...band.groups.map((group) =>
             [
-              `*${group.team || NO_TEAM}*`,
+              ...(group.heading === null ? [] : [`*${group.heading}*`]),
               ...group.items.map((item) => {
-                const bits = detailBits(item, ["priority"]).map((bit) => bit.text);
-                const head = `- [${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`;
+                const bits = detailBits(item, fields).map((bit) => bit.text);
+                // The same head as the other two exports, from the same one
+                // preference. The bullet is a literal here because a report is a
+                // list of lists and there is no item scope to reach it (§2.15).
+                const head = `- ${shape.text(item)}`;
                 return bits.length ? `${head} — ${bits.join(" · ")}` : head;
               }),
             ].join("\n"),
@@ -1962,15 +2743,21 @@ ${selectors.join(",\n")} {
        outline, and a status mail should not add sections to somebody's page. */
     const html = groups
       .map((band) => {
-        const head = `<p style="margin:14px 0 2px"><strong>${escapeHtml(band.priority || NO_PRIORITY)}</strong></p>`;
+        const head =
+          band.heading === null
+            ? ""
+            : `<p style="margin:14px 0 2px"><strong>${escapeHtml(band.heading)}</strong></p>`;
         return (
           head +
-          band.teams
+          band.groups
             .map((group) => {
-              const sub = `<p style="margin:8px 0 2px"><em>${escapeHtml(group.team || NO_TEAM)}</em></p>`;
+              const sub =
+                group.heading === null
+                  ? ""
+                  : `<p style="margin:8px 0 2px"><em>${escapeHtml(group.heading)}</em></p>`;
               const rows = group.items
                 .map((item) => {
-                  const bits = detailBits(item, ["priority"]);
+                  const bits = detailBits(item, fields);
                   const tail = bits.length
                     ? `<span style="color:${MUTED_INK}"> — </span>` +
                       bits
@@ -1979,8 +2766,7 @@ ${selectors.join(",\n")} {
                     : "";
                   return (
                     `<li style="${LIST_ITEM_STYLE}">` +
-                    `<a href="${escapeHtml(issueUrl(item.key))}" style="font-weight:600">${escapeHtml(item.key)}</a>` +
-                    (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : "") +
+                    shape.html(item, true) +
                     tail +
                     "</li>"
                   );
@@ -2007,6 +2793,156 @@ ${selectors.join(",\n")} {
   // ceiling is recorded rather than guarded (risk 5).
   function searchUrl(jql) {
     return `${location.origin}/issues/?jql=${encodeURIComponent(jql)}`;
+  }
+
+  /* ------------------------------------------------------- the line shapes
+     THE HEAD OF A LINE, AS FIVE NAMED SHAPES. §2.8 shipped one -- `[KEY](url)
+     Summary` -- and 1.2.0 makes it a preference. ONE PREFERENCE, READ ONCE IN
+     `format` AND HANDED TO ALL THREE CONSUMERS, so §2.14's promise that
+     📋 Details' head is 🔗 Links' line stays true by construction: there is no
+     second value to keep in step. A per-export override is left in §6 and costs
+     one nullable key each (decision 5).
+
+     THIS IS A PRESET LIST AND NOT A TEMPLATE, and §2.8's finding is untouched. A
+     shape is a pair of functions in this file, so `detailChip` is still the one
+     place styling is written and no preference can reach it -- which is what keeps
+     the five measured paste rules of §2.14 enforceable. A fill-in-the-blanks
+     template would put user-written HTML on the clipboard and leave those rules
+     nothing to hold on to (§2.8, decision 2).
+
+     EVERY SHAPE DEFINES BOTH FLAVOURS (decision 6). One that changed only
+     `text/plain` would silently do nothing in Outlook, Word, Teams and Confluence,
+     which all take the HTML -- a setting that quietly fails to apply, which is the
+     thing §2.14 warns about.
+
+     `bold` IS THE ONE PLACE THE THREE HEADS DIFFER, and the difference is
+     deliberate rather than an oversight. 📋 Details and 📊 Report put
+     `font-weight:600` on the key and 🔗 Links does not, because their lines carry a
+     field tail and run long, so the bold key is what marks where one issue starts.
+     Links' line is a key and a summary, so there is nothing to find. §2.14 claimed
+     the two heads were identical; they never were on the HTML side, and that claim
+     is corrected there rather than made true here (2026-08-25).
+
+     ALL FIVE SURVIVED A REAL PASTE on 2026-08-24 (appendix A.9.1). Every shape read
+     correctly and a visible URL arrived clickable, which is what makes the three
+     URL-bearing shapes available on all three exports rather than on 🔗 Links alone.
+     `markdown-key` was asked for BY that paste; the prototype had no such row.
+
+     THE EM DASH COLLISION IS ACCEPTED, on the user's ground and in the user's
+     words: THESE DOCUMENTS ARE READ AND NEVER PARSED. `RDC-1513`'s real summary
+     contains ` - ` itself, so `key-summary-url` uses the summary's own punctuation
+     as its URL separator, and 📋 Details' em dash then lands after 45 characters of
+     link. Nothing regex-parses a pasted report, so that costs a machine's ambiguity
+     rather than a reader's, and the em dash still marks where the metadata starts.
+     Both alternatives -- a different separator before the URL, and withholding the
+     plain shapes from the two exports that carry a field tail -- are DECLINED
+     rather than untried (appendix A.9.1, decision 28).
+
+     THE SEPARATOR GOES WITH ITS VALUE, in every shape and both flavours. `GLX-402`
+     has no summary, so `key-summary-url` must emit `GLX-402 - url` and never
+     `GLX-402: - url`. That is §2.8's oldest rule about this line and it is why each
+     shape builds its own conditional instead of joining a list of parts.
+
+     THE IDS HERE ARE `LINE_SHAPE_IDS`, IN THIS ORDER, and `format-smoke` asserts it.
+     Two lists rather than one derived from the other, and the reason is load order:
+     the vocabulary has to exist ABOVE `DEFAULT_PREFS`, which is built at load, and
+     these bytes have to live beside the formatters that emit them -- a `const` up
+     there reading `SHAPES` down here would be a temporal dead zone and the script
+     would throw on load. So the harness holds the two together instead. A table
+     naming an id the list lacks is an unreachable shape; an id with no table is a
+     preference that renders nothing. */
+  const SHAPES = [
+    {
+      // WHAT 1.1.0 SHIPPED, and the default. `[KEY](url) Summary`, where the key
+      // alone is the link and the summary sits outside it -- a syntax limit rather
+      // than a taste, because MARKDOWN CANNOT NEST SQUARE BRACKETS, so a
+      // `[KEY] Summary` label cannot be a link label (§2.8).
+      id: "markdown",
+      label: "Markdown link on the key",
+      text: (item) =>
+        `[${item.key}](${issueUrl(item.key)})${item.summary ? ` ${item.summary}` : ""}`,
+      // The `&nbsp;` after the anchor is taken verbatim from `jira-ux`, and it drops
+      // with the summary for the same reason the space above does.
+      html: (item, bold) =>
+        `<a href="${escapeHtml(issueUrl(item.key))}"${bold ? ` style="font-weight:600"` : ""}>${escapeHtml(item.key)}</a>` +
+        (item.summary ? `&nbsp;${escapeHtml(item.summary)}` : ""),
+    },
+    {
+      // ASKED FOR BY THE PASTE, not offered by the prototype (A.9.1, decision 27).
+      // The markdown counterpart of `key-url`: a link column and nothing else, for
+      // a list that is scanned down its keys. The summary is DROPPED rather than
+      // absent, so this is the one shape whose output does not depend on it.
+      id: "markdown-key",
+      label: "Markdown link, no summary",
+      text: (item) => `[${item.key}](${issueUrl(item.key)})`,
+      html: (item, bold) =>
+        `<a href="${escapeHtml(issueUrl(item.key))}"${bold ? ` style="font-weight:600"` : ""}>${escapeHtml(item.key)}</a>`,
+    },
+    {
+      // THE SHAPE §4 REJECTED, AND THE REJECTION IS OVERTURNED (decision 4). Its
+      // ground was "its only distinct paste target cannot be named"; the user named
+      // it -- A DESTINATION THAT DOES NOT RENDER MARKDOWN, where `[KEY](url)`
+      // arrives as its own source code and the URL is not there to click.
+      //
+      // The punctuation is NOT §4's `[KEY] Summary — URL`, and both differences are
+      // deliberate. No brackets, because in the destination this shape exists for
+      // they read as the leftover markdown it is meant to avoid. And a hyphen
+      // rather than an em dash before the URL, because 📋 Details and 📊 Report
+      // already spend the em dash on the boundary between the line and its fields.
+      id: "key-summary-url",
+      label: "Key, summary, then the URL",
+      text: (item) =>
+        `${item.key}${item.summary ? `: ${item.summary}` : ""} - ${issueUrl(item.key)}`,
+      // THE URL IS THE ANCHOR'S OWN VISIBLE LABEL. That is the whole point of the
+      // shape and it is what the paste had to confirm: it arrives displayed AND
+      // clickable, so one shape serves a reader who can follow a link and a reader
+      // who is looking at printed text (A.9.1).
+      //
+      // The anchor names no colour, exactly as the key's does not: this is the one
+      // link on the line that matters, and it should look like one. The PARENT's
+      // anchor is the one that has to name a colour, for the opposite reason
+      // (§2.14).
+      html: (item, bold) =>
+        (bold
+          ? `<span style="font-weight:600">${escapeHtml(item.key)}</span>`
+          : escapeHtml(item.key)) +
+        (item.summary ? `: ${escapeHtml(item.summary)}` : "") +
+        ` - <a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(issueUrl(item.key))}</a>`,
+    },
+    {
+      // The key as an identifier and the URL as a link, for the same destination as
+      // the shape above with the summary left off -- a short, uniform column when
+      // the summaries are noise.
+      id: "key-url",
+      label: "Key and URL, no summary",
+      text: (item) => `${item.key} - ${issueUrl(item.key)}`,
+      html: (item, bold) =>
+        (bold
+          ? `<span style="font-weight:600">${escapeHtml(item.key)}</span>`
+          : escapeHtml(item.key)) +
+        ` - <a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(issueUrl(item.key))}</a>`,
+    },
+    {
+      // §4 rejected "bare URLs, one per line" on the same ground as the shape above,
+      // and the same naming answers it. THE ONLY SHAPE WITH NO KEY AT ALL, which is
+      // why it ignores `bold`: the bold marks the key, and there is no key here.
+      // The URL carries the key in its own last segment, so nothing is lost that a
+      // reader cannot see.
+      id: "url",
+      label: "URL only",
+      text: (item) => issueUrl(item.key),
+      html: (item) =>
+        `<a href="${escapeHtml(issueUrl(item.key))}">${escapeHtml(issueUrl(item.key))}</a>`,
+    },
+  ];
+
+  // `normalisePrefs` has already turned an id this build does not know into
+  // `markdown`, and the harness asserts this table names every id it may return, so
+  // the fallback below cannot fire. It is here anyway because this is the COPY path:
+  // a `TypeError` here is a copy that silently never happened, which is the failure
+  // §2.8's scar is about.
+  function shapeFor(id) {
+    return SHAPES.find((shape) => shape.id === id) ?? SHAPES[0];
   }
 
   /* The foot's four controls. THREE COPY AND ONE OPENS, which is why this is not
@@ -2041,8 +2977,16 @@ ${selectors.join(",\n")} {
       kind: "details",
       label: "📋 Details",
       title:
-        "Ask Jira for type, status, priority, assignee, fix version and parent, then copy the collection as a rich list. Two presses: the first fetches, the second copies",
+        "Ask Jira for every detail it has, then copy the collection as a rich list of the fields the 📋 Details tab has ticked, in the order that tab has them. Two presses: the first fetches, the second copies",
       build: formatDetails,
+      // WHICH FIELD LIST THIS DOCUMENT READS. One catalogue, two selections
+      // (§2.14): the key is named here rather than inside the renderer so that
+      // `format` performs the one read, the way it already does for the line shape.
+      // `SETTINGS_TABS` names the same two keys, because that is where they are
+      // EDITED, and `format-smoke` asserts the two tables name the same set -- a key
+      // a tab edits and no export reads is a control that changes nothing, and a key
+      // an export reads and no tab edits is a preference with no way to reach it.
+      fields: "detailsFields",
       // The one entry that cannot be served from storage. Its payload is fetched
       // per press and never written down, so a detailed list cannot carry last
       // week's status -- which is the whole reason it takes two presses (§2.14).
@@ -2055,10 +2999,21 @@ ${selectors.join(",\n")} {
       kind: "report",
       label: "📊 Report",
       title:
-        "Ask Jira, then copy the collection grouped by priority and then by team — the shape the Technology Portfolio Office sends to team leads. Two presses: the first fetches, the second copies",
+        "Ask Jira, then copy the collection grouped under headings — the shape the Technology Portfolio Office sends to team leads. The two 📊 Report dropdowns choose which fields band it, and its rows carry the fields that tab has ticked. Two presses: the first fetches, the second copies",
       build: formatReport,
-      // Same fetch as 📋 Details, because the held result belongs to the collection
-      // rather than to a button: one press of either arms both (§2.15).
+      fields: "reportFields",
+      // WHICH BANDS THIS DOCUMENT READS, and the same seam `fields` is: the keys are
+      // named here so `format` performs the one read, rather than the renderer
+      // reaching into storage. `SETTINGS_TABS` names the same two keys, because that
+      // is where they are EDITED, and `format-smoke` asserts the two tables agree --
+      // a band key a tab edits and no export reads is a dropdown that changes
+      // nothing, and one an export reads and no tab edits is a preference with no
+      // way to reach it (§2.15, ticket 05).
+      bands: ["reportBand1", "reportBand2"],
+      // The same fetch as 📋 Details, because the held result belongs to the
+      // collection rather than to a button -- so one field list serves both
+      // requests. THE ARMING IS NOT SHARED: a press arms its own button and nothing
+      // else, reversed from use on 2026-08-21 (§2.15).
       needsDetails: true,
     },
     {
@@ -2095,6 +3050,33 @@ ${selectors.join(",\n")} {
    * Adding a fifth format is one entry in the list above, which is how `jira-ux`'s
    * own BUTTONS array already works.
    *
+   * 1.2.0 ADDS A SECOND TABLE BESIDE THIS ONE AND NOT A SEAM INSIDE IT. `SHAPES`
+   * is a list of named presets, each a pair of functions in this file, so the
+   * paragraph above still holds: there is no template, `detailChip` is still the
+   * one place styling is written, and nothing a user can click reaches it.
+   *
+   * THE PREFERENCES ARE READ HERE, ONCE PER COPY, AND NOWHERE ELSE. Three exports
+   * build their head from the one line shape, so §2.14's promise that 📋 Details'
+   * head is 🔗 Links' line cannot be broken by one of them reading a different value
+   * -- there is only one read. They are read at the press rather than held in a
+   * variable, for the reason `drawerIsOpen` is a function: a copy beside the stored
+   * value is two values that can disagree, and this one would disagree silently, in
+   * bytes already on somebody's clipboard (principle 1, §2.8).
+   *
+   * THE BANDS ARE READ IN THE SAME BREATH, for the same reason and with the same
+   * consequence: a report is grouped by whatever the two dropdowns said at the
+   * moment of the press, and no renderer below this line asks storage anything
+   * (§2.15).
+   *
+   * THE FIELD SELECTION IS APPLIED AT RENDER AND NEVER AT FETCH, and the opposite is
+   * the obvious-looking optimisation. Narrowing `DETAIL_FIELDS` to the ticked fields
+   * would cost three things at once: the constant could fall out of step with a
+   * preference; changing a preference would invalidate a held fetch, so a `📋 Copy`
+   * you had already armed would stop being copyable and a field list changed in
+   * ANOTHER TAB would disarm this one; and §2.14's "nothing fetched is ever stored"
+   * would need re-arguing. The held rows carry every field, so a re-render is all a
+   * preference change costs (§2.14).
+   *
    * Returns null rather than an empty payload, so no caller can write nothing to
    * the clipboard by accident.
    */
@@ -2106,7 +3088,22 @@ ${selectors.join(",\n")} {
     // claiming success. The precondition for any copy is at least one item (§2.8).
     if (!items.length) return null;
     if (entry.scopes && !entry.scopes.includes(scope)) return null;
-    return entry.build(items, scope);
+    const prefs = loadPrefs();
+    return entry.build(
+      items,
+      scope,
+      shapeFor(prefs.lineShape),
+      // `undefined` for the four exports that carry no field tail, which is what
+      // they already ignored. `normalisePrefs` has completed the list against the
+      // catalogue on the way out, so a stored blob missing a field, naming one this
+      // build does not have, or holding none at all cannot reach a renderer.
+      entry.fields ? enabledFields(prefs[entry.fields]) : undefined,
+      // And the bands, for the one export that has any. Read HERE, in the same one
+      // read as the shape and the field list, so `formatReport` stays a pure
+      // function of its arguments and a copy cannot be built from two different
+      // versions of the preferences (§2.15).
+      entry.bands ? entry.bands.map((key) => prefs[key]) : undefined,
+    );
   }
 
   /**
@@ -2336,6 +3333,17 @@ ${selectors.join(",\n")} {
         assignee:
           typeof fields.assignee?.displayName === "string"
             ? cleanText(fields.assignee.displayName)
+            : "",
+        // GROUP BY `assigneeId`, LABEL BY `assignee`, the same split the team gets
+        // and for the same reason: two people can carry one display name, and an
+        // assignee band that merged them would be a WRONG report rather than an ugly
+        // one (§2.15, appendix C.4). It costs nothing to keep -- `accountId` arrives
+        // inside the assignee object the Cart already asks for, so there is no extra
+        // field in `DETAIL_FIELDS` and no extra request. Nothing below reaches
+        // storage, so it is not a migration either (§2.14).
+        assigneeId:
+          typeof fields.assignee?.accountId === "string"
+            ? fields.assignee.accountId
             : "",
         fixVersions: Array.isArray(fields.fixVersions)
           ? fields.fixVersions.map(named).filter(Boolean)
@@ -2664,9 +3672,16 @@ ${selectors.join(",\n")} {
      Three further things fall out of storing nothing, and they are why this was
      the cheap choice as well as the honest one: §2.4's schema is untouched, so
      there is no migration and no version bump; an older build cannot silently
-     drop fields it does not know; and ADDING A FIELD LATER -- Team, for the
-     report grouped by team then priority that is still to come -- is one id in
-     `DETAIL_FIELDS` and one `add` in `detailBits`. */
+     drop fields it does not know; and ADDING A FIELD LATER is one id in
+     `DETAIL_FIELDS`, one entry in `FIELD_CATALOGUE` and one `case` in `detailBit`.
+     Team was that field, and it cost exactly those three at 1.1.0 and 1.2.0.
+
+     THIS LIST DOES NOT NARROW WHEN A FIELD IS UNTICKED, and that is a decision
+     rather than an oversight (§2.14, 1.2.0). All nine are fetched whatever the two
+     field lists say, so the constant cannot fall out of step with a preference,
+     a held fetch stays valid across a preference change -- including one made in
+     another tab -- and "nothing fetched is ever stored" needs no re-arguing. The
+     selection is applied at RENDER, in `format`. */
 
   /* { signature, rows, kind } or null. NOT a "ready" flag beside it: the signature
      IS the validity test, so there is no second value that could disagree with the
@@ -2680,9 +3695,11 @@ ${selectors.join(",\n")} {
      reported it as a bug, which is what it is. THE BUTTON YOU PRESS IS THE BUTTON
      THAT ANSWERS.
 
-     What stays shared is everything that cannot be seen: one field list, so neither
-     document can be fetched with fields the other lacks, and one `detailChip`, so
-     the five rules of §2.14 cannot hold in one format and drift in the other.
+     What stays shared is everything that cannot be seen: one FETCHED field list, so
+     neither document can be fetched with fields the other lacks -- the two field
+     PREFERENCES of 1.2.0 select over that one fetch and never narrow it -- and one
+     `detailChip`, so the five rules of §2.14 cannot hold in one format and drift in
+     the other.
      What costs a second request is pressing both in turn, which is one extra
      `bulkfetch` and no more (§2.6 rule 4). */
   let detailsHeld = null;
@@ -2926,9 +3943,73 @@ ${selectors.join(",\n")} {
   const HEAD_ID = "gt-cart-head";
   const ALERT_ID = "gt-cart-alert";
   const PREFS_ID = "gt-cart-prefs";
+  const PREFS_BUTTON_ID = "gt-cart-prefs-button";
   const PREF_RIGHT_CLICK_ID = "gt-cart-pref-right-click";
   const PREF_LAYOUT_ID = "gt-cart-pref-layout";
   const PREF_CORNER_ID = "gt-cart-pref-corner";
+  const PREF_SHAPE_ID = "gt-cart-pref-shape";
+  /* THE ONE NAME FOR "THE SETTINGS ARE OPEN", and it is a constant because it is
+     used TWICE: `render` writes it on the ⚙, and the stylesheet's selector paints
+     the button from it. Two literals would be two values that can disagree, and the
+     way they disagree is silent -- the attribute keeps flipping and the paint stops
+     following it, which is how the ⚙ was already inert for two versions (§2.11).
+     Interpolated into the sheet, so one edit moves both.
+
+     `aria-pressed`, AND IT WAS `aria-expanded` UNTIL 1.2.0. The line above is why
+     the change cost one edit: while ⚙ showed and hid a strip inside the drawer it
+     was a disclosure, and it carried an `aria-controls` naming the region. Now it
+     replaces the drawer's body, so the panel is not a region BESIDE the content --
+     it IS the content, which is a mode toggle. `aria-controls` went with the
+     rename, because there is no longer a region beside the button to name. */
+  const PREFS_STATE_ATTR = "aria-pressed";
+
+  const TITLE_ID = "gt-cart-head-title";
+  const TABS_ID = "gt-cart-tabs";
+  const RESTORE_ID = "gt-cart-restore";
+  // One place each of the panel's per-tab ids is spelled, so the bar's
+  // `aria-controls` and the panel's `aria-labelledby` cannot come to name different
+  // elements as tabs are added.
+  const tabButtonId = (id) => `gt-cart-tab-${id}`;
+  const tabPanelId = (id) => `gt-cart-tabpanel-${id}`;
+  const fieldListId = (id) => `gt-cart-fields-${id}`;
+  /* THE BAND DROPDOWNS' IDS, DERIVED FROM THE PREFERENCE KEY THEY WRITE, so a third
+     band would be one more entry in `SETTINGS_TABS` and nothing to name here. The
+     lowercase is only house style -- every other id in this file is lowercase -- and
+     it is derived rather than spelled out so there is no second name to keep in step
+     with `reportBand1`.
+
+     `render` finds them by id. What a CHANGE on one writes is carried by the
+     dataset attribute below instead of parsed back out of the id, which is the same
+     split the field rows already use: an id is for finding, an attribute is for
+     saying what a control is.
+
+     The note is per TAB and not per band, because it describes the pair. */
+  const bandSelectId = (key) => `gt-cart-pref-${key.toLowerCase()}`;
+  const bandNoteId = (id) => `gt-cart-bandnote-${id}`;
+  const BAND_KEY_ATTR = "gtBand";
+
+  /* A FIELD ROW'S FOUR ATTRIBUTES. The first two say what the row IS, and they are
+     on the row AND on its checkbox: the delegated `change` listener is handed the
+     input and the delegated drag listeners are handed the row, and neither should
+     have to walk the other's way up or down the tree to find out which list it is in.
+
+     `gt-list` HOLDS THE PREFERENCE KEY, not the tab id. What a click or a drop does
+     is write a preference, so the thing it carries is the name of the key it writes. */
+  const FIELD_LIST_ATTR = "gtList";
+  const FIELD_ID_ATTR = "gtField";
+  // The two transient ones, written by the drag and painted by the stylesheet:
+  // which row is being dragged, and which edge of which row it would land on.
+  const FIELD_DRAG_ATTR = "gtDragging";
+  const FIELD_DROP_ATTR = "gtDrop";
+
+  /* THE DRAG'S PAYLOAD TYPE, AND IT IS NOT `text/plain`. Firefox will not start a
+     drag whose `dataTransfer` carries nothing, so something has to be written -- and
+     writing it as plain text means a row dropped into Jira's own search box pastes
+     `detailsFields:type` into it. A custom type is inert everywhere except here,
+     which is the whole of what this payload is for. The logic reads `fieldDrag`
+     rather than this, because `getData` is unreadable during `dragover`. */
+  const FIELD_DRAG_TYPE = "application/x-gt-cart-field";
+
   const BODY_ID = "gt-cart-body";
   const LIVE_HEAD_ID = "gt-cart-live-head";
   const LIVE_LIST_ID = "gt-cart-live-list";
@@ -3070,10 +4151,23 @@ ${selectors.join(",\n")} {
      pre-click warning the floating button and the live row already give, in the
      one shape a heading and a chip can carry (§2.7, §2.9).
      
-     Only one thing is ever armed, so there is no pair of flags that can disagree. */
-  let armedEmpty = false;
-  let armedDelete = null;
+     ONLY ONE THING IS EVER ARMED, AND SINCE 1.2.0 THAT IS LITERALLY ONE VARIABLE.
+     It was a boolean beside a nullable id, kept exclusive by `arm` -- which worked,
+     and which principle 1 says not to write: two values that must agree. The third
+     armed control (`↺ Restore export defaults`, §2.9) is what made the pair a
+     triple and paid for the change. It holds `null`, `"empty"`, `"restore"`, or a
+     collection's id, and a collection id is a `crypto.randomUUID()`, so neither
+     word can ever collide with one. */
+  let armed = null;
   let armTimer = null;
+
+  // The three controls whose FIRST click arms rather than acts. Every other click
+  // inside the drawer disarms, which is how walking away works (§2.9).
+  const ARMING_ACTIONS = new Set([
+    "empty-collection",
+    "delete-collection",
+    "restore-exports",
+  ]);
 
   // Long enough to read the question, short enough that a forgotten armed button
   // cannot be committed by a click you meant for something else half a minute
@@ -3081,8 +4175,7 @@ ${selectors.join(",\n")} {
   const ARM_TIMEOUT_MS = 6_000;
 
   function arm(what) {
-    armedEmpty = what === "empty";
-    armedDelete = what === "empty" ? null : what;
+    armed = what;
     if (armTimer !== null) clearTimeout(armTimer);
     armTimer = setTimeout(() => guard(disarm), ARM_TIMEOUT_MS);
     render();
@@ -3093,9 +4186,8 @@ ${selectors.join(",\n")} {
       clearTimeout(armTimer);
       armTimer = null;
     }
-    if (!armedEmpty && armedDelete === null) return;
-    armedEmpty = false;
-    armedDelete = null;
+    if (armed === null) return;
+    armed = null;
     scheduleRender();
   }
 
@@ -3103,6 +4195,146 @@ ${selectors.join(",\n")} {
   // page on every render rather than remembered, so it is not a buffer that can
   // disagree with the page (§2.3).
   let liveAnchors = new Map();
+
+  /* ONE TAB'S BAND DROPDOWNS, BUILT ONCE AND NEVER REBUILT, like everything else on
+     this screen: `render` sets a value and a note, and replaces nothing (decision
+     25).
+
+     THE POSITION IS THE MEANING. `tab.bands` is an ORDERED list of preference keys,
+     so the first one is the band and every later one is a sub-band -- which is why
+     the first has no `None` and the rest do. That is decision 12 expressed as a
+     structure rather than as a literal `"reportBand1"` in here: a report with no
+     bands at all is 📋 Details spelled differently, so band 1 must be a field.
+
+     THE OPTIONS COME FROM `BANDS`, so a band added or dropped there moves both
+     dropdowns with it and there is no second list of names to keep in step -- the
+     same reason the tab bar is built from `SETTINGS_TABS` and the shape dropdown
+     from `SHAPES`. `Time remaining` is absent from both because it is absent from
+     `BANDS`, and the reason lives there.
+
+     THE PAIR MAY NOT NAME THE SAME FIELD -- reversed from use on 2026-08-25, having
+     shipped the other way. The argument for allowing it was that `Team` then `Team`
+     is a report where every sub-heading repeats the heading above it: useless,
+     truthful, and visible the moment it is pasted. The user pressed it and reported
+     it as a defect, and the argument had weighed the wrong thing -- nobody arrives at
+     that pair deliberately, they arrive at it by moving one dropdown and not noticing
+     the other.
+
+     THE OPTIONS ARE BUILT WHOLE HERE AND `renderBands` GREYS ONE OUT, rather than
+     this list being filtered: the panel is built once and never rebuilt, so an option
+     list that grew and shrank would be the one thing on this screen that is replaced.
+     `bandPatch` carries the other half of the rule, and `normalisePrefs` the half
+     that no click can reach. */
+  function bandControls(tab) {
+    const wrap = el("div", "gt-cart-bands");
+
+    tab.bands.forEach((key, at) => {
+      const row = el("label", "gt-cart-pref");
+      row.title =
+        at === 0
+          ? "Which field 📊 Report groups by. Its value becomes a heading, and the issues carrying it are listed under it."
+          : "A second heading inside each group. None gives a report with one level of headings.";
+      row.append(el("span", "gt-cart-pref-label", at === 0 ? "Group by" : "Then by"));
+      const node = select(
+        bandSelectId(key),
+        at === 0
+          ? "Which field 📊 Report groups by"
+          : "Which field 📊 Report groups by inside each group",
+        [
+          // Band 2's `None` is FIRST because it is the short answer to "and then?",
+          // not because it is the default -- the default is `team` and `render`
+          // reads that off storage like every other value on this screen.
+          ...(at === 0 ? [] : [[NO_BAND, "None"]]),
+          ...BANDS.map((band) => [band.id, band.label]),
+        ],
+      );
+      // WHAT A CHANGE WRITES, carried by the control rather than parsed back out of
+      // its id -- the same split the field checkboxes use, and the reason
+      // `onPrefsChange` needs one branch for however many bands a tab has.
+      node.dataset[BAND_KEY_ATTR] = key;
+      row.append(node);
+      wrap.append(row);
+    });
+
+    /* THE ONE PROPERTY A BAND CAN COST, said where the band is chosen. `fixv` is
+       multi-valued, so an issue in two releases is listed under both and the paste
+       then has a line per issue-and-band rather than per issue (decision 15). THAT
+       PROPERTY IS WHAT MAKES A PASTE VERIFIABLE AT A GLANCE -- count the lines,
+       count the items -- so losing it has to be said out loud rather than
+       discovered.
+
+       IT IS NOT A WARNING AND THERE IS NOTHING TO DISMISS. It is a description of
+       what the chosen pair produces, and it is DERIVED on every render from the
+       stored bands, so it appears when a fix-version band does and goes when it
+       goes. Empty until `render` fills it, and `:empty` hides it, so there is no
+       `hidden` attribute beside the text saying the same thing (see the field
+       rows' own note). */
+    const note = el("p", "gt-cart-band-note");
+    note.id = bandNoteId(tab.id);
+    wrap.append(note);
+
+    return wrap;
+  }
+
+  /* ONE TAB'S FIELD LIST, BUILT ONCE AND NEVER REBUILT. Every catalogue field gets a
+     row whether it is ticked or not, so a field is always findable and one click
+     turns it on -- which is the other half of `normaliseFieldList`'s step 5 and the
+     reason a stored empty list is still completed with the catalogue's names.
+
+     THE ORDER HERE IS THE CATALOGUE'S AND THE ORDER ON SCREEN IS THE PREFERENCE'S.
+     They agree on a fresh install, because `defaultFieldList` maps the catalogue, and
+     `renderFieldList` puts the rows in the stored order after that. It REORDERS
+     rather than rebuilds: no row is ever destroyed, so a drag has something stable to
+     hold on to and a re-render cannot take the checkbox you are clicking away from
+     you (§2.9, decision 25).
+
+     NO `note` FROM THE PROTOTYPE'S CATALOGUE. It marked `team` as "new", and a label
+     that is true for one version and wrong for every version after it is a value
+     nothing updates. The one note that ships is `also a heading`, which is a function
+     of the stored bands and so cannot go stale. */
+  function fieldList(tab) {
+    const wrap = el("div", "gt-cart-fields");
+    wrap.id = fieldListId(tab.id);
+
+    for (const field of FIELD_CATALOGUE) {
+      const row = el("div", "gt-cart-field");
+      // HTML5 drag and drop, which is what the prototype the user pressed used, and
+      // NOT the pointer plumbing the grip and the divider share. Two reasons, and
+      // the second is the load-bearing one: a reorder wants a drag image and a
+      // drop target, which the platform gives away here and which `trackDrag` would
+      // have to grow; and Jira's own board and backlog drags are pointer-based, so
+      // this is the mechanism LEAST likely to collide with them on a page we do not
+      // own. There is no keyboard path, deliberately -- the block above
+      // `onFieldDragStart` says why, and §6 item 4 is the limit it rests on.
+      row.setAttribute("draggable", "true");
+      row.dataset[FIELD_LIST_ATTR] = tab.fields;
+      row.dataset[FIELD_ID_ATTR] = field.id;
+
+      const grip = el("span", "gt-cart-grip", "⠿");
+      // The grip is decoration: the whole row is the drag target, so a name read
+      // aloud beside every field would be eight repetitions of nothing.
+      grip.setAttribute("aria-hidden", "true");
+
+      const name = el("label", "gt-cart-field-name");
+      const box = el("input");
+      box.type = "checkbox";
+      box.dataset[FIELD_LIST_ATTR] = tab.fields;
+      box.dataset[FIELD_ID_ATTR] = field.id;
+      // The label comes from `FIELD_CATALOGUE`, which is the one place a field is
+      // named. A string here would be a second name that can disagree with the id
+      // the renderer draws.
+      name.append(box, el("span", null, ` ${field.label}`));
+
+      // Empty until `render` fills it, and `:empty` hides it, so there is no
+      // `hidden` to keep in step with the text it would be hiding.
+      const note = el("span", "gt-cart-field-note");
+
+      row.append(grip, name, note);
+      wrap.append(row);
+    }
+
+    return wrap;
+  }
 
   function ensureDrawer() {
     const existing = document.getElementById(DRAWER_ID);
@@ -3130,17 +4362,27 @@ ${selectors.join(",\n")} {
     const head = el("div", "gt-cart-head");
     head.id = HEAD_ID;
     const controls = el("div", "gt-cart-head-controls");
-    const prefsButton = actionButton(
-      "gt-cart-icon",
-      "prefs",
-      "Preferences",
-    );
+    // No `aria-controls`, and no title written here: both are `render`'s. The
+    // button is a MODE TOGGLE since 1.2.0 -- it does not disclose a region beside
+    // the content, it swaps what the content is -- so there is nothing beside it to
+    // name, and its tooltip is a function of state like every other label (§2.8).
+    const prefsButton = actionButton("gt-cart-icon", "prefs");
+    prefsButton.id = PREFS_BUTTON_ID;
     prefsButton.textContent = "⚙";
-    prefsButton.setAttribute("aria-controls", PREFS_ID);
+    // ✕ KEEPS EXACTLY ONE MEANING ON BOTH SCREENS: close the drawer. A ✕ that went
+    // back from the settings instead would be two values that disagree wearing a
+    // different hat, and it would leave no way to close the Cart from the settings
+    // screen at all (§2.9).
     const closeButton = actionButton("gt-cart-icon", "close", "Close the Cart");
     closeButton.textContent = "✕";
     controls.append(prefsButton, closeButton);
-    head.append(el("span", "gt-cart-title", "🛒 Cart"), controls);
+    // The words are `render`'s, because the head NAMES THE SCREEN YOU ARE ON: it
+    // reads `⚙ Settings` while the panel is up and `🛒 Cart` once it is down. The
+    // repo's convention is that the label IS the state (§2.14, §3), and that won
+    // over the argument that a head is an identity rather than a state.
+    const title = el("span", "gt-cart-title");
+    title.id = TITLE_ID;
+    head.append(title, controls);
 
     // -- the line that carries a failure. A tooltip alone was rejected: an add
     // that silently did nothing is the outcome that rule exists to prevent (§2.9).
@@ -3148,10 +4390,12 @@ ${selectors.join(",\n")} {
     alert.id = ALERT_ID;
     alert.hidden = true;
 
-    // -- the preferences. A settings home rather than a loose checkbox, because
-    // more of these are coming -- keyboard shortcuts are still open -- and because
-    // the two standing sections should hold nothing that is not a link or an item
-    // (§2.9).
+    // -- ⚙ IS A SCREEN, NOT A STRIP (§2.9, decision 17). It was three checkboxes
+    // above the sections until 1.2.0; the configurable exports bring about twenty-
+    // two controls, and this drawer can be 300x215 with every container on
+    // `overflow: clip`, so a panel sharing the box with the sections would be
+    // SILENTLY TRUNCATED with no scrollbar to say so. That is a measurement rather
+    // than a preference, and it is what makes this a mode over the whole body.
     const prefs = el("div", "gt-cart-prefs");
     prefs.id = PREFS_ID;
     prefs.hidden = true;
@@ -3159,6 +4403,20 @@ ${selectors.join(",\n")} {
     prefs.addEventListener("change", (event) =>
       guard(() => onPrefsChange(event.target)),
     );
+    /* THE FIELD LISTS' DRAG, DELEGATED THE SAME WAY. Four listeners on the panel
+       rather than four on each of sixteen rows, so a reorder has nothing to re-wire
+       -- and the rows are moved rather than replaced, so there would be nothing to
+       re-wire even if they were not.
+
+       `dragover` is here because a drop target that never calls `preventDefault` is
+       a drop that never happens: the platform's default is to refuse. That is also
+       what REFUSES A CROSS-LIST DROP for free -- see `onFieldOver`. */
+    prefs.addEventListener("dragstart", (event) =>
+      guard(() => onFieldDragStart(event)),
+    );
+    prefs.addEventListener("dragover", (event) => guard(() => onFieldOver(event)));
+    prefs.addEventListener("drop", (event) => guard(() => onFieldDrop(event)));
+    prefs.addEventListener("dragend", (event) => guard(() => onFieldDragEnd(event)));
 
     const rightClick = el("label", "gt-cart-pref");
     // Labelled by WHAT IT TAKES AWAY, which is the words §2.9 gives it, and the
@@ -3203,7 +4461,92 @@ ${selectors.join(",\n")} {
       ]),
     );
 
-    prefs.append(rightClick, layout, corner);
+    /* THE PANEL IS BUILT ONCE AND NEVER REBUILT, and that is a rule rather than an
+       optimisation. Every add re-renders the drawer -- including an add made from
+       the page while ⚙ is up, which decision 25 requires to keep working -- so a
+       panel that rebuilt itself on render would take the focus off the select you
+       were using, and would destroy ticket 04's field-list drag mid-gesture. What
+       `render` does instead is SET: an attribute per tab, `hidden` per panel, and a
+       value per control. Nothing in here is replaced.
+
+       PINNED ABOVE THE BAR: `Issue reference` governs all three exports, so a tab
+       that owned it would tell a small lie about its scope (decision 29). */
+    const pinned = el("div", "gt-cart-group");
+    pinned.append(el("div", "gt-cart-group-head", "Every export"));
+
+    /* ONE SETTING, THREE CONSUMERS. 🔗 Links' whole line, and the head of every
+       line in 📋 Details and 📊 Report, all come from this one control, which is
+       what keeps §2.14's promise that the three agree about what a collected issue
+       looks like (decision 5). A per-export override is left in §6.
+
+       The options are BUILT FROM `SHAPES`, so a shape added or dropped there moves
+       this dropdown with it and there is no second list of names to keep in step --
+       the same reason the tab bar is built from `SETTINGS_TABS`.
+
+       Same markup as `Sections` and `Corner` above, so it costs no new CSS and sits
+       on the same grid. */
+    const shape = el("label", "gt-cart-pref");
+    shape.title =
+      "How every export writes the issue at the head of a line. 🔗 Links, 📋 Details and 📊 Report all use it, so the three agree about what a collected issue looks like. The markdown shapes arrive as live links where markdown is rendered and as their own source code where it is not; the shapes that show a URL arrive readable and clickable in both.";
+    shape.append(el("span", "gt-cart-pref-label", "Issue reference"));
+    shape.append(
+      select(
+        PREF_SHAPE_ID,
+        "How an issue is written at the head of a line, in every export",
+        SHAPES.map((one) => [one.id, one.label]),
+      ),
+    );
+    pinned.append(shape);
+    prefs.append(pinned);
+
+    // The bar shows EVERY tab whether it has ever been pressed or not, so there is
+    // no open/closed set to store and a tab added later is visible the moment it
+    // exists (decision 20). That is the whole difference from the collapsible
+    // layout the prototype tried and use reversed.
+    const bar = el("div", "gt-cart-tabs");
+    bar.id = TABS_ID;
+    bar.setAttribute("role", "tablist");
+    bar.setAttribute("aria-label", "Settings sections");
+    for (const tab of SETTINGS_TABS) {
+      const button = actionButton("gt-cart-tab", "settings-tab");
+      button.id = tabButtonId(tab.id);
+      button.dataset.gtTab = tab.id;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-controls", tabPanelId(tab.id));
+      button.textContent = tab.label;
+      bar.append(button);
+    }
+    prefs.append(bar);
+
+    // A GROUP HEADING ONLY WHERE A TAB HOLDS MORE THAN ONE GROUP. All three hold
+    // exactly one today, so a heading would repeat the tab label immediately below
+    // it. The pinned group above keeps its heading because it is NOT under a tab.
+    for (const tab of SETTINGS_TABS) {
+      const panel = el("div", "gt-cart-tabpanel");
+      panel.id = tabPanelId(tab.id);
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", tabButtonId(tab.id));
+      panel.hidden = true;
+      if (tab.id === "appearance") panel.append(rightClick, layout, corner);
+      // THE BANDS GO ABOVE THE LIST, because a band is what takes a field into a
+      // heading and the list is what says what is left on the row -- so the panel
+      // reads in the order the document is built. Both are driven off
+      // `SETTINGS_TABS`, so a tab with bands and no field list, or the reverse,
+      // costs nothing here.
+      if (tab.bands) panel.append(bandControls(tab));
+      if (tab.fields) panel.append(fieldList(tab));
+      prefs.append(panel);
+    }
+
+    /* ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention --
+       ⌫ becomes `Empty 3?` before it will empty anything. Its label and its armed
+       state are derived in `render` for the reason every other label is: one
+       written on the click is a value that has to agree with `armed` and can stop
+       agreeing (§2.8). */
+    const restore = actionButton("gt-cart-restore", "restore-exports");
+    restore.id = RESTORE_ID;
+    restore.hidden = true;
+    prefs.append(restore);
 
     // -- the two standing sections. There is no third drawer mode and no scan
     // button: SCANNING IS NOT AN ACTION (§2.3).
@@ -3337,10 +4680,10 @@ ${selectors.join(",\n")} {
         const action = target?.disabled ? null : target?.dataset.gtAction;
         // Disarmed HERE rather than inside `onDrawerAction`, so that a click on a
         // heading, on a row's dead space, or on a disabled control counts as
-        // walking away as well. Only the two arming controls survive it.
-        if (action !== "empty-collection" && action !== "delete-collection") {
-          disarm();
-        }
+        // walking away as well. Only the three arming controls survive it, and they
+        // are a named set rather than a chain of `!==` because the third one is
+        // what made the chain worth reading twice.
+        if (!ARMING_ACTIONS.has(action)) disarm();
         if (!action) return;
         onDrawerAction(action, target);
       }),
@@ -3363,7 +4706,7 @@ ${selectors.join(",\n")} {
   function onDrawerAction(action, node) {
     switch (action) {
       case "empty-collection":
-        if (armedEmpty) {
+        if (armed === "empty") {
           disarm();
           emptyActive();
         } else {
@@ -3371,7 +4714,7 @@ ${selectors.join(",\n")} {
         }
         return;
       case "delete-collection":
-        if (armedDelete === node.dataset.gtId) {
+        if (armed === node.dataset.gtId) {
           disarm();
           deleteCollection(node.dataset.gtId);
         } else {
@@ -3384,6 +4727,20 @@ ${selectors.join(",\n")} {
       case "prefs":
         prefsOpen = !prefsOpen;
         render();
+        return;
+      case "settings-tab":
+        // THE WRITE IS WHAT MAKES IT REAL, here as everywhere else: nothing holds a
+        // copy of which tab is open, `render` reads it back out of storage, and
+        // `savePrefs` schedules that render (§2.5, principle 1).
+        savePrefs({ settingsTab: node.dataset.gtTab });
+        return;
+      case "restore-exports":
+        if (armed === "restore") {
+          disarm();
+          restoreExportDefaults();
+        } else {
+          arm("restore");
+        }
         return;
       case "toggle-item":
         toggleKey(node.dataset.gtKey);
@@ -3415,6 +4772,24 @@ ${selectors.join(",\n")} {
       default:
         return;
     }
+  }
+
+  /**
+   * `Restore export defaults`, committed. It reaches EXACTLY the keys
+   * `EXPORT_PREF_KEYS` names -- the line shape, both field lists and both bands --
+   * and the list is there so that this function does not have to be the place a
+   * seventh export preference is remembered.
+   *
+   * One `savePrefs`, so one read-modify-write and one value-change event: a tab
+   * that has been open since this morning cannot write a stale appearance switch
+   * over one changed since (§2.5). And `settingsTab` is not in the patch, so the
+   * panel does not move out from under the press that restored.
+   */
+  function restoreExportDefaults() {
+    savePrefs(
+      Object.fromEntries(EXPORT_PREF_KEYS.map((key) => [key, DEFAULT_PREFS[key]])),
+    );
+    logger.log("the export settings are back at their defaults");
   }
 
   function setDrawerOpen(open) {
@@ -3678,7 +5053,188 @@ ${selectors.join(",\n")} {
     }
     if (input.id === PREF_CORNER_ID) {
       savePrefs({ corner: input.value });
+      return;
     }
+    // Not range-checked here. `savePrefs` normalises on the way in and `loadPrefs`
+    // again on the way out, so a value this build does not know falls back to
+    // `markdown` rather than reaching a formatter (§2.4, ticket 01).
+    if (input.id === PREF_SHAPE_ID) {
+      savePrefs({ lineShape: input.value });
+      return;
+    }
+    /* A BAND. The dropdown carries the preference key it writes, so one branch
+       serves both of them and a third band would need no line here -- the same
+       reason the field checkboxes carry theirs.
+
+       NOT RANGE-CHECKED HERE, for the reason the line shape is not: `savePrefs`
+       normalises on the way in and `loadPrefs` again on the way out, so a value this
+       build does not know falls back to the default rather than reaching a renderer.
+       Band 1 has no `None` in its options, and `normalisePrefs` is what makes that a
+       rule rather than a fact about a dropdown (§2.4, ticket 01).
+
+       BEFORE THE FIELD TICK BELOW, because both are dataset-driven and this one is
+       the narrower test. */
+    const band = input.dataset[BAND_KEY_ATTR];
+    if (band) {
+      // ONE PRESS, SOMETIMES TWO KEYS -- `bandPatch` owns the rule and says why.
+      // Read-modify-write over the STORED pair rather than over what is on screen,
+      // for the reason the field ticks are: another tab may have moved a band since
+      // this panel was drawn (§2.5).
+      savePrefs(bandPatch(band, input.value, loadPrefs()));
+      return;
+    }
+    /* A FIELD'S TICK. The checkbox carries the key it writes and the id it is, so
+       one branch serves both lists and a third list would need no line here.
+
+       READ-MODIFY-WRITE OVER THE STORED LIST, never over a copy held since the panel
+       was built: another tab may have reordered this list since, and rebuilding it
+       from what is on screen would write that reorder away. `savePrefs` reads
+       storage again on top of this, so the window is the same microseconds every
+       other write in this file lives with (§2.5).
+
+       A TICK IS NOT A REORDER. The entry keeps its place, which is the whole reason
+       the list stores `{ id, on }` in order rather than an array of enabled ids:
+       unticking a field would otherwise lose its position and re-ticking it would
+       send it to the end, so somebody toggling one field to compare two outputs
+       would find their order quietly rearranged (see `normaliseFieldList`). */
+    const key = input.dataset[FIELD_LIST_ATTR];
+    const id = input.dataset[FIELD_ID_ATTR];
+    if (key && id && Array.isArray(loadPrefs()[key])) {
+      savePrefs({
+        [key]: loadPrefs()[key].map((field) =>
+          field.id === id ? { id: field.id, on: input.checked === true } : field,
+        ),
+      });
+    }
+  }
+
+  /* -- the field lists' drag (§2.14, decision 11).
+   *
+   * NO HARNESS IN THIS REPOSITORY CAN DRIVE THIS. `boot-smoke` has no layout and no
+   * paint, so it cannot put a pointer in the top half of a row, and there is nothing
+   * in the file that could stand in for one. That is a stated cost of choosing a drag
+   * over ↑↓ buttons, and it is paid in two instalments: `moveField` is a pure
+   * function so the state change is covered, and §7 step 31 is a browser pass that
+   * covers the rest. Do not read the quiet here as coverage.
+   *
+   * WHAT IS HELD IS AN ID, NEVER AN INDEX, and that is the answer to the one hazard
+   * this drag has that the grip and the divider do not: A RE-RENDER CAN LAND IN THE
+   * MIDDLE OF IT. Every add calls `render`, an add from the page keeps working while
+   * ⚙ is up (decision 25), and another tab writing this very list re-renders us too
+   * -- so by the time the pointer comes up the row under it may be at a different
+   * index than it was at `dragstart`. Both ends are therefore resolved against the
+   * STORED LIST at drop time, and a stale index cannot exist because no index was
+   * kept. This is why the drag needs no entry in `dragging`: it owns no property that
+   * `render` puts back (§2.10, §2.11 defect 4).
+   *
+   * THERE IS NO KEYBOARD PATH, AND THAT IS A DECISION RATHER THAN AN OMISSION. §6
+   * item 4 states the limit: the Cart is not intended to be operated by keyboard
+   * input, and the drawer's two existing drags are pointer-only for the same reason.
+   * Adding one here would be the first keyboard-only affordance in the file and
+   * would say the limit had moved when it has not.
+   */
+  // Which row is being dragged, as { list, id }. It is a variable and not read back
+  // out of `dataTransfer`, because `getData` is UNREADABLE during `dragover` in
+  // every engine -- the protected mode the spec requires -- and `dragover` is where
+  // the decision to accept or refuse the drop is made.
+  let fieldDrag = null;
+
+  function fieldRowOf(target) {
+    return target instanceof Element ? target.closest(".gt-cart-field") : null;
+  }
+
+  // The panel's rows, from the panel rather than from a list: a drag that started in
+  // one list and wandered into the other has to be able to clear the indicator it
+  // left behind in the first.
+  function clearFieldDrop(except) {
+    const panel = document.getElementById(PREFS_ID);
+    if (!panel) return;
+    // Read before writing, and leave the row that is about to be marked alone.
+    // `dragover` fires continuously while the pointer moves, so this runs tens of
+    // times a second over sixteen rows, and writing an attribute that already says
+    // what it says still invalidates the element's style. With both guards a pointer
+    // sitting still in one half of one row writes nothing at all.
+    for (const row of panel.querySelectorAll(".gt-cart-field")) {
+      if (row !== except && row.dataset[FIELD_DROP_ATTR]) {
+        row.dataset[FIELD_DROP_ATTR] = "";
+      }
+    }
+  }
+
+  function onFieldDragStart(event) {
+    const row = fieldRowOf(event.target);
+    if (!row) return;
+    fieldDrag = {
+      list: row.dataset[FIELD_LIST_ATTR],
+      id: row.dataset[FIELD_ID_ATTR],
+    };
+    // Written for the platform rather than for us -- see `FIELD_DRAG_TYPE`.
+    if (event.dataTransfer) {
+      event.dataTransfer.setData(
+        FIELD_DRAG_TYPE,
+        `${fieldDrag.list}:${fieldDrag.id}`,
+      );
+      event.dataTransfer.effectAllowed = "move";
+    }
+    row.dataset[FIELD_DRAG_ATTR] = "true";
+  }
+
+  function onFieldDragEnd() {
+    fieldDrag = null;
+    clearFieldDrop();
+    const panel = document.getElementById(PREFS_ID);
+    for (const row of panel?.querySelectorAll(".gt-cart-field") ?? []) {
+      if (row.dataset[FIELD_DRAG_ATTR]) row.dataset[FIELD_DRAG_ATTR] = "";
+    }
+  }
+
+  // WHICH HALF OF THE ROW THE POINTER IS IN decides before or after, which is the
+  // one thing that makes a drop between two rows expressible at all: a row has two
+  // gaps and a pointer has one position.
+  function dropsAfter(row, event) {
+    const box = row.getBoundingClientRect();
+    return event.clientY > box.top + box.height / 2;
+  }
+
+  function onFieldOver(event) {
+    const row = fieldRowOf(event.target);
+    /* A DROP FROM ONE LIST INTO THE OTHER IS REFUSED, not silently reinterpreted.
+       Returning without `preventDefault` leaves the platform's own refusal in place,
+       so the cursor says no and `drop` never fires -- the refusal is VISIBLE, which
+       a silent no-op would not be. Reinterpreting it as "tick this field in that
+       list" was the tempting alternative and it would be a write nobody asked for. */
+    if (!row || !fieldDrag || row.dataset[FIELD_LIST_ATTR] !== fieldDrag.list) return;
+    event.preventDefault();
+    // Or the cursor offers a COPY, which is what the platform assumes by default and
+    // is a promise nothing here keeps: there is one row and it moves.
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    // Cleared and re-set on every move rather than removed on `dragleave`: the
+    // pointer crosses a boundary far more often than it leaves the list, and one
+    // indicator that follows it cannot get out of step with itself.
+    const edge = dropsAfter(row, event) ? "after" : "before";
+    clearFieldDrop(row);
+    if (row.dataset[FIELD_DROP_ATTR] !== edge) row.dataset[FIELD_DROP_ATTR] = edge;
+  }
+
+  function onFieldDrop(event) {
+    const row = fieldRowOf(event.target);
+    if (!row || !fieldDrag || row.dataset[FIELD_LIST_ATTR] !== fieldDrag.list) return;
+    event.preventDefault();
+
+    const key = fieldDrag.list;
+    const stored = loadPrefs()[key];
+    const from = stored.findIndex((field) => field.id === fieldDrag.id);
+    const onto = stored.findIndex(
+      (field) => field.id === row.dataset[FIELD_ID_ATTR],
+    );
+    clearFieldDrop();
+    // Either id gone means the catalogue changed under a drag that was already in
+    // flight, which is a build having been swapped mid-gesture. Nothing to write.
+    if (from < 0 || onto < 0) return;
+
+    // `onto + 1` is the gap BELOW the row, which is what "after" means. `moveField`
+    // owns the off-by-one that removing the dragged row first creates.
+    savePrefs({ [key]: moveField(stored, from, onto + (dropsAfter(row, event) ? 1 : 0)) });
   }
 
   /* -- the two drags.
@@ -3885,23 +5441,253 @@ ${selectors.join(",\n")} {
       alert.hidden = line === "";
     }
 
-    const prefsArea = document.getElementById(PREFS_ID);
-    if (prefsArea) {
-      prefsArea.hidden = !prefsOpen;
-      // Set, not rebuilt: a rebuild would take the focus off the control being
-      // used, and these three are the controls most likely to be mid-interaction.
-      const rightClick = document.getElementById(PREF_RIGHT_CLICK_ID);
-      if (rightClick) rightClick.checked = prefs.rightClickMenu;
-      const layout = document.getElementById(PREF_LAYOUT_ID);
-      if (layout) layout.value = prefs.layout;
-      const corner = document.getElementById(PREF_CORNER_ID);
-      if (corner) corner.value = prefs.corner;
-    }
-
+    renderSettings(prefs);
     renderLiveList(state, scan);
     renderCollection(state);
     renderChips(state);
     renderFoot(state);
+  }
+
+  /**
+   * ⚙ IS A MODE OVER THE DRAWER'S BODY, NOT A THIRD SECTION (§2.9, decision 17).
+   *
+   * ONE BOOLEAN MOVES EVERYTHING, which is the whole reason the button's state
+   * cannot disagree with what is on screen. And it costs one `hidden` rather than
+   * three, because the foot is a child of the collection section and the sections
+   * are children of the body: hiding the body takes the two standing sections and
+   * all six foot buttons with it. The foot going too is deliberate -- six buttons
+   * and a border is about 40px, a fifth of the drawer at `MIN_BLOCK`, and none of
+   * them can act on anything while the panel is up. The accepted cost is one press
+   * to get back.
+   *
+   * WHAT IS STILL RUNNING BEHIND IT: collecting from the page. `renderToggle` reads
+   * the hovered anchor and the active collection and nothing about the drawer's
+   * body, so the floating `+`, the badge count, the right-click entry and the page
+   * decoration all keep working while ⚙ is up (decision 25). An add re-renders the
+   * drawer, and because this function only SETS -- it never rebuilds the panel --
+   * the add lands without closing the panel or moving the tab.
+   *
+   * `prefsOpen` STAYS IN MEMORY, and that is deliberate against §2.9's precedent
+   * for the drawer's own `open`, which use moved into storage. A reload landing you
+   * in Settings would be wrong, because Settings is not where you work. Do not
+   * "fix" the inconsistency.
+   */
+  function renderSettings(prefs) {
+    // THE HEAD NAMES THE SCREEN YOU ARE ON. The repo's convention is that the label
+    // IS the state (§2.14, §3), and it won over the argument that a head is an
+    // identity -- `jira-ux`'s toolbar does not rename itself when its padlock is on.
+    // The stated cost: while the panel is up the drawer stops naming the collection
+    // you are collecting into. THE BADGE STILL DOES, which is what makes it
+    // acceptable (decision 24, 2026-08-24).
+    const title = document.getElementById(TITLE_ID);
+    if (title) title.textContent = prefsOpen ? "⚙ Settings" : "🛒 Cart";
+
+    /* THE BUTTON SAYS WHETHER THE SETTINGS ARE OPEN, and it says it HERE -- on the
+       line above the one that hides the body, so the two cannot drift apart. Added
+       on 2026-08-25 from a use report, and the report is worth keeping because the
+       diagnosis is not what it looks like: the ⚙ appeared to be "bordered in blue
+       after clicking", which read as a state and was not one. It was the FOCUS ring,
+       which is why it appeared whether the click had opened the settings or closed
+       them, and why clicking anywhere else took it away. The button carried no state
+       at all -- `prefsOpen` lived in memory and nothing on screen was a function of
+       it.
+       So the fix is not to the ring. It is that the state now exists on the button,
+       and the stylesheet paints it with the same pair the active collection chip
+       uses (see the sheet). A label being a function of state is §2.8's rule; this
+       is the same rule applied to an attribute -- and to the tooltip below it. */
+    const prefsButton = document.getElementById(PREFS_BUTTON_ID);
+    if (prefsButton) {
+      prefsButton.setAttribute(PREFS_STATE_ATTR, String(prefsOpen));
+      prefsButton.title = prefsOpen
+        ? "Settings. Press again to go back to the collection"
+        : "Settings";
+    }
+
+    const panel = document.getElementById(PREFS_ID);
+    if (panel) panel.hidden = !prefsOpen;
+    const body = document.getElementById(BODY_ID);
+    if (body) body.hidden = prefsOpen;
+
+    // Set, not rebuilt: a rebuild would take the focus off the control being used,
+    // and these three are the controls most likely to be mid-interaction.
+    const rightClick = document.getElementById(PREF_RIGHT_CLICK_ID);
+    if (rightClick) rightClick.checked = prefs.rightClickMenu;
+    const layout = document.getElementById(PREF_LAYOUT_ID);
+    if (layout) layout.value = prefs.layout;
+    const corner = document.getElementById(PREF_CORNER_ID);
+    if (corner) corner.value = prefs.corner;
+    // Read back out of storage like the rest, so `Restore export defaults` and
+    // another tab's write both land on this control without either of them having
+    // to know it is here.
+    const shape = document.getElementById(PREF_SHAPE_ID);
+    if (shape) shape.value = prefs.lineShape;
+
+    // WHICH TAB, READ BACK OUT OF STORAGE on every render, so nothing holds a copy
+    // that could disagree with it -- the same treatment `corner` and `layout` get.
+    // `normalisePrefs` has already turned an id this build does not know into the
+    // first tab, so the panel can never be blank (decision 20).
+    const current = prefs.settingsTab;
+    for (const tab of SETTINGS_TABS) {
+      const button = document.getElementById(tabButtonId(tab.id));
+      if (button) button.setAttribute("aria-selected", String(tab.id === current));
+      const tabPanel = document.getElementById(tabPanelId(tab.id));
+      if (tabPanel) tabPanel.hidden = tab.id !== current;
+    }
+
+    // Both lists on every render, and NOT only the tab on screen. A hidden tab is
+    // still built, so leaving it stale would mean the moment you switched to it you
+    // would be looking at whatever the last render of it said -- and the switch
+    // itself renders, so it would be right again by the time you looked. A state
+    // that is only ever wrong while nobody can see it is still a second value.
+    for (const tab of SETTINGS_TABS) {
+      if (tab.bands) renderBands(tab, prefs);
+      if (tab.fields) renderFieldList(tab, prefs);
+    }
+
+    const restore = document.getElementById(RESTORE_ID);
+    if (restore) {
+      // ON THE TABS THAT HOLD EXPORT SETTINGS AND NOWHERE ELSE. On the appearance
+      // tab it is an offer to reset something you are not looking at (decision 22).
+      restore.hidden = !SETTINGS_TABS.find((tab) => tab.id === current)?.exports;
+      // The label IS the state, disarmed an offer and armed the question, exactly
+      // as ⌫ becomes `Empty 3?` (§3). Derived here, so the armed state cannot
+      // outlive a render that should have cleared it.
+      const armedNow = armed === "restore";
+      restore.textContent = armedNow ? "Restore?" : "↺ Restore export defaults";
+      restore.dataset.gtArmed = String(armedNow);
+      restore.title = armedNow
+        ? "Click again to put the line shape, both field lists and both bands back to what 1.1.0 emitted. There is no undo."
+        : "Put the line shape, both field lists and both bands back to what 1.1.0 emitted. The appearance switches and the tab you are on are left alone.";
+    }
+  }
+
+  /* ONE TAB'S BANDS, SET RATHER THAN REBUILT, and both things written here are a
+     function of storage: each dropdown's value, and whether the pair costs `lines
+     equals items`.
+
+     READ BACK OUT OF STORAGE ON EVERY RENDER, so `Restore export defaults` and
+     another tab's write both land on these controls without either of them having
+     to know they exist -- the same treatment `corner`, `layout` and the line shape
+     get. `normalisePrefs` has already turned an id this build does not know into the
+     default, so a dropdown can never be left showing nothing.
+
+     THE NOTE IS DERIVED AND NEVER REMEMBERED. A flag set when the dropdown changed
+     would be a second value that has to agree with the preference, and it would
+     disagree the moment another tab changed the band (principle 1). */
+  function renderBands(tab, prefs) {
+    /* WHICH FIELDS ARE ALREADY SPOKEN FOR, AND ONLY BY A BAND ABOVE THIS ONE. The two
+       bands may not name the same field (§2.15, reversed from use on 2026-08-25), and
+       this is one half of that rule; `bandPatch` is the other.
+
+       THE DIRECTION IS THE WHOLE DESIGN, so it is worth spelling out. A band greys
+       out what the bands ABOVE it hold and never what the bands below it hold -- so
+       `Then by` cannot be set to `Group by`'s field, while `Group by` still offers
+       all seven. That asymmetry is what leaves the SWAP reachable: moving `Group by`
+       onto the field `Then by` holds is how a report is reordered, and it takes one
+       press. Greying it in both directions would have cost three, through an
+       intermediate state, which is the version that was tried on paper and dropped.
+       It is also the same rule the labels already carry: position is the meaning, the
+       first band is the one that must be a field, and a later band is the one that
+       gives way.
+
+       DISABLED AND NOT REMOVED, for two reasons. The panel is built once and never
+       rebuilt, so an option list that grew and shrank on every render would be the
+       one thing on this screen that IS replaced -- and a greyed row that still reads
+       `Team` says WHY it cannot be chosen, where a row that quietly vanished would
+       leave somebody hunting for a field the dropdown had a moment ago.
+
+       AND IT IS A VETO WHERE THE FIELD LIST'S MARK IS ONLY A STATEMENT (decision 8),
+       which is not an inconsistency. That mark refuses to veto because §2.14 rule 4
+       gives a banded field a real use on the row: somebody who drags a line out of
+       its band in the pasted mail still wants the value readable. A duplicate BAND
+       has no such reading -- every sub-heading would repeat the heading above it --
+       so there is nothing to leave open. */
+    const claimed = tab.bands.map((key) => prefs[key]);
+
+    tab.bands.forEach((key, at) => {
+      const node = document.getElementById(bandSelectId(key));
+      if (!node) return;
+      const above = claimed.slice(0, at);
+      for (const option of node.children) {
+        // `none` is never claimed: it is not a field, and it is the answer to "and
+        // then?" rather than a field's name -- though only band 2 is offered it.
+        option.disabled =
+          option.value !== NO_BAND && above.includes(option.value);
+      }
+      // AFTER the disabling and not before. The value this control is SUPPOSED to
+      // show can never be one of the claimed ones -- `normalisePrefs` collapses a
+      // duplicate to `None` on the way out of storage -- and setting it last means a
+      // browser that declines to select a disabled option cannot leave the control
+      // showing whatever sat above it.
+      node.value = prefs[key];
+    });
+
+    const note = document.getElementById(bandNoteId(tab.id));
+    if (!note) return;
+    // Which of the bands is multi-valued is asked of `BANDS` rather than compared
+    // against a literal `"fixv"`, so a second multi-valued band would light this
+    // note up without a line changing here.
+    const multi = tab.bands
+      .map((key) => bandFor(prefs[key]))
+      .filter((band) => band?.multi);
+    note.textContent = multi.length
+      ? `An issue with two ${multi[0].label.toLowerCase()}s is listed under both, so this report has more lines than issues.`
+      : "";
+  }
+
+  /* ONE FIELD LIST, SET RATHER THAN REBUILT. Three things are written here and each
+     is a function of storage: the order of the rows, each box's tick, and whether the
+     field is also one of 📊 Report's headings.
+
+     THE ORDER IS COMPARED AGAINST WHAT IS ON SCREEN AND NOT AGAINST A REMEMBERED
+     SIGNATURE. The live list and the chips keep a signature because they compare
+     CONTENT that would cost something to rebuild; here the comparison is eight ids
+     long, and deriving it means there is no variable to reset when `ensureDrawer`
+     builds a fresh drawer -- which is the bug a remembered signature would have,
+     silently, in the one case where the rows are back in catalogue order and the
+     signature says they are not (principle 1).
+
+     `replaceChildren` MOVES THE ROWS AND DESTROYS NONE OF THEM, which is what keeps
+     the panel's build-once rule true: a rebuilt row would take the focus off the box
+     you are clicking and would pull the floor out from under a drag in flight. */
+  function renderFieldList(tab, prefs) {
+    const wrap = document.getElementById(fieldListId(tab.id));
+    if (!wrap) return;
+    const list = prefs[tab.fields];
+    const rows = new Map(
+      [...wrap.children].map((row) => [row.dataset[FIELD_ID_ATTR], row]),
+    );
+
+    const order = list.map((field) => field.id).join(",");
+    const onScreen = [...wrap.children]
+      .map((row) => row.dataset[FIELD_ID_ATTR])
+      .join(",");
+    if (order !== onScreen) {
+      wrap.replaceChildren(
+        ...list.map((field) => rows.get(field.id)).filter(Boolean),
+      );
+    }
+
+    /* WHICH FIELDS ARE ALSO HEADINGS. The tab names the preferences rather than the
+       renderer naming the tab, so there is no `"report"` literal here to disagree
+       with `SETTINGS_TABS`. The mark is a STATEMENT AND NOT A VETO -- a ticked field
+       is printed band or not (decision 8) -- and it is read off the stored bands, so
+       ticket 05 making them settable moves this with it and costs nothing here. */
+    const heading = new Set(
+      (tab.bands ?? [])
+        .map((key) => prefs[key])
+        .filter((band) => band && band !== NO_BAND)
+        .map((band) => BAND_ROW_FIELD[band] ?? band),
+    );
+
+    for (const field of list) {
+      const row = rows.get(field.id);
+      if (!row) continue;
+      const box = row.querySelector("input");
+      if (box) box.checked = field.on;
+      const note = row.querySelector(".gt-cart-field-note");
+      if (note) note.textContent = heading.has(field.id) ? "also a heading" : "";
+    }
   }
 
   function setBasis(drawer, which, value) {
@@ -4062,10 +5848,11 @@ ${selectors.join(",\n")} {
       const count = collection.items.length;
       // The label IS the state, which is the convention this repository uses
       // everywhere: disarmed it is an icon, armed it is the question (§3).
-      empty.textContent = armedEmpty ? `Empty ${count}?` : "⌫";
-      empty.dataset.gtArmed = String(armedEmpty);
+      const armedNow = armed === "empty";
+      empty.textContent = armedNow ? `Empty ${count}?` : "⌫";
+      empty.dataset.gtArmed = String(armedNow);
       empty.disabled = !state.writable || count === 0;
-      empty.title = armedEmpty
+      empty.title = armedNow
         ? `Click again to remove all ${count} item${count === 1 ? "" : "s"}. There is no undo.`
         : `Remove every item from ${collection.name}. The collection and its name stay.`;
     }
@@ -4171,7 +5958,7 @@ ${selectors.join(",\n")} {
       name: one.name,
       count: one.items.length,
       active: at === 0,
-      armed: armedDelete === one.id,
+      armed: armed === one.id,
       // §2.4: `collections` is never empty, so deleting the last one empties it
       // instead of removing it. The chip says which of the two its ✕ will do.
       only: state.collections.length === 1,
@@ -4825,7 +6612,6 @@ ${D} [hidden] {
    min-height with no magic number (§2.11 defect 3). */
 ${D} div#${HEAD_ID},
 ${D} p.gt-cart-alert,
-${D} div#${PREFS_ID},
 ${D} h2.gt-cart-section-head,
 ${D} div#${DIVIDER_ID},
 ${D} div.gt-cart-chips,
@@ -4868,13 +6654,235 @@ ${D} p.gt-cart-alert {
 ${D} div#${PREFS_ID}[hidden] {
   display: none;
 }
+/* THE SETTINGS PANEL IS THE DRAWER'S ONE SCROLLER WHILE IT IS UP. §2.11 rule 1 is
+   unchanged and holds exactly as written -- one scroller, a different occupant --
+   and the drawer around it stays overflow: clip, NOT hidden, because hidden is
+   still programmatically scrollable.
+
+   IT IS A SCROLLER BECAUSE IT WAS MEASURED, not because a scroll was preferred.
+   About twenty-two controls go in here, and the drawer can be 300x215 with every
+   container on overflow: clip -- so a panel that shared the box with the sections
+   would be truncated with NO SCROLLBAR TO SAY SO. That is the whole reason a strip
+   became a screen (§2.9, decision 17).
+
+   It was flex: none above with a bottom border until 1.2.0. Both are gone: it is
+   the flexible child now, and there is nothing below it to be divided from. */
 ${D} div#${PREFS_ID} {
+  flex: 1;
+  min-block-size: 0;
+  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 10px 12px;
+  font-size: 12px;
+}
+
+/* A group of settings, and its heading. THE HEADING APPEARS ONLY WHERE A TAB HOLDS
+   MORE THAN ONE GROUP -- with one group it would repeat the tab label immediately
+   below it -- so today the only one is the pinned group above the bar. */
+${D} div.gt-cart-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+${D} div.gt-cart-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gt-cart-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+${D} div.gt-cart-group-head::after {
+  content: "";
+  flex: 1;
+  block-size: 1px;
+  background: var(--gt-cart-border);
+}
+
+/* THE BAR SHOWS EVERY TAB, PRESSED OR NOT, which is why there is no open/closed set
+   to store and why a tab added later is visible the moment it exists (decision 20).
+   flex: none, because it is a fixed part of the panel and the panel is the
+   scroller: a tab bar that scrolled away would be a bar you cannot get back to. */
+${D} div#${TABS_ID} {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  border-block-end: 1px solid var(--gt-cart-border);
+}
+${D} button.gt-cart-tab {
+  padding: 3px 9px;
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: none;
+  color: var(--gt-cart-muted);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+${D} button.gt-cart-tab:hover:not(:disabled) {
+  color: var(--gt-cart-text);
+}
+/* The selected tab wears the same pair as the active collection chip and the open
+   ⚙: this is the Cart's one word for "this is the one that is on". It has to beat
+   the hover rule above, which is (1,3,2), or the selected tab would go quiet under
+   the pointer -- the same trap the ⚙'s own state rule hit, so the selector is
+   repeated with :hover here for the same reason and css-smoke asserts the win. */
+${D} button.gt-cart-tab[aria-selected="true"],
+${D} button.gt-cart-tab[aria-selected="true"]:hover:not(:disabled) {
+  border-block-end-color: var(--gt-cart-selected-text);
+  color: var(--gt-cart-selected-text);
+  font-weight: 600;
+}
+
+/* The pair again, and for the same reason: this rule sets display, so the generic
+   [hidden] rule at (1,1,1) cannot reach it and the panel needs the attribute in its
+   own selector. That is the trap that left the ⚙ inert at 0.3.0 (§2.11). */
+${D} div.gt-cart-tabpanel[hidden] {
+  display: none;
+}
+${D} div.gt-cart-tabpanel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 10px;
-  border-block-end: 1px solid var(--gt-cart-border);
-  font-size: 12px;
+}
+
+/* THE TWO FIELD LISTS. Eight rows each, ticked and dragged, and everything about
+   them is inside the panel -- the one scroller the drawer has while ⚙ is up, so a
+   list longer than the box scrolls rather than clipping (§2.11 rule 1). */
+${D} div.gt-cart-fields {
+  display: flex;
+  flex-direction: column;
+  /* 1px, not the panel's 8: the gap is where the drop indicator is drawn, and rows
+     far enough apart to be separate things make the indicator ambiguous about which
+     gap it belongs to. */
+  gap: 1px;
+}
+${D} div.gt-cart-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  /* A TRANSPARENT BORDER ON ALL FOUR SIDES, always. The drop indicator only paints
+     one edge of it, so the row does not change height at the moment the indicator
+     appears -- which is a reflow under a pointer that is mid-drag, and reflow under
+     a pointer is the defect §2.14 spent a day removing from the foot. */
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: grab;
+  /* Without this a drag across the labels selects their text instead, and the
+     selection is what the browser then offers to drag. */
+  user-select: none;
+}
+${D} div.gt-cart-field:hover {
+  background: var(--gt-cart-hover);
+}
+/* THE ROW BEING DRAGGED, and the selector is repeated with :hover for the reason the
+   ⚙ and the selected tab both repeat theirs: the plain hover rule above is the same
+   specificity, so this would win only on source order, and the pointer is by
+   definition over this row while it is being dragged. That is the trap this sheet has
+   already been caught by twice, and the fix is one selector rather than a note. */
+${D} div.gt-cart-field[data-gt-dragging="true"],
+${D} div.gt-cart-field[data-gt-dragging="true"]:hover {
+  cursor: grabbing;
+  background: var(--gt-cart-selected-bg);
+}
+/* The same token the selected tab, the active chip and the open ⚙ wear: this is the
+   Cart's one word for "this is the one", and a drop indicator is exactly that. */
+${D} div.gt-cart-field[data-gt-drop="before"] {
+  border-block-start-color: var(--gt-cart-selected-text);
+}
+${D} div.gt-cart-field[data-gt-drop="after"] {
+  border-block-end-color: var(--gt-cart-selected-text);
+}
+${D} span.gt-cart-grip {
+  flex: none;
+  color: var(--gt-cart-muted);
+  letter-spacing: -1px;
+  cursor: grab;
+}
+${D} div.gt-cart-field input {
+  margin: 0;
+  cursor: pointer;
+}
+/* The name takes the room and gives it back: at the drawer's 300px floor "Time
+   remaining" beside "also a heading" is the widest row this panel has, and it is the
+   NAME that ellipsises, because the note is the part you can lose. */
+${D} label.gt-cart-field-name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+${D} span.gt-cart-field-note {
+  flex: none;
+  color: var(--gt-cart-muted);
+  font-size: 10px;
+  font-style: italic;
+}
+/* :empty AND NOT A hidden ATTRIBUTE. The note is written as text on every
+   render, so an attribute beside it would be a second value saying the same thing,
+   and the flex gap before an empty span is what it would exist to remove. */
+${D} span.gt-cart-field-note:empty {
+  display: none;
+}
+
+/* THE TWO BAND DROPDOWNS AND WHAT THEIR PAIR COSTS. The rows are ordinary
+   gt-cart-pref labels, so they sit on the same grid as Sections, Corner and Issue
+   reference and cost no new rule; the wrapper exists only to keep the note with the
+   pair it describes. NO BACKTICK IN THIS SHEET -- it is a template literal, and one
+   here ends it (see the test README). */
+${D} div.gt-cart-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* IT WRAPS, where a field row's note ellipsises. A sentence about what the export
+   will do is worth two lines of the panel at the 300px floor -- it is read once,
+   when the band is chosen, and a truncated one would be worse than none. */
+${D} p.gt-cart-band-note {
+  margin: 0;
+  color: var(--gt-cart-muted);
+  font-size: 10px;
+  font-style: italic;
+}
+${D} p.gt-cart-band-note:empty {
+  display: none;
+}
+
+/* ↺ Restore export defaults. Armed it carries the same red the armed ⌫ and the
+   armed chip carry, because it is the same gesture at a different scope (§2.9). */
+${D} button.gt-cart-restore[hidden] {
+  display: none;
+}
+${D} button.gt-cart-restore {
+  display: inline-block;
+  align-self: start;
+  padding: 2px 8px;
+  border: 1px solid var(--gt-cart-border);
+  border-radius: 3px;
+  background: var(--gt-cart-input-bg);
+  color: var(--gt-cart-text);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+${D} button.gt-cart-restore:hover:not(:disabled) {
+  background: var(--gt-cart-hover);
+}
+${D} button.gt-cart-restore[data-gt-armed="true"],
+${D} button.gt-cart-restore[data-gt-armed="true"]:hover:not(:disabled) {
+  border-color: var(--gt-cart-remove);
+  background: var(--gt-cart-remove);
+  color: var(--gt-cart-on-bold);
+  font-weight: 600;
 }
 ${D} label.gt-cart-pref {
   display: flex;
@@ -4897,6 +6905,13 @@ ${D} label.gt-cart-pref select {
   font: inherit;
 }
 
+/* THE PAIR ONE MORE TIME. ⚙ replaces the whole body, so the body is now something
+   that gets hidden -- and its own rule below sets display: flex, which beats the
+   generic [hidden] rule. Without this line pressing ⚙ would draw the settings panel
+   and leave the two sections underneath it (§2.11). */
+${D} div#${BODY_ID}[hidden] {
+  display: none;
+}
 ${D} div#${BODY_ID} {
   flex: 1;
   min-block-size: 0;
@@ -5083,6 +7098,20 @@ ${D} div.gt-cart-row:hover,
 ${D} div.gt-cart-item:hover {
   background: var(--gt-cart-hover);
 }
+/* THE DRAWER OWNS ITS OWN FOCUS APPEARANCE. The Cart is not in a shadow root, so
+   Atlassian's stylesheet has every right to style a focused button inside it -- the
+   same argument the row-key rule below makes about the generated sheet -- and a host
+   rule on :focus paints on a MOUSE click, where the Cart's own ring is deliberately
+   :focus-visible and does not. That difference is invisible until somebody reads a
+   blue ring as a state, which is exactly what happened on 2026-08-25.
+
+   So :focus is cleared and :focus-visible puts the Cart's ring back. This rule is
+   (1,1,1) and every ring below names a class or an element as well, so each of them
+   strictly beats it -- asserted in css-smoke, because a ring this rule silently ate
+   would be a keyboard user losing their place with nothing to say so. */
+${D} :focus {
+  outline: none;
+}
 ${D} button.gt-cart-row-body:focus-visible,
 ${D} a.gt-cart-row-key:focus-visible,
 ${D} button.gt-cart-chip-main:focus-visible,
@@ -5254,6 +7283,68 @@ ${D} button.gt-cart-button {
 ${D} button.gt-cart-icon:hover:not(:disabled),
 ${D} button.gt-cart-button:hover:not(:disabled) {
   background: var(--gt-cart-hover);
+}
+
+/* THE GEAR IS BIGGER THAN ITS NEIGHBOURS, ON PURPOSE. Added on 2026-08-24, from
+   the first report this effort has had from a THIRD PARTY: a beta tester on 1.1.0
+   did not find the settings at all. At 13px it is a grey pictograph in a
+   transparent box, next to a ✕, which is the one glyph every reader already knows.
+
+   NO BACKTICKS IN THIS COMMENT, and none anywhere in this sheet: it is one template
+   literal, so a backtick in a comment ends it. Writing one here cost a syntax error
+   while this rule was being added, which is the third time (§2.11).
+
+   ONLY THE GEAR, and never the gt-cart-icon class itself: that class also dresses
+   ✕, ⌫ and ↻, and growing all four would leave the gear exactly as prominent
+   RELATIVE to them as it was, which is the whole complaint.
+
+   THE BOX STAYS 22px, AND THAT IS WHY THIS IS A FONT-SIZE ALONE. A 16px glyph fits
+   a 22px box at line-height 1, and the head's height is what the drawer's 215px
+   floor is derived from -- css-smoke computes it with HEAD = 35, which is this
+   button's 22 plus the head's own padding and border. A 24px button would
+   re-derive MIN_BLOCK, and that floor exists because going under it clipped the
+   create field and all four copy buttons away (§2.11 rule 7).
+
+   Two other candidates were weighed and not taken, recorded so neither is
+   rediscovered as new. A resting border and fill would make it read as a button,
+   and would spend the contrast the pressed state needs once ⚙ becomes a mode
+   toggle. A "⚙ Settings" LABEL is what appendix A.9's ■ finding argues for -- a
+   word survives where a dim pictograph does not -- and it costs head width, so the
+   collection's name truncates sooner. This one costs neither height nor width. If
+   the button is still missed once it also carries a pressed state, the label is the
+   next thing to try. */
+${D} button.gt-cart-icon[data-gt-action="prefs"] {
+  font-size: 16px;
+}
+
+/* WHILE THE SETTINGS ARE OPEN, THE GEAR IS ON. Added on 2026-08-25 from a use
+   report: the button appeared to be "bordered in blue after clicking", and that read
+   as a state without being one. It was the FOCUS ring -- which is why it arrived
+   whether the click had opened the settings or closed them, and why clicking
+   anywhere else took it away. The button carried NO state, so nothing on screen was
+   a function of whether the panel was up.
+
+   THE SAME THREE DECLARATIONS THE ACTIVE COLLECTION CHIP USES, and not a new blue:
+   this pair of tokens is already the Cart's word for "this one is on", and
+   jira-ux-improvements dresses its locked padlock with it too. A fourth blue would
+   be a fourth thing to keep in step.
+
+   THE SELECTOR IS REPEATED WITH :hover ON PURPOSE. The hover rule above is
+   (1,3,2) -- the class, :hover, and :not(:disabled) -- and the state on its own
+   would be (1,2,2), so hovering an open gear would paint the plain hover tint over
+   the state and the button would go quiet under the pointer. Equal specificity plus
+   document order is not good enough here: this sheet's own history is a rule that
+   lost the cascade and left the gear inert for two versions (§2.11). css-smoke
+   asserts the win rather than trusting the order.
+
+   The attribute name is interpolated and never typed: the render writes the same
+   constant on the button, so this rule cannot be left painting an attribute the
+   script has stopped writing. */
+${D} button.gt-cart-icon[${PREFS_STATE_ATTR}="true"],
+${D} button.gt-cart-icon[${PREFS_STATE_ATTR}="true"]:hover:not(:disabled) {
+  border-color: var(--gt-cart-selected-text);
+  background: var(--gt-cart-selected-bg);
+  color: var(--gt-cart-selected-text);
 }
 ${D} button.gt-cart-x {
   flex: none;
