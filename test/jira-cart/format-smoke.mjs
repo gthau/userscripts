@@ -202,6 +202,28 @@ is("six exports, and the six labels", f.EXPORTS.map((one) => one.label),
   ["🔗 Links", "📃 Names", "🔑 Keys", "📋 Details", "📊 Report", "🔍 Search"]);
 is("only JQL restricts its scopes", f.EXPORTS.filter((one) => one.scopes).map((one) => one.kind), ["jql"]);
 is("exactly one entry navigates instead of copying", f.EXPORTS.filter((one) => one.opens).map((one) => one.kind), ["jql"]);
+/* WHICH FORMAT THE SINGLE-ISSUE GESTURES MEAN, added at 1.3.0. The rail's copy button
+   and the right-click menu's `Copy link` both want "one issue, written the way this
+   collection would write it", and neither names a format: they read this flag, the
+   same way 🔍 Search's destination is read off `opens`.
+
+   EXACTLY ONE, and it has to be Links. 📃 Names and 🔑 Keys emit no URL, so neither
+   is a link at all; 📋 Details and 📊 Report would put a field tail on a single
+   hovered issue; and 🔍 Search has no single-item form by §2.8's own rule, which the
+   check below re-derives rather than restates. A second entry carrying this flag
+   would mean two formats behind one button and no way to say which. */
+is("exactly one entry is what a single-issue gesture copies",
+  f.EXPORTS.filter((one) => one.single).map((one) => one.kind), ["links"]);
+is("and it is one that actually copies, and admits item scope",
+  (() => {
+    const entry = f.EXPORTS.find((one) => one.single);
+    return [!entry.opens, !entry.scopes || entry.scopes.includes("item"), !entry.fields, !entry.bands];
+  })(), [true, true, true, true]);
+// The bytes at item scope are §15's business, over all five shapes. What this says is
+// that the flag and the scope meet: `format` must not refuse the very call the
+// gesture makes.
+is("so the gesture's own call returns a payload rather than null",
+  !!f.format(f.EXPORTS.find((one) => one.single).kind, [THREE[0]], "item")?.text, true);
 // `build` is called directly here, so the shape AND the field selection have to be
 // handed over the way `format` hands them over: both are ARGUMENTS and neither is
 // something a builder reads for itself, which is what keeps one preference from

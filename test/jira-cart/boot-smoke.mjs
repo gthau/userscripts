@@ -1352,6 +1352,167 @@ is("the search names all three keys, the bare one included, in collection order"
 is("the commas and parentheses are encoded, or the search silently returns another set",
   /key%20in%20\(RDC-1%2C%20RDC-77%2C%20GLX-402\)/.test(opened.at(-1).url), true);
 
+/* ---- THE HOVER RAIL, ADDED AT 1.3.0: the copy button beside the `+`, and the
+   geometry claim the whole arrangement rests on.
+
+   THE CLAIM IS THAT THE `+` DOES NOT MOVE. It has sat exactly `TOGGLE_GAP` from the
+   hovered key since 0.1.1, the left-hand side was chosen from a day of use, and a
+   week of use built the habit -- so the copy button had to be added on the OUTSIDE.
+   That is checkable without layout: the rail's own `left`, plus the width the rail
+   has, is where the `+`'s right edge lands. Turn the copy button off and the number
+   must be the SAME. Nothing else in this file can say that, and it is the one thing
+   about this feature that a reader would otherwise have to take on trust.
+
+   THE CONSTANTS ARE SLICED, not restated. `store-smoke`'s README entry is about
+   exactly this: it copied `MIN_BLOCK` as 160 while the script said 215, and the check
+   was green against its own number for two versions. */
+const constOf = (name) => Number(src.match(new RegExp(`const ${name} = (\\d+)`))[1]);
+const TOGGLE_SIZE = constOf("TOGGLE_SIZE");
+const TOGGLE_GAP = constOf("TOGGLE_GAP");
+const RAIL_GAP = constOf("RAIL_GAP");
+
+const rail = () => byId.get("gt-cart-rail");
+const plus = () => byId.get("gt-cart-toggle");
+const copyBtn = () => byId.get("gt-cart-copy");
+const px = (value) => Number(String(value).replace("px", ""));
+// Where the `+`'s right edge lands: the rail's left edge plus everything in the rail.
+// On the left-hand placement the `+` is the rail's last child, so this IS its right
+// edge, and it is the number that may not move when the copy button comes and goes.
+const plusRightEdge = () =>
+  px(rail().style.left) +
+  (copyBtn().hidden ? TOGGLE_SIZE : RAIL_GAP + TOGGLE_SIZE + TOGGLE_SIZE);
+
+/* A FIXED RECT ON ONE ANCHOR, because the stub gives every element the same one --
+   `left: 10`, which is closer to the viewport edge than the rail is wide, so every
+   placement in this harness would take the flip branch and the LEFT-HAND geometry,
+   which is the one that ships, would never run. 400px in from the edge is a row in
+   the middle of a real page. */
+const hovered = card.children[0];
+hovered.getBoundingClientRect = () => ({
+  left: 400, top: 100, right: 480, bottom: 120, width: 80, height: 20,
+});
+
+/* THE POINTER IS MOVED OFF AND BACK ON, and that is not padding. `onPointerOver`
+   returns early when the anchor is the one it is already holding -- the same anchor
+   arrives dozens of times as the pointer crosses its children -- and the early
+   return does not re-render. A section that hovered the anchor an earlier section
+   had already hovered would therefore be measuring the placement THAT section left
+   behind, which is how this section was wrong the first time it was written. */
+dispatch(prose.children[0], "pointerover");
+flush();
+dispatch(hovered, "pointerover");
+flush();
+is("hovering an issue link summons the rail", rail().hidden, false);
+is("which holds the copy button and then the + , in that document order",
+  rail().children.map((k) => k.id), ["gt-cart-copy", "gt-cart-toggle"]);
+is("the rail is our own UI, so the scan and the hover both skip it",
+  rail().attrs["data-gt-cart-ui"], "");
+is("it is placed on the LEFT of the key, which is where a day of use put it",
+  rail().attrs["data-gt-side"], "left");
+is("the copy button ships ON, so it is there without anybody setting anything",
+  copyBtn().hidden, false);
+is("and it shows the same glyph the drawer's own button for these bytes carries",
+  copyBtn().textContent, "🔗");
+is("the rail sits TOGGLE_GAP clear of the key, which is the gap the + always had",
+  plusRightEdge(), 400 - TOGGLE_GAP);
+
+// THE ONE CHECK THIS SECTION EXISTS FOR. Switch the copy button off through its own
+// control -- not by poking the store -- and the `+` must be in exactly the same place.
+const withCopy = plusRightEdge();
+byId.get("gt-cart-pref-copy").checked = false;
+dispatch(byId.get("gt-cart-pref-copy"), "change");
+flush();
+is("switched off, the copy button goes and the rail is the single + it was at 1.2.0",
+  [copyBtn().hidden, rail().hidden], [true, false]);
+is("AND THE + HAS NOT MOVED A PIXEL, which is the whole reason it is the rail's last child",
+  plusRightEdge(), withCopy);
+byId.get("gt-cart-pref-copy").checked = true;
+dispatch(byId.get("gt-cart-pref-copy"), "change");
+flush();
+is("switched back on it returns, and the + is still there", 
+  [copyBtn().hidden, plusRightEdge()], [false, withCopy]);
+
+/* ---- WHAT THE COPY BUTTON PUTS ON THE CLIPBOARD. `format-smoke` already asserts
+   item scope byte for byte for all five shapes; what only this harness can say is
+   that a real press reaches item scope AT ALL -- §2.8 built the scope for a gesture
+   that did not exist for four versions, and this is its first caller. So the two
+   things checked here are the ones a byte assertion cannot make: no bullet and no
+   `<ul>` came from a real click, and the SUMMARY came off the page rather than out of
+   the store. */
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "markdown" });
+const wroteBefore = clipboard.length;
+// A TURN OF THE EVENT LOOP, not one microtask. The foot's checks get away with
+// `await Promise.resolve()` because they only read the clipboard, which is pushed
+// synchronously inside the stub. The flash is three awaits further on -- into
+// `writeClipboard`, out of it, and back into `copyOneIssue` -- so a single tick
+// reads the glyph before it has been set, which is what this check said first.
+// NOT the `settle` above, which waits 600ms in four steps for the fetch path: the
+// flash lasts 900ms, so two of those would clear the very thing being checked.
+const drain = () => new Promise((resolve) => setTimeout(resolve, 0));
+dispatch(copyBtn(), "click");
+await drain();
+flush();
+is("a press writes both flavours", Object.keys(clipboard.at(-1)), ["text/plain", "text/html"]);
+is("ONE issue, at item scope: no bullet on the text side and no <ul> on the HTML side",
+  [clipboard.at(-1)["text/plain"].text, clipboard.at(-1)["text/html"].text],
+  ["[RDC-77](https://dalet.atlassian.net/browse/RDC-77) The linked issue's own summary",
+   '<a href="https://dalet.atlassian.net/browse/RDC-77">RDC-77</a>' +
+   "&nbsp;The linked issue's own summary"]);
+is("exactly one write, so nothing copied the collection by accident",
+  clipboard.length, wroteBefore + 1);
+// THE SUMMARY IS THE PAGE'S, through the same six tiers the + uses, and the tier is
+// in the debug line for the same reason the add's is (§2.2, §7 step 5).
+is("the tier the summary came from is on the console",
+  logs.some(([l, m]) => l === "debug" && m.includes("copied the link to RDC-77") && m.includes("tier 4")),
+  true);
+is("the button flashes the same ✅ the foot flashes, and the flash is a VALUE render reads",
+  copyBtn().textContent, "✅");
+is("with the state on the element, so it is readable rather than merely visible",
+  copyBtn().attrs["data-gt-state"], "done");
+// A re-render must NOT clear it. This is the whole reason the flash is not written
+// straight onto the button: the rail re-renders on every signal the script has.
+dispatch(document, "visibilitychange");
+flush();
+is("AND A RE-RENDER DOES NOT CLEAR IT, which `flash` in the foot cannot promise",
+  copyBtn().textContent, "✅");
+
+/* THE SHAPE IS READ AT THE PRESS HERE TOO. The store is poked with no re-render, so
+   a shape held in a variable would go on copying the markdown above and this check
+   would be measuring nothing -- the same trap the foot's own version of this check
+   is built around (§2.8, decision 5). */
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "url" });
+dispatch(copyBtn(), "click");
+await drain();
+flush();
+is("the ⚙ Issue reference setting is what a press consults, not a literal",
+  clipboard.at(-1)["text/plain"].text, "https://dalet.atlassian.net/browse/RDC-77");
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "markdown" });
+
+/* ---- THE POINTER ON THE COPY BUTTON MUST NOT OFFER TO REMOVE ANYTHING. On a
+   collected link the pointer on the `+` turns it red and names removal, because
+   removal has no undo and the warning has to arrive before the click. The copy button
+   is a different action on the same issue, so `pointerOnToggle` is tested against the
+   toggle's own id and not the rail's -- and this is the check that says so. */
+is("RDC-77 is already collected, so the + reports a state rather than an action",
+  plus().attrs["data-gt-state"], "collected");
+dispatch(copyBtn(), "pointerover");
+flush();
+is("THE POINTER ON THE COPY BUTTON LEAVES THE + GREEN, not red",
+  plus().attrs["data-gt-state"], "collected");
+is("and the rail is still up, because the gap between the two buttons is inside it",
+  rail().hidden, false);
+dispatch(plus(), "pointerover");
+flush();
+is("the pointer on the + itself is what names the removal",
+  plus().attrs["data-gt-state"], "remove");
+is("and its label says which collection it would come out of",
+  plus().attrs["aria-label"], "Remove RDC-77 from Scratch");
+// NOTHING WAS ADDED OR REMOVED BY ANY OF THE ABOVE. A copy is not a collect, and the
+// section below starts from the collection it expects.
+is("and not one press in this section changed the collection",
+  JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.map((i) => i.key),
+  ["RDC-1", "RDC-77", "GLX-402"]);
+
 // ---- THE RIGHT-CLICK MENU, which had never been switched on by anything. It is
 // built, it ships OFF, and §6 item 11 asks whether the preference is ever used --
 // so until now no session and no harness had run a single line of it (§2.7).
@@ -1376,8 +1537,8 @@ flush();
 dispatch(rightClickTarget, "contextmenu", { clientX: 400, clientY: 300 });
 flush();
 is("ON, the Cart's menu appears on an issue link", menuOpen(), true);
-is("with two entries: the toggle, and the gesture it takes away",
-  menuItems(), ["Remove RDC-77 from Scratch", "Open link in new tab"]);
+is("with three entries: the toggle, and the two gestures it takes away",
+  menuItems(), ["Remove RDC-77 from Scratch", "Open link in new tab", "Copy link to RDC-77"]);
 is("it is our own UI, so the scan and the floating button skip it",
   menu().attrs["data-gt-cart-ui"], "");
 is("and it is placed at the pointer", [menu().style.left, menu().style.top], ["400px", "300px"]);
@@ -1401,6 +1562,34 @@ is("Open link in new tab gives back the gesture the interception took",
   opened.at(-1), { url: "https://dalet.atlassian.net/browse/RDC-77", target: "_blank", features: "noopener" });
 is("and it collected nothing", JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.length, 2);
 is("exactly one tab was opened", opened.length, openedBefore + 1);
+
+/* THE SECOND GIVE-BACK, added at 1.3.0. Switching this menu on costs *Copy link
+   address*; this entry is the answer to that, and it goes through the same
+   `copyOneIssue` the rail's button does -- so the bytes are item scope and the shape
+   is the one ⚙ names, with nothing restated for the menu.
+
+   THE RECEIPT IS ON THE RAIL AND NOT IN THE MENU, because every entry here closes the
+   menu (§2.9 calls a menu that stays open after a click broken). Reaching this entry
+   means right-clicking an issue link, which means the rail is up -- so the flash has
+   somewhere to land, and this is the check that says so. */
+dispatch(rightClickTarget, "contextmenu", { clientX: 10, clientY: 10 });
+flush();
+const menuCopyEntry = menu().children[2];
+is("the third entry is the copy, in the browser's own order: open before copy",
+  menuCopyEntry.textContent, "Copy link to RDC-77");
+const beforeMenuCopy = clipboard.length;
+dispatch(menuCopyEntry, "click");
+await drain();
+flush();
+is("it copies ONE issue, at item scope, through the same path the rail's button uses",
+  clipboard.at(-1)["text/plain"].text,
+  "[RDC-77](https://dalet.atlassian.net/browse/RDC-77) The linked issue's own summary");
+is("exactly one write", clipboard.length, beforeMenuCopy + 1);
+is("the menu closed itself, like every other entry", menuOpen(), false);
+is("and the receipt landed on the rail, which is up because you right-clicked a link",
+  copyBtn().textContent, "✅");
+is("it collected nothing either", JSON.parse(store["gt-jira-cart.collections"]).collections[0].items.length, 2);
+is("and opened no tab", opened.length, openedBefore + 1);
 
 // Our own rows keep the browser's menu: there is nothing to add to a cart row.
 dispatch(keyOf(rows()[0]), "contextmenu", { clientX: 10, clientY: 10 });
