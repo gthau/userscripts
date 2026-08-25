@@ -19,13 +19,13 @@ answer.
 
 | File | Checks | What it holds |
 | --- | --- | --- |
-| `smoke.mjs` | 32 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` |
+| `smoke.mjs` | 48 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` — and since 1.4.0 **`moveInList`**, the array move BOTH drags go through. It was `moveField` and it lived in `format-smoke`; it never touched a field, and once the collection's item list moved through it too (ADR §2.9.1) a pure helper two features share belongs in the pure-helpers file. The field checks came with it, plus the two a list of issues adds: a list of one, and entries that are not `{id, on}` |
 | `store-smoke.mjs` | 127 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of eight of the nine views, and `groupFor`'s **two** answers — place beside the key, read from the widest. The ninth is `rovo-smoke` |
 | `rovo-smoke.mjs` | 51 | **The ninth view, Rovo search**, and the only harness here that builds a WHOLE TREE of elements rather than stubbing `closest` per call — because the defect that opened it was the **contract check firing**, and nothing but a real tree can answer whether a warning appears. It runs `scanPage`, `checkContract`, `readSummary`, `groupFor` and `originOf` unmodified against a page whose every testid and width was measured on the live page on 2026-08-25. It holds the two things that view taught: that **a row entry without a summary entry changes nothing** (tier 0 → tier 0 → tier 1, asserted in all three states), and that the regions are **layered** — with the row name rotted the check stays quiet, with its fallback gone too the table is reported at 20 keys, and with neither region named the warning is the one the user read off the page, **42 keys**, word for word |
-| `format-smoke.mjs` | 558 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It also holds **`moveField` directly** — the middle, both ends, an out-of-range index, a string index, and both no-ops — because no harness here can drive the drag itself |
-| `boot-smoke.mjs` | 312 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued |
-| `css-smoke.mjs` | 52 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct |
+| `format-smoke.mjs` | 552 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It used to hold `moveField` directly; that function is `moveInList` now and its checks are in `smoke.mjs`. What replaced them here is **§18, a hand-made order**: that a reordered collection is what all six exports emit, and — the half that is not tautological — that a moved row keeps its new place **inside** a 📊 Report band, which is the one export whose grouping could plausibly have thrown the order away (§2.9.1) |
+| `boot-smoke.mjs` | 344 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued. **Since 1.4.0 it drives a DRAG** (§2.9.1), which this README said for two versions could not be done here: `dragstart` → `dragover` in a named half of a named row → `drop` → `dragend`, through the delegated listeners the script really registers, with a rect stubbed per row. It holds all four payload types and their bytes — including that the three external ones are the `🔗` button's, asserted against the same literals as its own press, so one issue cannot come to have two shapes; both halves of a row and the append below the last one; that a release with no drop writes nothing; that the list does **not** redraw while the pointer is down; and that a write landing mid-drag survives the drop, because `update` re-reads before it writes |
+| `css-smoke.mjs` | 61 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct. **Since 1.4.0 it holds the collection's draggable rows** (§2.9.1): the same specificity trap a FOURTH time, the transparent border both lists' rows reserve so nothing reflows under a pointer mid-drag, and the one word the grip decision comes down to — `visibility` and not `display`, so the glyph's width is held whether or not it is painted |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
 
 ## Why they cannot drift from the code
@@ -159,18 +159,30 @@ The same applies to the fake DOM: it has no cascade, no layout and no paint, whi
 why `css-smoke` exists separately and why §7 still has steps only a browser can
 answer.
 
-**NOTHING HERE CAN DRIVE A DRAG.** It follows from the line above and it is worth
-saying in its own sentence, because 1.2.0 added a third one — the field lists'
-reorder — and its cost was named *before* the feature was chosen rather than found
-afterwards (ADR §4, decision 11). `boot-smoke` has no layout, so there is no top half
-of a row to put a pointer in and no grip to pull. What stands in its place is
-everything on either side of the pointer: `moveField` is a pure function
-`format-smoke` drives directly, and the panel's rows, their ticks, the writes they
-make and the stored order the panel draws are all in `boot-smoke`. **A green run says
-nothing about whether a row can be dragged at all**, which is why ADR §7 step 31 is a
-browser step and why the cross-list refusal in it has nothing in the file to assert
-about — that refusal is the platform's own, standing because `onFieldOver` declines
-to call `preventDefault`.
+**THIS SENTENCE USED TO SAY "NOTHING HERE CAN DRIVE A DRAG", AND 1.4.0 DISPROVED
+IT.** It is left in that form because the correction is the useful part. The claim
+rested on `boot-smoke` having no layout — true — and on that being enough to make a
+drag undrivable, which it never was. `dragstart`, `dragover` and `drop` read two
+things: the element they were dispatched on, and a rect. This harness keeps the
+delegated listeners the script registers, and it already stubbed a rect on one node
+for the 1.3.0 rail. So the collection's drag (ADR §2.9.1) is driven here end to end —
+grab, hover a NAMED HALF of a named row, drop, release — and seven deliberate defects
+were reintroduced one at a time to prove those checks can fail.
+
+**What is still true, stated at the width it is actually true at:**
+
+- **The FIELD lists' drag is driven by nothing**, because it was not retro-fitted —
+  a scope decision on 2026-08-25, not a limitation. `moveInList` is a pure function
+  `smoke.mjs` drives directly, and the panel's rows, their ticks, the writes they make
+  and the stored order the panel draws are all in `boot-smoke`. ADR §7 step 31 is the
+  browser step for the rest.
+- **No harness can say whether a row is comfortable to GRAB**, or whether a long list
+  auto-scrolls when a drag reaches its edge. There is no pointer here and no paint.
+  That is ADR §7 step 39, and it is the honest residue.
+- **A refusal that is the platform's own has nothing in the file to assert about** —
+  the field lists' cross-list refusal, and a row dragged at the live list, both stand
+  because `dragover` declines to call `preventDefault`. A harness can only see the
+  code that is not written.
 
 ## The one seam, if the Cart becomes a browser extension
 
@@ -222,13 +234,16 @@ test step.
   in a real Jira row, and whether the copy button is findable at all, are ADR §7 steps
   36 and 37. The rail's own placement code is the same in both cases; what differs is
   everything around it.
-- **NO DRAG, OF ANY OF THE THREE.** It follows from the line above: with no layout
-  there is no top half of a row to put a pointer in, and no grip to pull. The grip
-  and the divider have always been in this bullet; the field lists' reorder joined
-  them at 1.2.0, and it is the one place where the cost was named *before* the
-  feature was chosen (§4, decision 11). What stands in for it is `moveField` being a
-  pure function `format-smoke` drives directly, plus §7 step 31 in a browser. **A
-  green run says nothing about whether a row can be dragged at all.**
+- **NO POINTER, SO NO GRIP AND NO DIVIDER — but the two HTML5 drags are a different
+  case, and this bullet said otherwise until 1.4.0.** The grip and the divider are
+  pointer plumbing and need real layout; nothing here can pull them. The field lists'
+  reorder and the collection's are HTML5 drag and drop, which reads an element and a
+  rect and nothing else — so `boot-smoke` drives the collection's one in full (§2.9.1)
+  and could drive the field lists' too, which was scoped out rather than ruled out.
+  What stands in for the field lists' is `moveInList` being a pure function
+  `smoke.mjs` drives directly, plus §7 step 31 in a browser. **A green run still says
+  nothing about whether a row is comfortable to grab, or whether a fifty-row list
+  scrolls at its edge** — §7 step 39.
 - **No network.** `fetch` throws, which is a case the ADR requires to be survivable
   (§7 step 20: a summary-less item must simply stay bare).
 - **No React, and no real virtualisation.** Rows do not unmount under the pointer.
@@ -273,7 +288,9 @@ and each is a single edit to `src/jira-cart.user.js` in a scratch copy:
 | --- | --- | --- |
 | **01, the preferences** | a list keeps a field's place when unticked; `on` is true only when exactly `true`; an unmentioned catalogue field is appended OFF; a duplicate collapses to its first entry; an unknown id is dropped; `reportBand1` may not be `none`; a new field arrives OFF in both defaults; an unknown tab id lands on the first tab | `store-smoke`, and five of the eight also `boot-smoke` |
 | **03, the line shapes** | the default is what 1.1.0 emitted; `markdown` drops its space with the summary; `key-summary-url` keeps its separator with its value; the table names the vocabulary's ids in its order; every shape defines both flavours; `bold` reaches 📋 Details' head and not 🔗 Links' | `format-smoke`, four of the six also `boot-smoke` |
-| **04, the field lists** | `moveField`'s middle case, its out-of-range refusal, and that it returns a **copy** rather than splicing its argument; the tail prints in stored order; an unticked field does not print; the selection reaches only its own export; the fields are read at render and never at fetch | `format-smoke`, four also `boot-smoke`, one also `tabs-smoke` |
+| **04, the field lists** | `moveInList`'s middle case, its out-of-range refusal, and that it returns a **copy** rather than splicing its argument; the tail prints in stored order; an unticked field does not print; the selection reaches only its own export; the fields are read at render and never at fetch | `smoke` for the first three since 1.4.0, otherwise `format-smoke`, four also `boot-smoke`, one also `tabs-smoke` |
+| **the collection's drag (1.4.0)** | the key link is left natively draggable; the freeze is removed; the drop forgets which half of the row it was in; the drop writes the frozen view instead of re-reading; the grip is conjured rather than reserved; the dragged row's ground is not repeated with `:hover`; the shared row rule loses its transparent border | `boot-smoke` for the first four, `css-smoke` for the last three — **run 2026-08-25, all seven caught** |
+| **the drag OUT (1.4.0)** | the drag carries nothing but the internal type; `effectAllowed` goes back to move-only; the text is a bare URL instead of the `Issue reference` shape; the rich flavour is dropped; the `text/uri-list` is dropped; the summary is left out of the payload; the freeze is never lifted after a release | `boot-smoke` — **run 2026-08-25, all seven caught.** The last one is worth knowing about: it goes red two sections later, at *letting go is what redraws it*, rather than where the defect is |
 | **05, the bands** | the two may not name one field; the swap moves the other dropdown to what this one held; the status categories come out in Atlassian's order and not alphabetically; the default pair is priority then team | `format-smoke` and `boot-smoke`, one also `tabs-smoke` |
 | **the stylesheet** | the ⚙'s state paint survives a hover | `boot-smoke`, `format-smoke` |
 

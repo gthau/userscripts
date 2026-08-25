@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.3.1
-// @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Or press the 🔗 beside it to copy that one link without opening the issue.
+// @version      1.4.0
+// @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Drag the drawer's rows to set the order a paste comes out in, or drag one straight into Slack or an editor. Or press the 🔗 beside a key to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
@@ -32,6 +32,16 @@
  *   the issue. It flashes `✅`. The `+` did not move a pixel to make room: the
  *   copy button is further from the link, on both sides. Turn it off on the
  *   ⚙ Appearance tab and the hovered rail is the single `+` it was at 1.2.0.
+ * - EVERY ROW IN THE COLLECTION DRAGS, SINCE 1.4.0. Grab a row anywhere in the
+ *   drawer -- the key included -- and drop it above or below another row to move
+ *   it. The collection's array order is what every copy emits, so this is how you
+ *   decide what a paste says first. A ⠿ appears on whichever row the pointer is
+ *   over; the key still opens the issue on a click, and the ✕ still removes it.
+ *   Pointer only, and the only undo is dragging it back.
+ * - THE SAME DRAG GOES OUT OF THE DRAWER. Drop a row into Slack, an editor or a
+ *   note and you get that issue in whatever shape `Issue reference` names -- the
+ *   same bytes the `🔗` gives, plain and rich. It is a real link drag, so a
+ *   mis-drop onto the Jira page can navigate the tab to that issue.
  * - Every collected link is tinted green on the page, including in the rows
  *   React has not built yet, so scrolling a virtualised list costs nothing and
  *   re-applies nothing.
@@ -80,13 +90,20 @@
  *   the two things the interception takes away, given back.
  *
  * What is still absent: keyboard shortcuts, multi-select, copying a row out of
- * the drawer, importing a JQL query into a collection, and any ordering or
+ * the drawer, importing a JQL query into a collection, and any SORTING or
  * grouping of the COLLECTION itself. 📊 Report groups a document built from the
- * collection; the collection's own array keeps its insertion order in every
- * format. Note that "per-row copy" left this list at 1.3.0 in one direction
- * only: copying ONE HOVERED ISSUE off the page is what the `🔗` does, and
- * copying one row out of the collection is still refused, because the
- * collection is the selection (§2.9).
+ * collection; the collection's own array is what every format emits, and since
+ * 1.4.0 that array is insertion order UNTIL YOU DRAG SOMETHING.
+ *
+ * Two entries left that list in one direction only, which is worth reading
+ * carefully before assuming either is closed. "Per-row copy" left it at 1.3.0 and
+ * again at 1.4.0, and it is now nearly gone: copying ONE HOVERED ISSUE off the page
+ * is what the `🔗` does, and since 1.4.0 DRAGGING A ROW OUT of the drawer drops
+ * that issue into another application, in the same bytes. What is still refused is
+ * a per-row copy CONTROL -- no ✕-sized 🔗 on each row, no tick boxes -- because the
+ * collection is the selection (§2.9). "Ordering" left it at 1.4.0: a hand-made
+ * order is now expressible, and a sort by key or a grouping of the drawer's own
+ * list is still not (§6 item 7).
  *
  * The reasons for all of it are in `jira-cart.user.md` beside this file. Read
  * that before changing anything here: it lists 72 rejected alternatives, and
@@ -1159,12 +1176,25 @@
   }
 
   /* THE REORDER, AS A PURE FUNCTION, and that is the point rather than the style.
-     NO HARNESS IN THIS REPOSITORY CAN DRIVE THE DRAG -- `boot-smoke` has no layout
-     and no paint, so it cannot put a pointer at the top half of a row -- so the
-     state change is kept somewhere a harness CAN reach, and only the pointer
-     plumbing ships uncovered. §7 step 31 is the browser pass that stands in for it,
-     and decision 26 is where the drag was chosen over ↑↓ buttons with this cost
-     stated rather than discovered.
+
+     BOTH DRAGS USE IT. The ⚙ screen's two field lists (§2.14) and, since 1.4.0, the
+     collection's own item list (§2.9). It was called `moveField` until 1.4.0 and it
+     never touched a field: it is an array move. A second copy of it for items would
+     have been a second off-by-one to re-derive and a second set of checks to keep in
+     step, which is the drift these harnesses exist to prevent.
+
+     THE CLAIM THAT USED TO STAND HERE IS RETIRED, and it is worth knowing what
+     replaced it. This block said no harness in this repository could drive a drag.
+     That was true when it was written. It stopped being true at 1.4.0: `boot-smoke`
+     keeps the delegated listeners it registers and lets a rect be stubbed per node,
+     so the item drag is driven there end to end -- `dragstart`, a `dragover` in a
+     NAMED HALF of a named row, and `drop` -- and the write it makes is asserted.
+     What no harness drives is the POINTER itself: whether a row is comfortable to
+     grab, and whether a long list scrolls when a drag reaches its edge. §7 step 39
+     is the browser pass for those two, and step 31 remains the one for the fields.
+
+     ITS CHECKS LIVE IN `smoke.mjs` since 1.4.0, moved there with the rename, because
+     a pure helper two features share is that file's whole subject.
 
      A NEW ARRAY, never the one passed in. `loadPrefs` hands out a fresh object on
      every read, so mutating would be harmless today and would stop being harmless
@@ -1177,7 +1207,7 @@
      down by one, which is the `to > from` correction below. Both ends are clamped,
      so an index from a stale row cannot throw on a path that ends in a preference
      write. */
-  function moveField(list, from, to) {
+  function moveInList(list, from, to) {
     // `Number.isInteger` and not `>= 0`, because a drop reads its index off a
     // dataset, where every value is a string: `"3" >= 0` is true and
     // `splice("3", 1)` would work, but `NaN` passes both comparisons and
@@ -2895,7 +2925,7 @@ ${selectors.join(",\n")} {
 
   /**
    * WHAT ONE BAND DROPDOWN WRITES, AND IT IS SOMETIMES TWO KEYS. Pure, and it is
-   * pure for the reason `moveField` is: it is the whole of a rule that a user reaches
+   * pure for the reason `moveInList` is: it is the whole of a rule that a user reaches
    * through a control, so the harness can hold the rule directly and the handler
    * stays one line.
    *
@@ -4409,10 +4439,15 @@ ${selectors.join(",\n")} {
      is write a preference, so the thing it carries is the name of the key it writes. */
   const FIELD_LIST_ATTR = "gtList";
   const FIELD_ID_ATTR = "gtField";
-  // The two transient ones, written by the drag and painted by the stylesheet:
-  // which row is being dragged, and which edge of which row it would land on.
-  const FIELD_DRAG_ATTR = "gtDragging";
-  const FIELD_DROP_ATTR = "gtDrop";
+  /* The two transient ones, written by a drag and painted by the stylesheet: which
+     row is being dragged, and which edge of which row it would land on.
+
+     THEY ARE NOT NAMED FOR THE FIELDS, because since 1.4.0 they are not the fields'.
+     The collection's item rows wear the same two attributes and the stylesheet paints
+     them the same way (§2.9.1). Everything above this line is a field row's; these two
+     belong to whatever is being dragged. */
+  const DRAG_ATTR = "gtDragging";
+  const DROP_ATTR = "gtDrop";
 
   /* THE DRAG'S PAYLOAD TYPE, AND IT IS NOT `text/plain`. Firefox will not start a
      drag whose `dataTransfer` carries nothing, so something has to be written -- and
@@ -4421,6 +4456,18 @@ ${selectors.join(",\n")} {
      which is the whole of what this payload is for. The logic reads `fieldDrag`
      rather than this, because `getData` is unreadable during `dragover`. */
   const FIELD_DRAG_TYPE = "application/x-gt-cart-field";
+
+  /* AN ITEM ROW'S ATTRIBUTE (§2.9.1, 1.4.0). `gt-key` says which issue the row is, and
+     it is what the drag carries -- an id and never an index, for the reason the block
+     above `onItemDragStart` gives. The transient pair is `DRAG_ATTR` and `DROP_ATTR`
+     above, shared with the field rows.
+
+     Its payload type is separate from the fields' for the reason the fields' is
+     separate from `text/plain`: a type is the cheapest possible refusal. Neither list
+     is ever on screen while the other is -- the ⚙ panel replaces the body -- so this
+     is belt and braces, and it costs one string. */
+  const ITEM_KEY_ATTR = "gtKey";
+  const ITEM_DRAG_TYPE = "application/x-gt-cart-item";
 
   const BODY_ID = "gt-cart-body";
   const LIVE_HEAD_ID = "gt-cart-live-head";
@@ -5048,6 +5095,18 @@ ${selectors.join(",\n")} {
 
     const itemList = el("div", "gt-cart-list");
     itemList.id = ITEM_LIST_ID;
+    /* THE REORDER'S FOUR LISTENERS, ON THE LIST AND NOT ON THE ROWS (§2.9.1).
+       The rows are replaced on every rebuild and this box never is, so delegation
+       here is the only registration that cannot go stale -- and it is what makes
+       `dragend` reach us at all. `dragover` is not optional: a drop target that
+       never calls `preventDefault` is a drop that never happens, because the
+       platform's default is to refuse. */
+    itemList.addEventListener("dragstart", (event) =>
+      guard(() => onItemDragStart(event)),
+    );
+    itemList.addEventListener("dragover", (event) => guard(() => onItemOver(event)));
+    itemList.addEventListener("drop", (event) => guard(() => onItemDrop(event)));
+    itemList.addEventListener("dragend", () => guard(() => onItemDragEnd()));
 
     const chips = el("div", "gt-cart-chips");
     chips.id = CHIPS_ID;
@@ -5559,28 +5618,45 @@ ${selectors.join(",\n")} {
 
   /* -- the field lists' drag (§2.14, decision 11).
    *
-   * NO HARNESS IN THIS REPOSITORY CAN DRIVE THIS. `boot-smoke` has no layout and no
-   * paint, so it cannot put a pointer in the top half of a row, and there is nothing
-   * in the file that could stand in for one. That is a stated cost of choosing a drag
-   * over ↑↓ buttons, and it is paid in two instalments: `moveField` is a pure
-   * function so the state change is covered, and §7 step 31 is a browser pass that
-   * covers the rest. Do not read the quiet here as coverage.
+   * NOTHING DRIVES THIS ONE, AND THE REASON IS NARROWER THAN IT USED TO SAY. This
+   * block claimed no harness in this repository COULD drive a drag. That stopped
+   * being true at 1.4.0: `boot-smoke` keeps the delegated listeners it registers and
+   * lets a rect be stubbed per node, and the collection's drag (§2.9) is driven there
+   * end to end. What is true is that nothing drives THIS drag, which is a gap in the
+   * harness rather than a property of the platform -- retro-fitting the same
+   * synthetic drag to these rows was offered on 2026-08-25 and declined as out of
+   * scope. So the cost of decision 11 is still paid in two instalments here:
+   * `moveInList` is pure so the state change is covered, and §7 step 31 is the
+   * browser pass for the rest. Do not read the quiet here as coverage.
    *
-   * WHAT IS HELD IS AN ID, NEVER AN INDEX, and that is the answer to the one hazard
-   * this drag has that the grip and the divider do not: A RE-RENDER CAN LAND IN THE
-   * MIDDLE OF IT. Every add calls `render`, an add from the page keeps working while
-   * ⚙ is up (decision 25), and another tab writing this very list re-renders us too
-   * -- so by the time the pointer comes up the row under it may be at a different
-   * index than it was at `dragstart`. Both ends are therefore resolved against the
-   * STORED LIST at drop time, and a stale index cannot exist because no index was
-   * kept. This is why the drag needs no entry in `dragging`: it owns no property that
-   * `render` puts back (§2.10, §2.11 defect 4).
+   * WHAT IS HELD IS AN ID, NEVER AN INDEX -- AND THE REASON THIS BLOCK GAVE FOR THAT
+   * WAS WRONG. Corrected 2026-08-25, when the collection's drag was designed and the
+   * same argument was put to the user, who took it apart in one sentence: A PERSON
+   * HAS ONE PAIR OF HANDS. They cannot click in another tab, or on the page's `+`,
+   * while holding a mouse button down in this one. So "every add calls `render`",
+   * "an add from the page keeps working while ⚙ is up" and "another tab writing this
+   * very list" are all hand-driven, and NONE of them can land mid-drag. Nothing
+   * writes a preference without a click, so this list's stored order cannot change
+   * while a row of it is in the air.
+   *
+   * The ONE thing in the Cart that writes with no hand on it is `runGapFill` -- a
+   * timer and a fetch -- and it writes COLLECTIONS, not preferences. It can re-render
+   * us mid-drag, and this panel survives that because it MOVES its rows rather than
+   * rebuilding them. The collection's list is rebuilt, which is why that drag needed
+   * a freeze and this one does not.
+   *
+   * So the id stays, and it is now honestly a cheap handle rather than a defence:
+   * both ends are resolved against the STORED LIST at drop time, no index is kept,
+   * and there is nothing to go stale. The drag still needs no entry in `dragging`,
+   * because it still owns no property that `render` puts back (§2.10, §2.11
+   * defect 4).
    *
    * THERE IS NO KEYBOARD PATH, AND THAT IS A DECISION RATHER THAN AN OMISSION. §6
    * item 4 states the limit: the Cart is not intended to be operated by keyboard
-   * input, and the drawer's two existing drags are pointer-only for the same reason.
-   * Adding one here would be the first keyboard-only affordance in the file and
-   * would say the limit had moved when it has not.
+   * input, and the drawer's other drags are pointer-only for the same reason -- two
+   * of them when this was written, three since 1.4.0. Adding one here would be the
+   * first keyboard-only affordance in the file and would say the limit had moved when
+   * it has not.
    */
   // Which row is being dragged, as { list, id }. It is a variable and not read back
   // out of `dataTransfer`, because `getData` is UNREADABLE during `dragover` in
@@ -5604,8 +5680,8 @@ ${selectors.join(",\n")} {
     // what it says still invalidates the element's style. With both guards a pointer
     // sitting still in one half of one row writes nothing at all.
     for (const row of panel.querySelectorAll(".gt-cart-field")) {
-      if (row !== except && row.dataset[FIELD_DROP_ATTR]) {
-        row.dataset[FIELD_DROP_ATTR] = "";
+      if (row !== except && row.dataset[DROP_ATTR]) {
+        row.dataset[DROP_ATTR] = "";
       }
     }
   }
@@ -5625,7 +5701,7 @@ ${selectors.join(",\n")} {
       );
       event.dataTransfer.effectAllowed = "move";
     }
-    row.dataset[FIELD_DRAG_ATTR] = "true";
+    row.dataset[DRAG_ATTR] = "true";
   }
 
   function onFieldDragEnd() {
@@ -5633,7 +5709,7 @@ ${selectors.join(",\n")} {
     clearFieldDrop();
     const panel = document.getElementById(PREFS_ID);
     for (const row of panel?.querySelectorAll(".gt-cart-field") ?? []) {
-      if (row.dataset[FIELD_DRAG_ATTR]) row.dataset[FIELD_DRAG_ATTR] = "";
+      if (row.dataset[DRAG_ATTR]) row.dataset[DRAG_ATTR] = "";
     }
   }
 
@@ -5662,7 +5738,7 @@ ${selectors.join(",\n")} {
     // indicator that follows it cannot get out of step with itself.
     const edge = dropsAfter(row, event) ? "after" : "before";
     clearFieldDrop(row);
-    if (row.dataset[FIELD_DROP_ATTR] !== edge) row.dataset[FIELD_DROP_ATTR] = edge;
+    if (row.dataset[DROP_ATTR] !== edge) row.dataset[DROP_ATTR] = edge;
   }
 
   function onFieldDrop(event) {
@@ -5681,12 +5757,177 @@ ${selectors.join(",\n")} {
     // flight, which is a build having been swapped mid-gesture. Nothing to write.
     if (from < 0 || onto < 0) return;
 
-    // `onto + 1` is the gap BELOW the row, which is what "after" means. `moveField`
+    // `onto + 1` is the gap BELOW the row, which is what "after" means. `moveInList`
     // owns the off-by-one that removing the dragged row first creates.
-    savePrefs({ [key]: moveField(stored, from, onto + (dropsAfter(row, event) ? 1 : 0)) });
+    savePrefs({ [key]: moveInList(stored, from, onto + (dropsAfter(row, event) ? 1 : 0)) });
   }
 
-  /* -- the two drags.
+  /* -- the collection's own drag (§2.9.1), added at 1.4.0.
+   *
+   * THE SAME MECHANISM AS THE FIELD LISTS, DELIBERATELY: HTML5 drag and drop, an id
+   * rather than an index, and which half of the row the pointer is in decides which
+   * gap it lands in. Where it differs from §2.14's is exactly where the two lists
+   * differ, and there are three places.
+   *
+   * ONE. THIS LIST IS REBUILT AND THE PANEL'S IS NOT. `renderCollection` calls
+   * `replaceChildren`; the ⚙ panel moves its existing rows instead. So this drag
+   * cannot own nothing the way the field drag does -- a rebuild would take the row
+   * out from under the pointer. `renderCollection` freezes instead, and the block
+   * there names the one thing that can write while a hand is on the mouse.
+   *
+   * TWO. IT WRITES THE COLLECTION AND NOT A PREFERENCE, so it goes through `update`,
+   * the one read-modify-write there is (§2.5). Both ends are resolved BY KEY against
+   * the array that read returns, so what lands is a move of the stored list and not
+   * of the list that happened to be on screen when the drag began.
+   *
+   * THREE. THIS LIST SCROLLS AND CAN BE LONG. The field lists are eight rows and
+   * always fit; a collection can be fifty. Nothing here scrolls the list when a drag
+   * reaches its edge, on purpose: the platform does that itself, and §7 step 39 is
+   * where that gets measured rather than assumed. If it comes back not working, this
+   * is the block that grows.
+   *
+   * NO KEYBOARD PATH, which is §6 item 4 and not an omission. This is the fourth
+   * pointer-only drag in the drawer, and the limit says all four move together.
+   */
+  let itemDrag = null;
+
+  function itemRowOf(target) {
+    return target instanceof Element ? target.closest(".gt-cart-item") : null;
+  }
+
+  function clearItemDrop(except) {
+    const list = document.getElementById(ITEM_LIST_ID);
+    if (!list) return;
+    // Read before writing, and leave the row that is about to be marked alone. Both
+    // guards are the field rows' and they matter more here: `dragover` fires tens of
+    // times a second, and this list can be fifty rows rather than eight.
+    for (const row of list.querySelectorAll(".gt-cart-item")) {
+      if (row !== except && row.dataset[DROP_ATTR]) row.dataset[DROP_ATTR] = "";
+    }
+  }
+
+  function onItemDragStart(event) {
+    const row = itemRowOf(event.target);
+    if (!row) return;
+    // THE KEY, NEVER THE INDEX. The index is in fact stable here -- nothing can add
+    // or remove an item while a mouse button is held down -- but the key costs the
+    // same and it is what the drop resolves against, so there is no second thing to
+    // keep in step. See the correction in §2.14's own block: the cross-tab race that
+    // one gives as its reason cannot happen either.
+    itemDrag = { key: row.dataset[ITEM_KEY_ATTR] };
+    if (event.dataTransfer) {
+      // Ours, and inert everywhere else. `onItemOver` reads the variable rather than
+      // this, because `getData` is unreadable during `dragover`.
+      event.dataTransfer.setData(ITEM_DRAG_TYPE, itemDrag.key);
+      writeDragPayload(event.dataTransfer, itemDrag.key);
+      // NOT "move". An external target that means to COPY will refuse a move-only
+      // drag, and taking the row out of the collection is never what a drop into
+      // Notepad meant. Our own `dragover` still sets `dropEffect = "move"`, so
+      // inside this list the gesture and its cursor are unchanged -- what
+      // `copyMove` adds is that the cursor tells the truth on the way out (§2.9.1).
+      event.dataTransfer.effectAllowed = "copyMove";
+    }
+    row.dataset[DRAG_ATTR] = "true";
+  }
+
+  /* THE ROW IS ALSO A LINK ON THE WAY OUT (§2.9.1, and it is the user's correction to
+     the first draft of it). `setData` takes one payload PER TYPE, so the same drag
+     that reorders inside the drawer can hand an external application something worth
+     dropping -- which is what the key link's own native drag did before the whole row
+     became draggable, and what taking it away would have cost for no reason.
+
+     THE BYTES ARE THE `🔗` BUTTON'S, from the same call. One issue leaving the Cart
+     has ONE shape wherever it leaves from, and that shape is the `Issue reference`
+     setting rather than a literal in here -- the exact defect §4 rejected when it
+     refused "a fixed shape for the copy button". The five paste rules of §2.14 cover
+     these bytes already, because they are the same bytes.
+
+     THE SOURCE IS THE STORE, not the row on screen. The row's summary is drawn from
+     the same place, but the store is what a copy reads and a drag out is a copy.
+
+     `text/uri-list` IS THE ONE WITH A COST, and the user took it with the cost named:
+     it makes this a real link drag, which is the widest set of targets -- and it
+     means a drop onto the Jira page itself can make the browser navigate the tab to
+     that issue, losing the page the live list is mirroring. That hazard existed
+     before 1.4.0 through the anchor; what is new is that the whole row is the target
+     now, so a mis-drop is easier to make. §7 step 39 is where it gets looked at. */
+  function writeDragPayload(dataTransfer, key) {
+    const item = activeCollection(load()).items.find((one) => one.key === key);
+    if (!item) return;
+    const entry = EXPORTS.find((one) => one.single);
+    // An absent summary is not an empty one: each shape drops its separator with the
+    // value, so a bare key is a correct line (§2.8). This is `copyOneIssue`'s own
+    // shape of call, and the only difference is where the item comes from.
+    const payload = format(entry?.kind, [{ key, ...(item.summary ? { summary: item.summary } : {}) }], "item");
+    if (!payload) return;
+    dataTransfer.setData("text/plain", payload.text);
+    if (payload.html) dataTransfer.setData("text/html", payload.html);
+    dataTransfer.setData("text/uri-list", issueUrl(key));
+  }
+
+  function onItemDragEnd() {
+    itemDrag = null;
+    clearItemDrop();
+    const list = document.getElementById(ITEM_LIST_ID);
+    for (const row of list?.querySelectorAll(".gt-cart-item") ?? []) {
+      if (row.dataset[DRAG_ATTR]) row.dataset[DRAG_ATTR] = "";
+    }
+    // THE FREEZE IS LIFTED HERE, so this render is not decoration. `update` schedules
+    // its own after a drop, but a drag that ends WITHOUT one -- Escape, or a release
+    // off the edge of the list -- writes nothing, and the list would stay frozen
+    // until something else happened to change.
+    scheduleRender();
+  }
+
+  function onItemOver(event) {
+    const row = itemRowOf(event.target);
+    /* Returning without `preventDefault` leaves the platform's own refusal standing,
+       so the cursor says no and `drop` never fires. That is what refuses everything
+       this list is not for -- an issue link dragged in off the page, a file, a field
+       row. Adding by drop is §6 item 6 and is not this feature. */
+    if (!row || !itemDrag) return;
+    event.preventDefault();
+    // Or the cursor offers a COPY, which is what the platform assumes by default and
+    // is a promise nothing here keeps: there is one row and it moves.
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    const edge = dropsAfter(row, event) ? "after" : "before";
+    clearItemDrop(row);
+    if (row.dataset[DROP_ATTR] !== edge) row.dataset[DROP_ATTR] = edge;
+  }
+
+  function onItemDrop(event) {
+    const row = itemRowOf(event.target);
+    if (!row || !itemDrag) return;
+    // Or the browser follows the link it believes it is dropping, and navigates the
+    // tab away from Jira.
+    event.preventDefault();
+
+    const moved = itemDrag.key;
+    const onto = row.dataset[ITEM_KEY_ATTR];
+    const after = dropsAfter(row, event);
+    clearItemDrop();
+
+    const written = update((blob) => {
+      const collection = blob.collections[0];
+      const from = collection.items.findIndex((item) => item.key === moved);
+      const at = collection.items.findIndex((item) => item.key === onto);
+      // Neither key can be gone: removing an item takes a click, and a hand that is
+      // holding this row is not clicking anything. The guard is here because
+      // `findIndex` answers -1, and a -1 that reached a splice would move the wrong
+      // row -- the same shape of "a move nobody asked for" that `moveInList` refuses
+      // a non-integer for.
+      if (from < 0 || at < 0) return;
+      // `at + 1` is the gap BELOW the row, which is what "after" means; below the
+      // last row that is `items.length`, the append. `moveInList` owns the off-by-one
+      // that removing the dragged row first creates.
+      collection.items = moveInList(collection.items, from, at + (after ? 1 : 0));
+    });
+    if (written) logger.debug(`moved ${moved} ${after ? "after" : "before"} ${onto}`);
+  }
+
+  /* -- the two POINTER drags: the grip and the divider. There are four drags in the
+   * drawer since 1.4.0 and only these two are built this way; the field lists' and
+   * the collection's are HTML5 drag and drop, above.
    *
    * A pointer drag WRITES THE VALUE DIRECTLY and holds it in a variable that
    * outranks the stored one, because `render` can fire in the middle of a drag --
@@ -6323,16 +6564,40 @@ ${selectors.join(",\n")} {
     const list = document.getElementById(ITEM_LIST_ID);
     if (!list) return;
 
-    // Collection rows are in ARRAY ORDER, which is insertion order, WHICH IS THE
-    // ORDER A COPY EMITS. Newest-first would read better and would disagree with
-    // the paste, which is a worse thing to be (§2.9).
+    /* THE FREEZE, ADDED AT 1.4.0 WITH THE REORDER (§2.9.1). While a row is being
+       dragged this list is left exactly as it stands, and `itemSignature` is
+       deliberately NOT updated -- so the render that follows `dragend` rebuilds from
+       whatever storage holds by then, and nothing is lost, only deferred.
+
+       WHAT IT PROTECTS AGAINST IS GAP-FILL, and naming it matters because the
+       obvious answer is wrong. It is NOT another tab: a person has one pair of
+       hands, and they cannot click in another tab while holding a mouse button down
+       in this one, so nothing a HAND does anywhere can land mid-drag. `runGapFill`
+       needs no hand. It is a timer and a fetch, it writes a summary or marks a key
+       unreadable, and either changes the signature below -- which would call
+       `replaceChildren` and destroy the row the pointer is holding.
+
+       It buys a second thing for free. A `dragend` fired on a node that has already
+       been detached does not reach this list's delegated listener, so `itemDrag`
+       would never be cleared and every later drag would start stale. With the source
+       row still in the tree, that cannot happen. */
+    if (itemDrag) return;
+
+    // Collection rows are in ARRAY ORDER. That was insertion order until 1.4.0 and
+    // it is now insertion order UNTIL SOMETHING IS MOVED, because the reorder writes
+    // this array. WHAT IT HAS ALWAYS BEEN IS THE ORDER A COPY EMITS, and that is the
+    // half that must not move: newest-first would read better in the drawer and
+    // would disagree with the paste, which is a worse thing to be (§2.9).
     const rows = collection.items.map((item) => ({
       key: item.key,
       summary: item.summary ?? "",
       failed: unreadable.has(item.key),
     }));
 
-    const signature = JSON.stringify([rows, collection.name]);
+    // `writable` is in the signature because it is in the ROWS: a store that cannot
+    // be written draws rows that cannot be dragged, and nothing else in this list
+    // would change to trigger the rebuild that puts that right.
+    const signature = JSON.stringify([rows, collection.name, state.writable]);
     if (signature === itemSignature) return;
     itemSignature = signature;
 
@@ -6351,13 +6616,37 @@ ${selectors.join(",\n")} {
     }
 
     for (const row of rows) {
-      list.append(itemRow(row, collection.name));
+      list.append(itemRow(row, collection.name, state.writable));
     }
     list.scrollTop = top;
   }
 
-  function itemRow(row, collectionName) {
+  function itemRow(row, collectionName, writable) {
     const node = el("div", "gt-cart-item");
+    node.dataset[ITEM_KEY_ATTR] = row.key;
+
+    /* THE WHOLE ROW IS THE DRAG (§2.9.1), and the key link is opted out of its own.
+       An `<a href>` is draggable by default, so without the `draggable="false"` on
+       the key below, the most obvious place to grab a row -- the key -- would start
+       the browser's link drag and the reorder would look broken exactly
+       where it is most likely to be tried. Opting the anchor out does not kill the
+       gesture: the platform walks up to the nearest draggable ancestor, which is this
+       row.
+
+       WHAT THIS COSTS IS ONE THING AND IT WAS TWO. Selecting a summary with the
+       mouse goes, to the `user-select: none` the drag needs -- without it the browser
+       offers the text selection to drag instead of the row. The second cost was
+       going to be the key link's native drag-out, which used to drop that issue's URL
+       into Slack or an editor for free. **It is not paid**: `setData` takes one
+       payload per type, so `writeDragPayload` hands the platform the `🔗` button's
+       own bytes and the drag out is better than the one it replaced -- the
+       `Issue reference` shape instead of a bare URL, with a rich flavour beside it.
+       The user caught that; the first draft of this shipped the loss as a cost.
+
+       A row is draggable only when the store is writable, which is the same rule the
+       ⌫ and ↻ in the heading follow: a control that cannot do what it offers does
+       not offer it. */
+    node.setAttribute("draggable", String(writable));
     // The whole sentence is one hover away, and it MIRRORS ATLASSIAN'S OWN
     // MESSAGE, which is required: the API conflates absent and forbidden, so the
     // UI may never claim deletion (§2.6, §2.9). It is on this row and not on a
@@ -6369,10 +6658,24 @@ ${selectors.join(",\n")} {
             "Jira returned nothing for this key: it does not exist, or you do not have permission to see it.",
           ]
         : []),
+      ...(writable ? ["Drag the row to reorder it"] : []),
       `✕ removes it from ${collectionName}`,
     ]);
 
-    node.append(keyLink(row.key));
+    /* The grip is decoration -- the whole row is the target, so a name read aloud
+       beside every key would be twenty repetitions of nothing -- and it is ALWAYS in
+       the row, painted only on hover. That is the decision, and the reserved width is
+       what it costs: a glyph that ARRIVED with the pointer would re-ellipsise the
+       summary under the hand about to grab it, and reflow under a moving pointer is
+       the defect §2.14 spent a day removing from the drawer's foot. So the space is
+       held always and only `visibility` changes (§2.9.1). */
+    const grip = el("span", "gt-cart-grip", "⠿");
+    grip.setAttribute("aria-hidden", "true");
+    node.append(grip);
+
+    const key = keyLink(row.key);
+    key.setAttribute("draggable", "false");
+    node.append(key);
     node.append(el("span", "gt-cart-row-summary", row.summary));
 
     // The short form keeps a twenty-item list scannable and the honest full version
@@ -7664,7 +7967,16 @@ ${D} div.gt-cart-item {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 3px 6px;
+  /* 2px 5px AND A TRANSPARENT 1px BORDER, which comes to the 3px 6px box these rows
+     had before 1.4.0. The border is where the item list's drop indicator paints, and
+     it is on all four sides and always present so that a row does not change height
+     at the moment the indicator appears -- a reflow under a pointer that is mid-drag,
+     which is the field rows' own rule and the defect §2.14 spent a day removing from
+     the foot. The live rows take it too, and paint nothing into it: one rule keeps
+     the two lists the same size, which is worth more than saving a declaration on a
+     list that cannot be dragged. */
+  padding: 2px 5px;
+  border: 1px solid transparent;
   border-radius: 4px;
 }
 /* Everything except the key is the toggle, so the button is what fills the row
@@ -7687,6 +7999,65 @@ ${D} button.gt-cart-row-body {
 ${D} div.gt-cart-row:hover,
 ${D} div.gt-cart-item:hover {
   background: var(--gt-cart-hover);
+}
+
+/* -- THE COLLECTION'S ROWS ARE DRAGGABLE (§2.9.1), and everything below is the
+   field rows' visual language reused rather than a second one invented.
+
+   1px between rows, and NOT the 8px this drawer uses elsewhere: the gap is where the
+   indicator is drawn, and rows far enough apart to read as separate things make it
+   ambiguous which gap the line belongs to. It is a margin on the second row onward
+   rather than a gap on the list, because the list is a block container that also
+   holds the empty-state paragraph, and turning it into a flex column to gain one
+   pixel would change how that paragraph and the scroller behave. */
+${D} div.gt-cart-item + div.gt-cart-item {
+  margin-block-start: 1px;
+}
+${D} div.gt-cart-item[draggable="true"] {
+  cursor: grab;
+  /* Without this a drag across the summary selects its text instead, and the
+     selection is then what the browser offers to drag. It costs mouse selection of a
+     summary, which §2.9.1 accepts as the price of the whole row being the target. */
+  user-select: none;
+}
+/* THE DRAGGED ROW, and the selector is repeated with :hover for the reason the field
+   rows, the ⚙ and the selected tab all repeat theirs: the plain hover rule above is
+   the same specificity, so this would win on source order alone -- and the pointer is
+   by definition over this row while it is being dragged. That trap has now been hit
+   three times in this sheet and the fix is one selector, never a note. */
+${D} div.gt-cart-item[data-gt-dragging="true"],
+${D} div.gt-cart-item[data-gt-dragging="true"]:hover {
+  cursor: grabbing;
+  background: var(--gt-cart-selected-bg);
+}
+/* The same token the selected tab, the active chip, the open ⚙ and the field rows'
+   own indicator wear: this is the Cart's one word for "this is the one". */
+${D} div.gt-cart-item[data-gt-drop="before"] {
+  border-block-start-color: var(--gt-cart-selected-text);
+}
+${D} div.gt-cart-item[data-gt-drop="after"] {
+  border-block-end-color: var(--gt-cart-selected-text);
+}
+/* THE GRIP IS RESERVED ALWAYS AND PAINTED ON HOVER -- visibility, never display,
+   and that is the whole decision (§2.9). The row is tight and the summary already
+   ellipsises, so the glyph is quiet until the pointer arrives; but taking its width
+   away when it is quiet would re-ellipsise the summary under the hand about to grab
+   the row. So the space is held and only the paint changes (§2.9.1). A row that cannot be
+   dragged holds the same space and never paints, which keeps a read-only store's
+   rows the same size as a writable one's. */
+${D} div.gt-cart-item span.gt-cart-grip {
+  visibility: hidden;
+  font-size: 11px;
+}
+${D} div.gt-cart-item[draggable="true"]:hover span.gt-cart-grip,
+${D} div.gt-cart-item[data-gt-dragging="true"] span.gt-cart-grip {
+  visibility: visible;
+}
+/* The key is the one thing in the row that is not the drag: it is a link, it opts out
+   of draggable in itemRow, and its cursor has to say so over a row that is
+   otherwise saying grab. */
+${D} div.gt-cart-item a.gt-cart-row-key {
+  cursor: pointer;
 }
 /* THE DRAWER OWNS ITS OWN FOCUS APPEARANCE. The Cart is not in a shadow root, so
    Atlassian's stylesheet has every right to style a focused button inside it -- the

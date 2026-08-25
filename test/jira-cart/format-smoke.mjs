@@ -33,7 +33,7 @@ const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys",
                "detailBit","detailBits","detailChip","formatDetails","byLabel","bandFor","bandPatch","bandGroups",
                "reportGroups","formatReport",
                "shapeFor","bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine",
-               "clamp","defaultFieldList","enabledFields","moveField"];
+               "clamp","defaultFieldList","enabledFields"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
 // because section 12 below asserts things ABOUT these values -- that no ground is
 // saturated, that no colour appears without one -- and a copy would let the file
@@ -990,34 +990,12 @@ is("the whole catalogue ticked draws all eight, and the separator only between t
   withFields("detailsFields", CATALOGUE_IDS, "details", [TEAMED], "item").text
     .split(" — ")[1].split(" · ").length, 8);
 
-// -- 16j. `moveField` DIRECTLY, because no harness in this repository can drive the
-// drag: `boot-smoke` has no layout and no paint, so it cannot put a pointer in the
-// top half of a row. This is the half of the cost of decision 11 that CAN be paid
-// here; §7 step 31 is the browser pass that pays the rest.
-const L = ["a", "b", "c", "d"].map((id) => ({ id, on: false }));
-const ids = (list) => list.map((one) => one.id);
-// `to` is the GAP the row lands in, so "after the last row" is `list.length`.
-is("moveField · the middle, downward", ids(f.moveField(L, 1, 3)), ["a", "c", "b", "d"]);
-is("moveField · the middle, upward", ids(f.moveField(L, 2, 0)), ["c", "a", "b", "d"]);
-is("moveField · the first row to the very end", ids(f.moveField(L, 0, 4)), ["b", "c", "d", "a"]);
-is("moveField · the last row to the very front", ids(f.moveField(L, 3, 0)), ["d", "a", "b", "c"]);
-// Dropping a row on its own top half and on its own bottom half are the same
-// no-op, and they arrive as two different numbers -- which is the off-by-one.
-is("moveField · dropped above itself is a no-op", ids(f.moveField(L, 1, 1)), ["a", "b", "c", "d"]);
-is("moveField · dropped below itself is the same no-op", ids(f.moveField(L, 1, 2)), ["a", "b", "c", "d"]);
-is("moveField · an index past the end is refused, not clamped into a move",
-  ids(f.moveField(L, 9, 0)), ["a", "b", "c", "d"]);
-is("moveField · a negative index is refused too", ids(f.moveField(L, -1, 0)), ["a", "b", "c", "d"]);
-// A dataset carries strings. `"1" >= 0` is true and `splice("1", 1)` works, but
-// `Number("x")` is NaN, which passes both comparisons and would splice the FIRST row.
-is("moveField · a string index is refused, because a dataset carries strings",
-  ids(f.moveField(L, "1", 3)), ["a", "b", "c", "d"]);
-is("moveField · and NaN is refused rather than moving the first row",
-  ids(f.moveField(L, NaN, 3)), ["a", "b", "c", "d"]);
-is("moveField · a target past the end lands at the end", ids(f.moveField(L, 0, 99)), ["b", "c", "d", "a"]);
-is("moveField · a target below zero lands at the front", ids(f.moveField(L, 3, -5)), ["d", "a", "b", "c"]);
-is("moveField · it never mutates the list it was given", ids(L), ["a", "b", "c", "d"]);
-is("and it returns a NEW array even when it refuses", f.moveField(L, 9, 0) !== L, true);
+/* 16j WAS `moveField` DIRECTLY, and it left this file at 1.4.0 with the rename.
+   The function is `moveInList` now and it never was about fields -- it is an array
+   move, and the collection's own item drag (§2.9) goes through the same one. Its
+   checks are in `smoke.mjs`, which is where the pure helpers live. What this file
+   still owns about ordering is section 18 at the foot: that the ARRAY is what the
+   six formats emit, which is the promise a hand-made order now leans on. */
 
 is("enabledFields keeps the stored order and drops the unticked",
   f.enabledFields([{ id: "b", on: true }, { id: "a", on: false }, { id: "c", on: true }]), ["b", "c"]);
@@ -1414,6 +1392,53 @@ for (const key of ["reportBand1", "reportBand2"]) {
     is(`no press on ${key} from ${from} can produce a duplicate`, bad, []);
   }
 }
+
+// ---- 18. A HAND-MADE ORDER, AND WHAT IT REACHES (ADR §2.9, 1.4.0)
+//
+// The drag writes the collection's array and nothing else. That is only worth
+// anything if the array is what comes out, so this section drags a row by hand --
+// by moving the fixture, which is exactly what `onItemDrop` writes -- and asks each
+// export what changed.
+const ORDERED = [THREE[2], THREE[0], THREE[1]];   // GLX-402 dragged to the front
+for (const kind of ["links", "names", "keys", "jql"]) {
+  // Deduped in place: a Links line names its key twice, once as the label and once
+  // inside the URL, and what is being asserted is the ORDER of the three.
+  is(`${kind} follows the array, so a reorder is a reorder`,
+    [...new Set(f.format(kind, ORDERED, "collection").text.match(/[A-Z]+-\d+/g))],
+    ["GLX-402", "RDC-14817", "RDC-23716"]);
+}
+is("📋 Details follows it too, and it is the format with the most on each line",
+  f.format("details", [DETAILED[2], DETAILED[0], DETAILED[1]], "collection")
+    .text.split("\n").map((l) => l.match(/[A-Z]+-\d+/)[0]),
+  ["GLX-402", "RDC-1513", "RDC-28369"]);
+// The flat four are close to tautological -- every renderer maps over the array --
+// and they are here because §2.9's oldest promise about this list is that array
+// order is what a copy emits, and 1.4.0 is the version where that array stopped
+// being insertion order.
+//
+// THIS ONE IS NOT TAUTOLOGICAL. 📊 Report sorts items into bands, so a hand-made
+// order could plausibly be thrown away by the grouping. It is not: §2.15 limit 4
+// says nothing sorts by the collection's order ACROSS bands, and §6 item 7 says the
+// order survives INSIDE each one. Section 14 above proves insertion order survives
+// a band; this proves a MOVED order does, which is a different claim now that the
+// two can differ.
+const BAND_ORDER = (text, band) =>
+  text.split(band)[1].split("\n").filter((l) => l.startsWith("- "))
+    .map((l) => l.match(/RDC-\d/)[0]);
+is("a moved row moves inside its report band, and only inside it",
+  BAND_ORDER(f.format("report", [REPORT[3], REPORT[1], REPORT[0], REPORT[2], REPORT[4], REPORT[5]],
+    "collection").text, "*Planning*"),
+  ["RDC-4", "RDC-2"]);
+is("and section 14's own order is still what the unmoved array gives",
+  BAND_ORDER(report.text, "*Planning*"), ["RDC-2", "RDC-4"]);
+// The bands themselves are NOT the array's to decide: RDC-4 was dragged to the very
+// front of the collection and is still under P1, because a band sorts by its own
+// name (§2.15). A reorder changes what a paste says first WITHIN a heading, and
+// never which heading a row is under.
+is("dragging a row to the front does not move it between bands",
+  f.format("report", [REPORT[3], ...REPORT.filter((i) => i.key !== "RDC-4")], "collection")
+    .text.split("\n").filter((l) => /^\*\*/.test(l)),
+  ["**P0**", "**P1**", "**P2**", `**${f.NO_PRIORITY}**`]);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

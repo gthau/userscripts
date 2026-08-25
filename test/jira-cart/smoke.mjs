@@ -27,7 +27,9 @@ const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const ISSUE_PATH_RE = /^\/browse\/([A-Za-z][A-Za-z0-9]*-\d+)(?:\/|$)/;
 const location = { href: "https://dalet.atlassian.net/browse/RDC-1" };
 const crypto = { randomUUID: () => "uuid-fixed" };
-const names = ["cleanText", "stripKeyPrefix", "dropEnterKeyHint", "keyFromHref", "normaliseCollections", "buildCollectedCss"];
+// `clamp` is here for `moveInList`, which calls it, and not for itself.
+const names = ["cleanText", "stripKeyPrefix", "dropEnterKeyHint", "keyFromHref", "normaliseCollections", "buildCollectedCss",
+               "clamp", "moveInList"];
 const code = names.map(extract).join("\n");
 const make = new Function("SAFE_KEY_RE", "ISSUE_PATH_RE", "location", "crypto", `${code}; return {${names.join(",")}};`);
 const f = make(SAFE_KEY_RE, ISSUE_PATH_RE, location, crypto);
@@ -85,6 +87,53 @@ const css = f.buildCollectedCss(["RDC-1", "rdc-2", "not a key"]);
 is("only safe keys reach the sheet", /rdc-2|not a key/.test(css), false);
 is("four anchorings", (css.match(/a\[href/g) || []).length, 4);
 is("empty is a comment", /^\/\*/.test(f.buildCollectedCss([])), true);
+
+/* moveInList -- THE ARRAY MOVE BOTH DRAGS USE.
+   It was `moveField` and it lived in `format-smoke` until 1.4.0, on the ground that
+   the field lists' emitted order was what it was about. It is not: it never touched a
+   field, and since 1.4.0 the collection's own item list moves through it too (§2.9).
+   A pure helper two features share belongs in the pure-helpers harness, which is this
+   file. The checks below are the same ones, renamed, plus the two that matter to a
+   list of ISSUES rather than a list of eight fields.
+
+   `to` is the GAP the row lands in and not a destination index, so "after the last
+   row" is `list.length`. That is what keeps the caller's arithmetic to
+   `index + (after ? 1 : 0)` and it is where the off-by-one lives. */
+const L = ["a", "b", "c", "d"].map((id) => ({ id, on: false }));
+const ids = (list) => list.map((one) => one.id);
+is("moveInList · the middle, downward", ids(f.moveInList(L, 1, 3)), ["a", "c", "b", "d"]);
+is("moveInList · the middle, upward", ids(f.moveInList(L, 2, 0)), ["c", "a", "b", "d"]);
+is("moveInList · the first row to the very end", ids(f.moveInList(L, 0, 4)), ["b", "c", "d", "a"]);
+is("moveInList · the last row to the very front", ids(f.moveInList(L, 3, 0)), ["d", "a", "b", "c"]);
+// Dropping a row on its own top half and on its own bottom half are the same no-op,
+// and they arrive as two different numbers -- which is the off-by-one.
+is("moveInList · dropped above itself is a no-op", ids(f.moveInList(L, 1, 1)), ["a", "b", "c", "d"]);
+is("moveInList · dropped below itself is the same no-op", ids(f.moveInList(L, 1, 2)), ["a", "b", "c", "d"]);
+is("moveInList · an index past the end is refused, not clamped into a move",
+  ids(f.moveInList(L, 9, 0)), ["a", "b", "c", "d"]);
+is("moveInList · a negative index is refused too", ids(f.moveInList(L, -1, 0)), ["a", "b", "c", "d"]);
+// A dataset carries strings. `"1" >= 0` is true and `splice("1", 1)` works, but
+// `Number("x")` is NaN, which passes both comparisons and would splice the FIRST row.
+is("moveInList · a string index is refused, because a dataset carries strings",
+  ids(f.moveInList(L, "1", 3)), ["a", "b", "c", "d"]);
+is("moveInList · and NaN is refused rather than moving the first row",
+  ids(f.moveInList(L, NaN, 3)), ["a", "b", "c", "d"]);
+is("moveInList · a target past the end lands at the end", ids(f.moveInList(L, 0, 99)), ["b", "c", "d", "a"]);
+is("moveInList · a target below zero lands at the front", ids(f.moveInList(L, 3, -5)), ["d", "a", "b", "c"]);
+is("moveInList · it never mutates the list it was given", ids(L), ["a", "b", "c", "d"]);
+is("and it returns a NEW array even when it refuses", f.moveInList(L, 9, 0) !== L, true);
+/* THE TWO THE COLLECTION ADDED. A field list is eight rows of `{ id, on }`; an item
+   list is any length and its entries are issues, so the helper has to be indifferent
+   to what it is moving and to how many there are -- neither of which the field
+   checks above could ever have shown, because eight is not one and `{id, on}` is not
+   an issue. */
+const one = [{ key: "RDC-1" }];
+is("moveInList · a list of one is every no-op there is",
+  [f.moveInList(one, 0, 0), f.moveInList(one, 0, 1)].map((l) => l.map((i) => i.key)),
+  [["RDC-1"], ["RDC-1"]]);
+is("moveInList · it moves whatever the entries are, and an item is not a field",
+  f.moveInList([{ key: "A", summary: "s" }, { key: "B" }, { key: "C" }], 2, 0).map((i) => i.key),
+  ["C", "A", "B"]);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
