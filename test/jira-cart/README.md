@@ -5,12 +5,12 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**1,137 checks across seven files. No framework, no `package.json`, no dependencies.**
+**1,372 checks across eight files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
 There is nothing to install because there is nothing to install *for*: the thing
-under test is one file that a browser runs, and these are seven scripts that read it.
+under test is one file that a browser runs, and these are eight scripts that read it.
 That is deliberate and it is the same argument §2.13 of the ADR makes about the
 duplicated helpers — a build step is a thing that can break between you and the
 answer.
@@ -19,13 +19,13 @@ answer.
 
 | File | Checks | What it holds |
 | --- | --- | --- |
-| `smoke.mjs` | 48 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` — and since 1.4.0 **`moveInList`**, the array move BOTH drags go through. It was `moveField` and it lived in `format-smoke`; it never touched a field, and once the collection's item list moved through it too (ADR §2.9.1) a pure helper two features share belongs in the pure-helpers file. The field checks came with it, plus the two a list of issues adds: a list of one, and entries that are not `{id, on}` |
+| `smoke.mjs` | 64 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` — and since 1.4.0 **`moveInList`**, the array move BOTH drags go through. It was `moveField` and it lived in `format-smoke`; it never touched a field, and once the collection's item list moved through it too (ADR §2.9.1) a pure helper two features share belongs in the pure-helpers file. The field checks came with it, plus the two a list of issues adds: a list of one, and entries that are not `{id, on}`. **Since 1.6.0 it also holds `keysFromUriList`** (ADR §2.9.3) — the one parser all three of the drop feature's sources go through: CRLF and bare LF, RFC 2483 comment lines, a relative line, the same-origin rule that stops another instance's URL being retargeted at this one, deduplication, and the two things that must yield NOTHING — prose that spells a key, and our own `text/plain` line |
 | `store-smoke.mjs` | 127 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of eight of the nine views, and `groupFor`'s **two** answers — place beside the key, read from the widest. The ninth is `rovo-smoke` |
 | `rovo-smoke.mjs` | 51 | **The ninth view, Rovo search**, and the only harness here that builds a WHOLE TREE of elements rather than stubbing `closest` per call — because the defect that opened it was the **contract check firing**, and nothing but a real tree can answer whether a warning appears. It runs `scanPage`, `checkContract`, `readSummary`, `groupFor` and `originOf` unmodified against a page whose every testid and width was measured on the live page on 2026-08-25. It holds the two things that view taught: that **a row entry without a summary entry changes nothing** (tier 0 → tier 0 → tier 1, asserted in all three states), and that the regions are **layered** — with the row name rotted the check stays quiet, with its fallback gone too the table is reported at 20 keys, and with neither region named the warning is the one the user read off the page, **42 keys**, word for word |
 | `format-smoke.mjs` | 552 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It used to hold `moveField` directly; that function is `moveInList` now and its checks are in `smoke.mjs`. What replaced them here is **§18, a hand-made order**: that a reordered collection is what all six exports emit, and — the half that is not tautological — that a moved row keeps its new place **inside** a 📊 Report band, which is the one export whose grouping could plausibly have thrown the order away (§2.9.1) |
-| `boot-smoke.mjs` | 344 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued. **Since 1.4.0 it drives a DRAG** (§2.9.1), which this README said for two versions could not be done here: `dragstart` → `dragover` in a named half of a named row → `drop` → `dragend`, through the delegated listeners the script really registers, with a rect stubbed per row. It holds all four payload types and their bytes — including that the three external ones are the `🔗` button's, asserted against the same literals as its own press, so one issue cannot come to have two shapes; both halves of a row and the append below the last one; that a release with no drop writes nothing; that the list does **not** redraw while the pointer is down; and that a write landing mid-drag survives the drop, because `update` re-reads before it writes |
-| `css-smoke.mjs` | 61 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct. **Since 1.4.0 it holds the collection's draggable rows** (§2.9.1): the same specificity trap a FOURTH time, the transparent border both lists' rows reserve so nothing reflows under a pointer mid-drag, and the one word the grip decision comes down to — `visibility` and not `display`, so the glyph's width is held whether or not it is painted |
+| `boot-smoke.mjs` | 436 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued. **Since 1.4.0 it drives a DRAG** (§2.9.1), which this README said for two versions could not be done here: `dragstart` → `dragover` in a named half of a named row → `drop` → `dragend`, through the delegated listeners the script really registers, with a rect stubbed per row. It holds all four payload types and their bytes — including that the three external ones are the `🔗` button's, asserted against the same literals as its own press, so one issue cannot come to have two shapes; both halves of a row and the append below the last one; that a release with no drop writes nothing; that the list does **not** redraw while the pointer is down; and that a write landing mid-drag survives the drop, because `update` re-reads before it writes. **Since 1.6.0 it drives the other direction — a drop INTO the Cart** (§2.9.3), with a `dataTransfer` that can be **read**: `types` for the accept and `getData` for the drop. A `dragover` that does not call `preventDefault` *is* the refusal, so acceptance is asserted directly instead of inferred. It holds every live row draggable with its key opted out, the live drag's three types and `copy`, a chip taking a drop **without becoming active**, the move and the Ctrl copy and Ctrl released mid-drag changing the cursor back, the item carried **whole** — proved by making the stored summary differ from the page's — the duplicate reaching the same end state, the gap above and below and the append with no row under the pointer, and all four refusals: a collection, no url-list, a foreign origin, and a read-only store |
+| `css-smoke.mjs` | 86 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct. **Since 1.4.0 it holds the collection's draggable rows** (§2.9.1): the same specificity trap a FOURTH time, the transparent border both lists' rows reserve so nothing reflows under a pointer mid-drag, and the one word the grip decision comes down to — `visibility` and not `display`, so the glyph's width is held whether or not it is painted. **Since 1.6.0 it holds the live list's own drag and the two new drop indicators** (§2.9.3): the live rows' grab cursor and reserved grip, the chip's ring as an `outline` rather than a third meaning on a border that already carries two, and the dashed outline an EMPTY item list wears — the one gap a list with no rows still has |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
 
 ## Why they cannot drift from the code
@@ -172,6 +172,15 @@ for the 1.3.0 rail. So the collection's drag (ADR §2.9.1) is driven here end to
 grab, hover a NAMED HALF of a named row, drop, release — and seven deliberate defects
 were reintroduced one at a time to prove those checks can fail.
 
+**1.6.0 drove the OTHER DIRECTION, and it added the one thing the 1.4.0 stub could not
+do: it can be REFUSED.** A drop that comes into the Cart (ADR §2.9.3) may be accepted
+or turned away, and the difference is whether the handler calls `preventDefault` — so
+the stub's `dataTransfer` gained `types` and `getData`, and the helper that dispatches a
+`dragover` **returns whether it was accepted**. That makes every refusal a positive
+assertion instead of an absence: a collection dropped on a chip, a payload with no
+url-list, a foreign origin and a read-only store are each checked to be *refused*,
+rather than merely observed to have written nothing.
+
 **What is still true, stated at the width it is actually true at:**
 
 - **The FIELD lists' drag is driven by nothing**, because it was not retro-fitted —
@@ -309,6 +318,45 @@ parameter to `detailBits` does nothing, because every caller passes the argument
 adding a fourth parameter to `formatLinks` does nothing, for the reason recorded
 above. **A mutation that survives is as likely to be a bad mutation as a missing
 check**, so read the diff before believing the result.
+
+### The 1.6.0 run — adding by drop
+
+**13 mutations, and 0 survived**, over the 93 checks the feature added (ADR §2.9.3).
+Same method: one edit at a time in a scratch copy of the script, run, restore. **The
+last two are from a second run on 2026-08-26**, after the user's report found a real
+defect: each drop handler was made to consume a drop it had refused.
+
+| Area | Mutation | Caught by |
+| --- | --- | --- |
+| **the move** | the filing drop never removes from the source, so a move is silently a copy | `boot-smoke` (8) |
+| **the marker** | the collection type is no longer refused, so a chip dropped on a chip MERGES two collections | `boot-smoke` (3) |
+| **the origin** | the same-origin rule is dropped, so another instance's URL is stored as a key of this one | `smoke` (2), `boot-smoke` (1) |
+| **the gap** | the item list ignores where the pointer was and always appends | `boot-smoke` (3) |
+| **the modifier** | Ctrl is ignored, so the copy the user asked for is a move | `boot-smoke` (2) |
+| **the lock** | a read-only store is offered the drop, so the cursor promises a write that `update` then declines | `boot-smoke` (1) |
+| **the refusal is not a write** | the item list consumes a drop it refused; the chip does the same. **`drop` does not only fire because we accepted** — `dragover` bubbles, so an ancestor can allow it, and Jira's own board drag-and-drop listens above the drawer (ADR risk 22) | `boot-smoke` (5, then 3) |
+| **the stylesheet** | the chip's ring becomes a border colour, so three states fight over one edge; the live grip switches to `display`, so the summary re-ellipsises under the hand; `user-select` comes off a live row, so the browser drags the text selection; the empty list's outline offset goes positive, so it draws where the parent clips; the ring moves after the armed rule, so a chip armed for **deletion** repaints as a drop target | `css-smoke` (1 each) |
+
+**The first two are the ones worth having.** A move that quietly copies leaves
+`Scratch` full and looks like the feature working; a merge that happens by accident is
+irreversible and was never asked for. Both are wrong in a direction nobody would think
+to check by hand, which is what these two checks are for.
+
+**The stylesheet's five are why `css-smoke` exists, and the last one is the clearest.**
+Move the drop ring below the armed rule and every property on the page is still
+correct — the ring is an `outline`, the armed state is a `background`, they share
+nothing, so nothing visibly breaks *today*. What breaks is the day either rule gains a
+declaration the other has, and by then the ordering will read as arbitrary. The check
+holds the ordering rather than the symptom.
+
+**A fourteenth edit survived, and it was a bad mutation.** Adding a CSS comment changes no
+byte of behaviour, so nothing should have gone red and nothing did — the same trap the
+1.2.0 run below records twice. Read the diff before believing a survivor.
+
+**What this run does not say** is the same thing every run above does not say: nothing
+was dragged by a hand. **The one claim with no check anywhere is whether an issue link
+can be dragged off a Jira backlog or board at all** — Jira runs its own drag over those
+cards. That is ADR risk 21 and §7 step 41's first item, and no stub can reach it.
 
 ### The 1.3.0 run — the hover rail
 

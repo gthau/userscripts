@@ -523,5 +523,94 @@ is("the chip's main button still says pointer, because clicking it still activat
    /cursor:\s*pointer/.test(rules.find((r) =>
      r.sel === "aside#gt-cart-drawer button.gt-cart-chip-main")?.body ?? ""), true);
 
+/* ---- 2g. ADDING BY DROP (§2.9.3, 1.6.0). Two of these are cascade-only decisions and
+   one is a specificity ordering that nothing in JavaScript can see. */
+
+// THE LIVE ROWS DRAG NOW, and they wear the item rows' rules rather than a second
+// vocabulary -- with `:active` for the grabbing cursor, which is the HEADING's choice
+// for the heading's reason: this drag has no `dragend` listener, so an attribute set at
+// `dragstart` would have nothing to clear it.
+const liveDrag = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-row[draggable="true"]',
+);
+is("a draggable live row says grab", /cursor:\s*grab/.test(liveDrag?.body ?? ""), true);
+is("and turns off text selection, or the browser drags the selection instead",
+   /user-select:\s*none/.test(liveDrag?.body ?? ""), true);
+is("the grabbing cursor comes from :active on a live row too, which clears itself",
+   rules.some((r) => /div\.gt-cart-row\[draggable="true"\]:active/.test(r.sel)
+     && /cursor:\s*grabbing/.test(r.body)), true);
+is("and NO data-gt-dragging is painted on a live row, since none is set",
+   rules.some((r) => /div\.gt-cart-row/.test(r.sel) && /data-gt-dragging/.test(r.sel)), false);
+// The grip's one word, for the third list: `visibility`, never `display`, so the
+// summary does not re-ellipsise under the hand that is about to grab the row.
+const liveGrip = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer div.gt-cart-row span.gt-cart-grip",
+);
+is("the live grip is hidden by visibility, so the summary never re-ellipsises",
+   /visibility:\s*hidden/.test(liveGrip?.body ?? "") && !/display:/.test(liveGrip?.body ?? ""),
+   true);
+is("and it is painted on hover", rules.some((r) =>
+   /div\.gt-cart-row\[draggable="true"\]:hover span\.gt-cart-grip/.test(r.sel)
+   && /visibility:\s*visible/.test(r.body)), true);
+/* THE KEY MUST SAY POINTER over a row that is otherwise saying grab, and it must WIN.
+   The generated collected-keys sheet is the reason this is not obvious: it matches
+   `a[href$="/browse/KEY"]` and the drawer's own key rule already has to out-specify it,
+   so a cursor added at the wrong specificity here is a plausible mistake. */
+const liveKey = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer div.gt-cart-row a.gt-cart-row-key",
+);
+is("the key inside a live row says pointer, because clicking it opens the issue",
+   /cursor:\s*pointer/.test(liveKey?.body ?? ""), true);
+is("and it beats the row's own grab, so the cursor names the action under it",
+   beats(spec(liveKey?.sel ?? ""), spec(liveDrag?.sel ?? "")), true);
+
+/* THE CHIP'S DROP RING IS AN `outline`, AND THAT IS FORCED RATHER THAN CHOSEN. A
+   chip's 1px border already carries two meanings -- active paints it, armed paints it
+   -- so a third on the same declaration would be three states fighting over one edge.
+   An outline is a separate channel AND TAKES NO SPACE, so the chip row cannot wrap at
+   the moment a pointer arrives, which is the reflow-under-the-hand defect this chip
+   refused a grip glyph over. */
+const chipDrop = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-chip[data-gt-drop="on"]',
+);
+is("the chip's drop ring exists", !!chipDrop, true);
+is("and it is an outline, not the border every other chip state paints",
+   [/outline:/.test(chipDrop?.body ?? ""), /border/.test(chipDrop?.body ?? "")], [true, false]);
+/* SOURCE ORDER IS LOAD-BEARING HERE, which is the trap this sheet has now hit five
+   times. The ring, the active fill and the armed red are all the same specificity, so
+   whichever comes last wins any property they share. They share none today -- the ring
+   is an outline and the other two are border/background -- and the ORDER still matters
+   for the day one of them gains a declaration: the ring must come after `active`, so it
+   shows on the active chip, and before `armed`, so a chip armed for DELETION is not
+   quietly repainted as a drop target. */
+const chipOrder = ["data-gt-active", "data-gt-drop", "data-gt-armed"].map((attr) =>
+  rules.findIndex((r) => r.sel === `aside#gt-cart-drawer div.gt-cart-chip[${attr}="${attr === "data-gt-drop" ? "on" : "true"}"]`));
+is("the three chip-state rules are all the same specificity, so order decides",
+   chipOrder.map((i) => JSON.stringify(spec(rules[i].sel))),
+   chipOrder.map(() => JSON.stringify(spec('aside#gt-cart-drawer div.gt-cart-chip[data-gt-active="true"]'))));
+is("and the drop ring sits between active and armed, in that order",
+   [chipOrder[0] < chipOrder[1], chipOrder[1] < chipOrder[2]], [true, true]);
+
+/* THE EMPTY LIST'S INDICATOR, and it is the tail case of the whole feature: a
+   collection with no rows still has exactly one gap. The rows paint their own
+   transparent border, which this box does not have -- and an outline is what keeps a
+   list already at its scroll limit from reflowing when the indicator appears. */
+const listDrop = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div#gt-cart-item-list[data-gt-drop="on"]',
+);
+is("the item list itself can wear an indicator", !!listDrop, true);
+is("as an outline drawn INSIDE it, because its parent clips",
+   [/outline:/.test(listDrop?.body ?? ""), /outline-offset:\s*-/.test(listDrop?.body ?? "")],
+   [true, true]);
+/* AND THE ROWS' OWN INDICATOR IS STILL A BORDER COLOUR AND NOTHING ELSE, which is what
+   makes it free of layout. §2.9.1 reserved a transparent border on both lists' rows for
+   exactly this, and a drop indicator that ever sets a border WIDTH would move every row
+   below it under a pointer that is mid-drag. */
+is("the item rows' indicators change a colour and never a width",
+   ["before", "after"].map((edge) => {
+     const r = rules.find((x) => x.sel === `aside#gt-cart-drawer div.gt-cart-item[data-gt-drop="${edge}"]`);
+     return /border-block-(start|end)-color:/.test(r?.body ?? "") && !/width|style/.test(r?.body ?? "");
+   }), [true, true]);
+
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

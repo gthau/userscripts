@@ -26,10 +26,11 @@ function extract(name) {
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const ISSUE_PATH_RE = /^\/browse\/([A-Za-z][A-Za-z0-9]*-\d+)(?:\/|$)/;
 const location = { href: "https://dalet.atlassian.net/browse/RDC-1" };
+const ORIGIN = "https://dalet.atlassian.net";
 const crypto = { randomUUID: () => "uuid-fixed" };
 // `clamp` is here for `moveInList`, which calls it, and not for itself.
 const names = ["cleanText", "stripKeyPrefix", "dropEnterKeyHint", "keyFromHref", "normaliseCollections", "buildCollectedCss",
-               "clamp", "moveInList"];
+               "clamp", "moveInList", "keysFromUriList"];
 const code = names.map(extract).join("\n");
 const make = new Function("SAFE_KEY_RE", "ISSUE_PATH_RE", "location", "crypto", `${code}; return {${names.join(",")}};`);
 const f = make(SAFE_KEY_RE, ISSUE_PATH_RE, location, crypto);
@@ -69,6 +70,43 @@ is("absolute href", f.keyFromHref("https://dalet.atlassian.net/browse/GLX-402"),
 is("not an issue", f.keyFromHref("/browse/notakey"), null);
 is("not a browse path", f.keyFromHref("/jira/software/projects/RDC/boards/57"), null);
 is("no digits", f.keyFromHref("/browse/RDC-"), null);
+
+/* keysFromUriList -- WHAT A DROP CARRIES, TURNED INTO KEYS (ADR §2.9.3, 1.6.0). One
+   parser for all three of the feature's sources, because all three hand over the same
+   thing: a text/uri-list of this instance's `/browse/` URLs.
+
+   The origin is a PARAMETER rather than a read of `location`, so the same-origin rule
+   is stated in the signature and this file can drive it directly. */
+is("one url", f.keysFromUriList("https://dalet.atlassian.net/browse/RDC-1", ORIGIN), ["RDC-1"]);
+// RFC 2483 says CRLF, and `writeCollectionDragPayload` writes CRLF. A payload that
+// arrived with bare LF is still a list, and a browser is not obliged to be tidy.
+is("crlf between lines", f.keysFromUriList("https://dalet.atlassian.net/browse/RDC-1\r\nhttps://dalet.atlassian.net/browse/GLX-402", ORIGIN),
+  ["RDC-1", "GLX-402"]);
+is("bare lf too", f.keysFromUriList("https://dalet.atlassian.net/browse/RDC-1\nhttps://dalet.atlassian.net/browse/GLX-402", ORIGIN),
+  ["RDC-1", "GLX-402"]);
+// A `#` line is a comment per RFC 2483, and a blank line is nothing.
+is("comments and blanks are skipped", f.keysFromUriList("# a comment\n\nhttps://dalet.atlassian.net/browse/RDC-1\n", ORIGIN), ["RDC-1"]);
+is("lowercase is upper-cased, as everywhere else keys are read", f.keysFromUriList("https://dalet.atlassian.net/browse/rdc-14817", ORIGIN), ["RDC-14817"]);
+is("a query and a sub-path are ignored", f.keysFromUriList("https://dalet.atlassian.net/browse/RDC-1/worklog?x=1", ORIGIN), ["RDC-1"]);
+is("a relative line resolves against the origin", f.keysFromUriList("/browse/RDC-1", ORIGIN), ["RDC-1"]);
+/* THE SAME-ORIGIN RULE. `issueUrl` rebuilds every link from `location.origin`, so a
+   foreign host accepted here would be silently retargeted at this instance and stored
+   as a key that means nothing on it. */
+is("another Atlassian site is refused", f.keysFromUriList("https://other.atlassian.net/browse/RDC-1", ORIGIN), []);
+is("and so is anything else", f.keysFromUriList("https://example.com/browse/RDC-1", ORIGIN), []);
+// §2.1's decision is not overturned by a gesture: a key typed as plain text is
+// invisible to the Cart, and the `text/plain` fallback goes through this same parser.
+is("prose that spells a key is not a link", f.keysFromUriList("please look at RDC-999 today", ORIGIN), []);
+is("our own plain-text line yields nothing, so the fallback never second-guesses us",
+  f.keysFromUriList("- [RDC-1](https://dalet.atlassian.net/browse/RDC-1) A summary", ORIGIN), []);
+is("a non-issue browse path is refused, as in keyFromHref", f.keysFromUriList("https://dalet.atlassian.net/browse/notakey", ORIGIN), []);
+is("a board url is not an issue", f.keysFromUriList("https://dalet.atlassian.net/jira/software/projects/RDC/boards/57", ORIGIN), []);
+// DEDUPLICATED HERE and not in the write, so one dropped list cannot insert the same
+// issue at two positions.
+is("a repeated url appears once, in first-seen order",
+  f.keysFromUriList(["/browse/GLX-402", "/browse/RDC-1", "/browse/glx-402"].join("\r\n"), ORIGIN), ["GLX-402", "RDC-1"]);
+is("nothing at all", f.keysFromUriList("", ORIGIN), []);
+is("null", f.keysFromUriList(null, ORIGIN), []);
 
 // normaliseCollections
 is("good blob", f.normaliseCollections([{ id: "a", name: "Scratch", items: [{ key: "rdc-1", summary: "S" }, { key: "GLX-402" }] }]),

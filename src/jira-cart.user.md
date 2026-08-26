@@ -1,11 +1,44 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 1.3.1 implements the whole of section 2 and has
-  been checked against it. 1.3.1 is a DOM-rot patch and decides nothing new: it names
-  the NINTH VIEW, Rovo search, which announced itself exactly as risk 19 said a new
-  view would — as a contract warning on a page that worked (§2.1).** A version number here means *the spec is built and
+- **Status:** Accepted. **Version 1.6.0 implements the whole of section 2 and has
+  been checked against it.** A version number here means *the spec is built and
   checked*, not *nothing is left to want* — §6 will always hold open items, so
   waiting for an empty §6 would mean never reaching any of them.
+  **1.6.0 ADDS THE FIRST DRAG THAT COMES INTO THE CART: an issue is added by dropping
+  it (§2.9.3).** Three sources — a live-list row, a row of the collection, or any issue
+  link Jira drew on the page — and two targets: a collection's **chip**, which appends
+  without making that collection active, and the **item list**, which inserts at the
+  gap the pointer is in. It is a minor version because it changes no output, no stored
+  shape and no default: `v` is untouched, and nothing that was already there behaves
+  differently except one shipped sentence that is now false and is amended in place
+  (§2.9.1's *nothing can be added by dropping a link into the drawer*).
+  **THE ONE DECISION THAT COULD NOT BE DERIVED was move versus copy**, and the user
+  took **move, unless Ctrl is held**. That makes it the first destructive control in
+  the drawer that cannot arm itself before it acts, which is risk 20 rather than a
+  footnote. **Its third source was measured per view on the day it
+  shipped, and it does NOT work everywhere** — seven views yes, and two no: the **Plans
+  timeline**, because dragging a bar there is Jira's own gesture for changing a date and
+  it has to win, and **linked work items**, whose cause is unknown and which is the one
+  of the two still open. Risk 21 has the table; the live list is the route on both views,
+  and that is the second reason ask 1 earns its keep.
+  **The report also found a defect in what shipped**, and it is recorded as risk 22:
+  both drop handlers consumed drops they had *refused*, because a comment in the file
+  claimed a `drop` only fires when our own `dragover` accepted. `dragover` bubbles, so
+  an ancestor can accept — and Jira's board drag-and-drop is one. Fixed the same day,
+  with five checks that go red on it.
+  **It also closes half of §6 item 6**, which §2.9.1 and §2.9.2 both cited when they
+  said adding by drop was not their feature, and it **builds one thing §2.9.2 designed
+  and declined to build**: the collection drag's marker type. §2.9.2 dropped it because
+  nothing read it; the chips became drop targets, so something reads it now, and
+  appendix A.10's measurement of it was already on record.
+  **1.5.0 made the whole collection drag OUT of the drawer, from its heading and from
+  any chip (§2.9.2). 1.4.0 made the collection's items reorder by drag, and made one
+  row a link on the way out (§2.9.1).** Both are recorded in their own sections with
+  their own dates; this Status block did not name them at the time, which is corrected
+  here rather than passed over.
+  **1.3.1 is a DOM-rot patch and decides nothing new: it names
+  the NINTH VIEW, Rovo search, which announced itself exactly as risk 19 said a new
+  view would — as a contract warning on a page that worked (§2.1).**
   **1.3.0 added one gesture: a `🔗` beside the floating `+` that puts THAT ONE ISSUE
   on the clipboard and never opens it (§2.7.1).** It is a minor version because it
   changes no output and no stored shape: the bytes are 🔗 Links' own at **item
@@ -82,8 +115,9 @@
 - **Date:** 2026-08-19; §2.14 was added on 2026-08-20, the configurable
   exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25, and §2.7.1 —
   the copy button — was added on 2026-08-25, and **the ninth view was named the
-  same day** (§2.1)
-- **Applies to:** `src/jira-cart.user.js` (version 1.3.1)
+  same day** (§2.1). §2.9.1 was added on 2026-08-25, and §2.9.2 and §2.9.3 on
+  2026-08-26 — the three drag sections, in the order they shipped
+- **Applies to:** `src/jira-cart.user.js` (version 1.6.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository. **§2.14 was decided by a grilling session and six real
   pastes instead**, because the question it answers — what a detailed list looks
@@ -2104,9 +2138,15 @@ harness.
 **What did not change.** The chips keep their most-recently-activated order (the
 table above). There is no sort button: a sort would silently destroy a hand-made
 order with no undo, which is the thing the two destructive controls in this section
-are armed against. Nothing can be added by dropping a link into the drawer — that is
-§6 item 6. And a reorder needs no arming and no undo, because unlike a delete it is
-undone by doing it again.
+are armed against. And a reorder needs no arming and no undo, because unlike a delete
+it is undone by doing it again.
+
+**One sentence of this paragraph was retired at 1.6.0.** It said *nothing can be added
+by dropping a link into the drawer — that is §6 item 6*, and that was true for two
+versions. **§2.9.3 builds it**: an issue dropped on a chip joins that collection, and
+one dropped between two rows lands in that gap. What is still §6 item 6 is the rest of
+that item — a pasted list of keys, a JQL result set, and merging two collections, which
+§2.9.3 refuses by name.
 
 **Copy and refresh** (`08` §5):
 
@@ -2455,6 +2495,12 @@ other direction.
 it inside is two gestures behind one hand, and collections have no user-set order to
 reorder — activating one moves it to index 0, which is the only ordering there is.
 
+> **STILL TRUE AT 1.6.0, AND NOW IT TAKES CODE TO KEEP IT TRUE.** §2.9.3 makes the
+> chips and the item list drop targets, and a chip drag carries N issue URLs — so
+> without a way to recognise our own collection drag, a chip dropped on a chip would
+> look exactly like dropping N links and would merge the two. The marker this section
+> designed and declined to build is what refuses it; see the amendment below.
+
 #### What it sends
 
 **The 🔗 Links bytes at collection scope, and nothing else.** Three types, the same
@@ -2466,9 +2512,14 @@ call, the same `Issue reference` setting:
 | `text/html` | Its `<ul>` twin |
 | `text/uri-list` | One issue URL per line |
 
-**No internal type.** The collection drag has no drop target of its own, so there is
-nothing for a marker to tell apart. One was designed — see *the blocking code that
-was not built*, below — and it went when the thing that needed it went.
+**No internal type — REVERSED AT 1.6.0, and the reason it was declined is exactly the
+reason it came back.** It was declined because *the collection drag has no drop target
+of its own, so there is nothing for a marker to tell apart*. §2.9.3 gave the drawer two
+drop targets, so there is now something to tell apart, and the marker
+`application/x-gt-cart-collection` is written. Its **value is the collection's id and
+nothing reads it**: the type is the whole message. The four external targets are
+unaffected and needed no re-measurement — the rig's ship candidate carried this exact
+type through all of them on 2026-08-26 (appendix A.10, box A).
 
 **`effectAllowed` is `copy`, not `copyMove`.** §2.9.1 needs `copyMove` because that
 drag is also the reorder. This one only ever leaves.
@@ -2563,6 +2614,14 @@ flag: look for our own type in `types` and swallow. Stateless, and therefore una
 to get stuck armed and start eating Jira's own board drags, which a flag cleared on
 `dragend` could have done.
 
+> **THIS PARAGRAPH IS WHY 1.6.0 WAS CHEAP, and it is the argument for writing down
+> designs that are not built.** §2.9.3 needed precisely this mechanism — recognise our
+> own drag during `dragover`, statelessly — for a different purpose: to REFUSE a
+> collection dropped on a chip rather than to swallow a drop on the page. The
+> measurement behind it was already taken and the reasoning was already written, so the
+> refusal was one string and one `if`. The swallow itself is still not built, for the
+> reasons below, and those are unchanged.
+
 **Why it is not built. Two measurements, one on each side of the trade.**
 
 - **The harm is smaller than §2.9.1 wrote.** A stray link drop on page content
@@ -2600,6 +2659,12 @@ the information it had.
   same rule from the other end.
 - **The live list.** It mirrors the page and is not a collection. A separate feature
   if it is ever wanted.
+  **IT WAS WANTED, AND IT SHIPPED AT 1.6.0 — §2.9.3.** Every live row drags now, and
+  the sentence above is superseded rather than wrong: what it refused was a live row
+  dragging *a collection's worth of anything*, and what 1.6.0 added is a live row
+  dragging **one issue**, which is what the row is. It is the only draggable thing in
+  the drawer with no state that turns it off, because it is the only one whose gesture
+  cannot write.
 - **A read-only store still drags, and this is the one asymmetry with §2.9.1.** Item
   rows are draggable only when the store is writable, because that drag *writes*.
   This one only reads, so a collection written by a newer version of the Cart keeps
@@ -2639,6 +2704,385 @@ instead (make the folder or the group by hand, then drop into it) is good enough
 and the rest of the feature is fully served by a userscript. It is recorded so that
 the trip-wire table has two rows rather than one, and so that a third want of this
 shape is recognised as a pattern rather than met as a surprise.
+
+### 2.9.3 Adding by drop — 1.6.0, 2026-08-26
+
+**Asked for by the user, and it is the first drag that goes INTO the Cart.** Every
+drag before it took something out: the items reorder (§2.9.1), the item leaves as a
+link, the collection leaves as a list (§2.9.2). This one puts an issue *in*, and it
+puts it in a collection you are not working in.
+
+**The ask was three gestures and they turned out to be one feature.** Drag a row of
+the live list onto a collection's chip; drag a row of the collection onto another
+collection's chip; drag an issue link off the Jira page into the drawer. What makes
+them one feature is that **all three hand over the same payload** — a `text/uri-list`
+of this instance's `/browse/` URLs. The page's anchors do it because the platform does
+it for every link drag, and our two row kinds do it because §2.9.1 chose to be a real
+link drag. So the drop side reads a URL list and knows nothing about where it came
+from, and `keysFromUriList` is the whole parser.
+
+#### Three sources, two targets
+
+| Source | What it hands over | Can it be moved out of? |
+| --- | --- | --- |
+| A row of `On this page` | That issue. **New at 1.6.0** — the live list had no drag at all | No. The live list mirrors the page (§2.3); there is nothing in it to take away |
+| A row of the active collection | That issue, unchanged from §2.9.1 | **Yes.** It is the only source a move can empty |
+| Any issue link Jira drew on the page | That issue, from the platform's own link drag | No |
+
+| Target | Where the issue lands |
+| --- | --- |
+| A collection **chip** | At the **end** of that collection. The chip's collection does **not** become active |
+| The **item list** | In the gap the pointer is in — above or below the row under it, exactly as the reorder decides. Below the last row, or anywhere in an empty list, means the end |
+
+**Filing without switching is the whole point**, and it is the same property §2.9.2
+gave the chip's drag *out*: a chip is the only thing in the drawer that acts on a
+collection without making it the one an add goes into.
+
+#### Move, unless Ctrl is held
+
+**The user's decision, taken over copy-always and over move-only.** A row dragged out
+of the collection onto another collection's chip **leaves the one and joins the
+other**. Hold **Ctrl on the drop** and it is copied instead.
+
+The workflow that decided it: collect into `Scratch` while you browse, then file each
+item onto the collection it belongs to, and **`Scratch` empties itself as you go**. A
+copy would leave twelve rows behind after filing twelve items, and the only way to
+clear them would be ⌫ and hoping you had filed them all.
+
+**A live row and a page link never move anything**, so Ctrl changes nothing for them.
+There is nothing there to take away.
+
+**THE COST, AND IT IS THE SHARPEST THING IN THIS SECTION.** This is the **first
+destructive control in the drawer that cannot arm itself before it acts**. §2.9's two
+destructive controls both warn first — ⌫ becomes `Empty 3?`, the chip's ✕ turns red
+and says what the second click removes — and a drop has no second click to warn in.
+The only undo is dragging it back.
+
+**Three things reduce it and none of them removes it.** The cursor says `move` before
+the release, which is the platform's own vocabulary and is visible while it can still
+be changed. Nothing is destroyed: the item is somewhere else, named on the chip you
+dropped it on, and its summary went with it. And the modifier is offered on the drop
+rather than on the grab, so the decision is made at the moment there is something to
+decide about.
+
+**Ctrl is undiscoverable, and that is accepted with its reason.** Nobody finds a
+modifier without being told, so the tooltips tell them: the item row's says the drag
+MOVES and that Ctrl copies, and the chip's says the same from the other end. That is
+documentation and not discovery, and it is the price of having both gestures behind
+one hand. The alternative offered was copy-always, and the user chose against it.
+
+#### A drop makes the end state true, and that is the whole duplicate rule
+
+There is no separate rule for dropping something the target already holds. **After a
+drop the issue is in the target; after a move it is also out of the source.** So:
+
+| Case | What happens |
+| --- | --- |
+| The target does not hold it | It is added. A move also removes it from the source |
+| The target already holds it | **Nothing is added, and nothing is duplicated.** A move still removes it from the source, because that is the end state a successful move would have reached |
+| A row dropped on its **own** collection's chip | Nothing at all. It is already there and there is nothing to move it out of |
+| An issue already in the list, dropped into a gap in that list | It **moves** to that gap. The drop said *put it here* |
+
+**The second row is the one worth reading twice.** Filing something that was already
+filed removes it from `Scratch` and the target's count does not change, which looks
+like a deletion and is not one. It is the same end state, reached from a different
+start, and a special case that refused it would leave the item in `Scratch` for ever
+with nothing on screen to say why.
+
+#### What is refused, and every refusal is visible
+
+A refusal is a `dragover` that does not call `preventDefault`, so **the platform's own
+cursor says no and `drop` never fires**. That is deliberate over a silent no-op — the
+same argument §2.14's field lists make about a drop from one list into the other.
+
+1. **A collection**, from the heading or from a chip. That is **merging collections**,
+   which is §6 item 6 and is not built. §2.9.2 already said a chip dropped inside the
+   drawer does nothing; this is that rule holding now that there is something for it
+   to land on.
+2. **Anything with no `text/uri-list`.** A dragged paragraph that happens to spell a
+   key is not a link. §2.1's decision — *a key typed as plain text is invisible to the
+   Cart* — is not overturned by a gesture, and the `text/plain` fallback below goes
+   through the same parser, so it cannot become a back door into it.
+3. **A URL from another origin**, including another Atlassian site. `issueUrl` rebuilds
+   every link from `location.origin`, so a foreign host accepted here would be
+   silently retargeted at this instance and stored as a key that means nothing on it.
+   **This one is refused at the drop and not at the drag**, because `types` cannot see
+   a host — so the cursor offers it and then nothing is written. Named as a wart rather
+   than hidden.
+4. **Every drop, on a read-only store.** Adding writes. §2.9.2's asymmetry applies in
+   the other direction here: a live row still drags **out** of a store this build must
+   not write, because that gesture only reads.
+5. **The live list, the collection heading, the chip gaps and the foot.** A drop on the
+   live list could only mean *remove*, which is a write nobody asked for. The two
+   targets that accept are the two the feature was asked for.
+
+**The refusals are decided at the `dragover` AND re-checked at the `drop`. This
+paragraph said the opposite for one day and was wrong; the user's report of 2026-08-26
+is what found it.**
+
+*What it said:* a `drop` fires only because our own `dragover` accepted, so re-checking
+would defend a state nobody can reach — and §2.9.1's test for a mid-gesture hazard
+(what can write with no hand on it?) said nothing can change the answer while a mouse
+button is held down.
+
+**The second half of that is still true and the first half is false.** `dragover` fires
+at the element under the pointer and **bubbles**. If any *ancestor* listener calls
+`preventDefault`, the drop is allowed — and the `drop` that follows is dispatched at the
+element under the pointer, which is ours, and reaches our listener. The hazard was never
+a race; it was a **second acceptor above us**, and there is one: **Jira's own board and
+backlog drag-and-drop listens above the drawer**, because the drawer is in `<body>` and
+its events bubble to `document` whatever `#jira-frontend` does. Risk 22 records it.
+
+**So both drop handlers re-read exactly what their `dragover` decided, and return
+without `preventDefault` when it says no.** A drop we refused is left to whoever
+accepted it. A drawer that consumed gestures never aimed at it would be worse than one
+that ignores them — and this is the same rule §2.9.2 applied when it refused to swallow
+drops on the Jira page: **our refusals may not take away anything that already works.**
+
+**Past that line the `preventDefault` is unconditional, and that is the other half.** We
+accepted, so we consume — including when the payload turns out to hold nothing usable,
+which is exactly what refusal 3 produces. Handing *that* drop back would open a tab on
+an issue nobody asked to open.
+
+> **The general lesson, because it has now cost two paragraphs in this file.** *A guard
+> against an unreachable state teaches the next reader that the state exists* is a good
+> rule and it was applied to the wrong question. The state here was reachable; what was
+> unreachable was the *mechanism I had in mind* for reaching it. Before deleting a
+> guard, enumerate what could produce the state **other than** the hazard you first
+> thought of — for a DOM event, that list always includes *an ancestor did it*.
+
+**The reorder is left exactly as it shipped.** Releasing a reorder on the empty space
+below the list has done nothing since 1.4.0, and it still does. Only the *add* treats
+"no row under the pointer" as the end of the list. Changing a shipped gesture in the
+same version that adds one beside it is how a regression gets attributed to the wrong
+feature.
+
+#### The marker §2.9.2 designed, declined, and now needs
+
+§2.9.2 designed an internal type on the collection drag — `application/x-gt-cart-collection`
+— and did not build it, on the ground that **nothing read it**: the collection drag had
+no drop target, so there was nothing that needed to tell our own drag from anybody
+else's.
+
+**It has a reader now, and it is refusal 1.** A chip drag carries N issue URLs, so to a
+target that adds issues from a URL list, a chip dropped on a chip is *indistinguishable
+from dropping N links* — and it would merge two collections, silently, with no undo.
+
+Three things make this cheap. `dataTransfer.types` **is** readable during `dragover`
+while `getData` is not, which appendix A.10 measured — so the check needs no module
+flag and cannot get stuck armed and start eating Jira's own board drags. The value is
+the collection's id and **nothing reads it**; the type is the entire message. And it
+needs **no new measurement**: the rig's ship candidate carried this exact type through
+all four external targets on 2026-08-26, so what Teams and the tab strip do with it is
+already known, which is nothing.
+
+**What is still not built is the document-level swallow**, and §2.9.2's reckoning
+stands unchanged: a stray drop on the Jira page opens a **new tab** rather than
+navigating, measured, and blocking it would take away dragging a row into a Jira
+comment, which works. This feature makes the journey no longer than 1.5.0's already
+was.
+
+#### What the live list gains, and the one thing it gives up
+
+**§2.9.2 said the live list never drags** — *"it mirrors the page and is not a
+collection. A separate feature if it is ever wanted."* It was wanted. This is that
+feature, and the sentence in §2.9.2 is superseded rather than wrong.
+
+The rows wear the drawer's settled way of saying *this drags*: the whole row is the
+target, `cursor: grab`, `user-select: none`, and an `aria-hidden` `⠿` whose width is
+**reserved always** and painted only on hover. The key link opts out of its own drag so
+the platform walks up to the row — §2.9.1's `draggable="false"`, arriving in the other
+list.
+
+**It is draggable unconditionally, which nothing else in the drawer is.** The heading
+stops for an open rename and for an empty collection; the item rows stop for a
+read-only store; a chip stops when its collection is empty. A live row has none of
+those states: it is a link to an issue whether the issue is collected or not, and a
+drag that only reads is safe on a store this build must not write. **Every refusal
+lives in the drop.**
+
+**What it gives up is selecting a summary with the mouse**, to the `user-select: none`
+the drag needs. §2.9.1 paid that in the other list for the same reason and it is the
+same trade.
+
+**What it takes over is the key link's native drag**, which was the only drag this list
+had. That is a gain, not a loss: the platform handed over a bare URL, and
+`writeDragPayload` hands over the **`Issue reference` shape** with a rich flavour
+beside it — §2.9.1's finding, applied to the second list. One issue leaving the Cart
+still has one shape wherever it leaves from.
+
+#### No internal type on a live row, and no freeze anywhere
+
+**A live row carries no marker.** What a drop target needs to know is *is this row ours
+to take away*, and only §2.9.1's rows answer yes. To both targets a live row is exactly
+what a link off the page is — which is the truth and not a simplification, because the
+row **is** a link off the page, drawn by us.
+
+**Nothing freezes, and the test is §2.9.1's own: what can write with no hand on it?**
+`runGapFill`, a timer and a fetch. It writes summaries and marks keys unreadable. It
+cannot change which collection a chip is for — activating one takes a click, and a hand
+holding a mouse button down is not clicking — and both drop targets resolve **by key
+and by id at drop time**, against what storage holds then. So a rebuild under the
+pointer costs a repainted indicator and nothing else. §2.9.1's reorder freezes because
+it would lose the row it is *carrying*; these drags carry nothing of ours.
+
+**`dragleave` is new, and it is needed because the source may not be ours.** §2.9.1
+clears its indicator on `dragend`, which reaches it because the dragged row is its own.
+A page link's `dragend` fires on Jira's anchor and never comes to us, so without a
+`dragleave` a pointer that crossed a drop target and released elsewhere would leave one
+painted. It is guarded on `relatedTarget` — the element being *entered* — so a crossing
+from one chip to the next is not a leave, and the indicator does not flicker under a
+hand that is aiming.
+
+#### One `update` for both halves of a move
+
+A move is a removal from one collection and an add to another, and they are **one
+read-modify-write** (§2.5). Two writes would leave a window in which the item is in
+neither collection, and the second of the two is the one that could fail.
+
+**A move's source is always the active collection**, so nothing has to be told where
+the item came from: the only row that can be dragged is one the drawer is showing, and
+the drawer shows `collections[0]` (§2.4).
+
+**The item is carried whole.** A move keeps the summary the source captured rather than
+going back to the page for it — the page a collected issue came from may not be the page
+you are on. A key the source does not hold is a live row or a link off the page, and
+that one is read where `toggleKey` reads it: the last scan's representative anchor, and
+a bare key if there is none, which is a valid item that gap-fill completes (§2.6,
+rule 1). `readItemSummary` and `itemFor` are now the one place that decides what a new
+item looks like, and the floating `+` goes through them too.
+
+#### Where the affordance is, and what it costs
+
+| Thing | What it shows |
+| --- | --- |
+| A live row, an item row | `cursor: grab`, and a `⠿` whose width is reserved and paint appears on hover |
+| A chip being aimed at | A 2px **outline** in the drawer's one "this is the one" colour |
+| The item list's gap | The row's own border edge, above or below — §2.9.1's indicator, unchanged |
+| An **empty** collection's list | A dashed outline on the list itself, because an empty list still has exactly one gap |
+
+**The chip's ring is an `outline` and not its border colour**, and that is forced: a
+chip's 1px border already carries two meanings — active paints it, armed paints it — so
+a third on the same declaration would be three states fighting over one edge. An
+outline is a separate channel and takes no space, so it cannot wrap the chip row at the
+moment a pointer arrives. That is the reflow-under-the-hand defect this chip refused a
+grip glyph over (§2.9.2).
+
+#### Where a page drag has to start, and it is the KEY
+
+**Measured in use on 2026-08-26. Jira makes a real link out of the issue key only.** The
+summary beside it is clickable — Jira's own handler opens the issue — but it is **not an
+anchor**. So a drag off the page has to be started **on the key**. Starting it on the
+summary drags something else: a text selection, or the card itself under Jira's own
+drag-and-drop, and neither carries a `text/uri-list` this instance owns. The drop is
+then refused, which is correct and is what happens.
+
+**This is the browser's rule and not ours, and nothing in the Cart can widen it** — a
+page element we did not draw is draggable, or it is not, by whatever Jira put on it.
+What the Cart *can* do is make the whole row draggable **in its own two lists**, which
+is exactly what §2.9.1 and this section do, and that is now the reason to prefer them:
+**`On this page` is the one place where grabbing the summary works**, because that row
+is ours.
+
+**It is a fact to state in the open rather than a defect to file**, and it is the second
+reason ask 1 earns its keep. Ask 3 is the shortcut; the live list is the reliable route.
+
+> **AND THE REFUSAL MAY NOT LOOK LIKE ONE, which the user asked about and the answer is
+> two-sided.** The drawer correctly shows **no blue line** — that is our whole signal,
+> and it is an absence by design: the "no" belongs to the platform, which is the same
+> division §2.14's field lists chose when they refused a cross-list drop.
+> **What is missing is the platform's half**: no no-drop cursor appears either.
+>
+> **The likely cause is that something above us told the browser the drop is
+> acceptable**, so the browser has nothing to refuse — and Jira's own drag-and-drop is
+> the obvious candidate, since it is the same second acceptor the correction above
+> names. **This is a hypothesis and not a measurement.** Probe C.6 settles it in one
+> paste and answers a second question at the same time: whether a Jira card's own drag
+> carries the issue key anywhere we could read, which would make grabbing a card
+> — summary included — work as well as grabbing its key.
+
+#### The source side, measured per view on 2026-08-26
+
+**This section shipped saying it did not know whether a page drag worked on the views
+that run Jira's own drag-and-drop. It was reported the same day, per view, and every
+view of §2.1 is now answered: SEVEN YES AND TWO NO.**
+
+| View | A key dragged off the page |
+| --- | --- |
+| Board, and the kanban view | **Works** |
+| Backlog | **Works** |
+| Search results | **Works** |
+| **Child work items** | **Works.** The same `native-issue-table.ui.issue-row` as search results and an epic's children (§2.1), so one reading covers three views |
+| The issue view | **Works** |
+| Rovo search | **Works.** The ninth view, and the newest |
+| **The PLANS TIMELINE** | **Does NOT work.** The timeline has its own drag handler and it takes the gesture |
+| **LINKED WORK ITEMS** | **Does NOT work**, and the cause is unknown |
+
+**The board and the backlog were the two this section was worried about, and both work.**
+Jira's card drag-and-drop does not take the gesture away from the key — so the two
+mechanisms coexist rather than compete, which is the opposite of what was predicted.
+
+**THE TWO FAILURES ARE NOT THE SAME KIND OF FAILURE, and that distinction is the useful
+part of the reading.** The timeline's cause is known and its gesture is a Jira feature we
+must not beat. **Linked work items has no rival gesture at all** — nothing in that panel
+is draggable, so nothing is being taken from us; something is simply stopping the drag
+from starting. That makes it the one view where a fix might be possible, and it is
+therefore the one worth diagnosing rather than accepting.
+
+**The hint, labelled as a hint.** §2.1 already records something odd about that panel:
+its card carries **two anchors to the same issue**, which is why the Cart needed a
+two-segment testid there rather than a leaf. Whether that has anything to do with the
+drag is not known. **Probe C.6 answers the question that comes first** — does a
+`dragstart` fire at all? A drag that never starts is a source-side problem in Jira's
+markup; a drag that starts and is then refused is ours. Nothing should be tried until
+that is known.
+
+**THE TIMELINE IS DECLINED RATHER THAN DEFERRED.** A Plans timeline bar is draggable by
+Jira, because dragging it is how you change a date. Our gesture and Jira's are the same
+gesture on the same element, and **Jira's is the one that has to win**: making the key's
+link drag beat the bar's own drag would take away a Jira feature to add a shortcut,
+which is exactly what §2.9.2 refused when it declined to swallow drops on the Jira page.
+*Our refusals may not take away anything that already works*, and neither may our
+acceptances.
+
+**LINKED WORK ITEMS IS OPEN RATHER THAN DECLINED**, on the distinction above: there is no
+Jira gesture there to protect. What it is not is a *defect in the Cart* — nothing in this
+file decides whether a page element can be dragged. **And whatever the cause turns out
+to be, one fix is already ruled out**: setting `draggable` on Jira's own anchors. The
+Cart writes to the page in exactly one way — a generated stylesheet (§2.7, §2.10) — and
+it does that precisely so that a virtualised list costs nothing and React cannot revert
+it. Putting an attribute on a node React owns would be a new kind of write, reverted at
+the next render, and §2.9's refusal to live inside `#jira-frontend` is the same argument.
+
+**The remedy for both is already built, and it is the reason ask 1 exists.** Every issue
+either view draws is in `On this page` — §2.1 has both views' selectors, and the
+linked-work-items one was added on 2026-08-18 from a live page for this very panel — and
+a live row drags from anywhere on the row. **So the two views lose the shortcut and keep
+the capability.**
+
+**One thing the timeline confirmed by accident, and it is risk 22's fix on a real
+view.** A timeline bar dragged over the drawer is refused, and since the fix of the same
+day it is refused **without being consumed** — so the bar's own drag is left to Jira
+rather than swallowed by us. Whether consuming it visibly broke anything was never
+observed, because the fix and the report arrived together; what is known is that the
+shape of hazard risk 22 names is reachable on a view somebody actually uses.
+
+**The rule that matters most came out of this and is not per-view at all**: the key is
+the only real link, so a page drag starts there. That holds wherever Jira draws a row,
+and the section above it is where it lives.
+
+**Nothing about the feature depended on the answer, and that is why it could ship before
+it was known.** The drop side does not care where a payload came from, and the two asks
+the user made first — the live list and the collection — are the two that need no page
+anchor at all, because those rows are ours. The measured cost of the two failing views is
+therefore a **shortcut on those views** and nothing else.
+
+**A second assumption was carried and is now discharged: that a Jira anchor's drag
+carries `text/uri-list`.** The accept is granted on that type alone, so an engine that
+put the URL only in `text/plain` would have refused a drop the parser could have read.
+Seven views landing says the type is there. `keysFromDrop` reads `text/plain` as a
+fallback anyway, so if a tenth view ever behaves differently the fix is one string in
+`droppedLinks` — which is now a contingency rather than a live doubt.
 
 ### 2.10 One signal, and one function that writes to the page
 
@@ -3723,15 +4167,18 @@ Everything else is inside the drawer.
 | `+` / `✓` / `−` | floating, left of the hovered issue link | `+` adds. `✓` says it is in the collection. `−` (the pointer is on the button) removes |
 | `🔗` | floating, on the far side of the `+` | Copies **that one issue** and does not open it. The bytes are 🔗 Links' at item scope, so **the `Issue reference` setting decides them** and both flavours are written. It flashes `✅`, or `⚠️` if the write was refused. The `+` does not move to make room for it (§2.7.1) |
 | A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it. **The key itself is a link**: click to open the issue, middle-click or Ctrl-click for a new tab |
-| A key, in either section | drawer | A real link to the issue, so the browser's own gestures all apply, including its context menu |
+| A live-list row, dragged | drawer, `On this page (n)` → a chip, the collection, or anywhere else | **Drags that one issue** (1.6.0). Drop it on a **collection chip** to add it to that collection without making it active, or into the **collection list** to choose where it lands. Or drop it in another application, in whatever shape `Issue reference` names. It never removes anything: the live list mirrors the page. It is the one draggable thing in the drawer with no state that turns it off, because it cannot write (§2.9.3) |
+| A key, in either section | drawer | A real link to the issue, so the browser's own gestures all apply, including its context menu. It opts out of its *own* drag in both sections, so grabbing it drags the row (§2.9.1, §2.9.3) |
+| Any issue link Jira drew | the page → the drawer | **Drag it into the drawer to collect it** (1.6.0), onto a chip or into a gap in the collection. Nothing of ours starts this drag, so it works wherever the browser lets a link be dragged — **which is not known for the backlog and the board**, where Jira runs its own drag over the cards (§7 step 41). Another instance's URL is refused |
 | A collection row | drawer, the collection | **Drag it to reorder** (1.4.0). The whole row is the target, key included; a ⠿ appears on whichever row the pointer is over, and its space is held whether or not it is painted. Which half of the row you drop on decides above or below; below the last row appends. **The array order is what every export emits**, so this sets what a paste says first. No keyboard path (§6 item 4), and no undo beyond dragging it back (§2.9.1) |
+| A collection row, dropped on another chip | drawer, the collection → a chip | **MOVES the issue into that collection** (1.6.0), at the end, without making it active. **Hold Ctrl on the drop to copy instead.** This is the first destructive control in the drawer that cannot warn before it acts, and the only undo is dragging it back. Dropping it on a collection that already holds it still takes it out of this one — a drop makes the end state true (§2.9.3) |
 | A collection row, dragged OUT of the drawer | drawer → anywhere else | **The same drag drops that issue into another application** (1.4.0), in whatever shape `Issue reference` names — the `🔗` button's bytes, plain and rich, plus a `text/uri-list` so it is a real link drag. It is a copy: the row stays in the collection. **A mis-drop onto the Jira page opens a NEW TAB on that issue** — measured 2026-08-26; it does not take the page you were on away, which is what this row claimed until then (§2.9.1, appendix A.10). Dropping it into a **Jira comment or description** works and inserts the same shape |
 | `✕` on a collection row | drawer, the collection | Removes that item |
 | The collection's heading, dragged | drawer, the collection's heading → anywhere else | **Drags the whole collection out** (1.5.0). A plain editor gets the markdown list, Teams and a **Jira comment** get live links, and the **browser's tab strip opens one tab per issue** — inside a tab group if you drop it into one you already made. The bytes are 🔗 Links' own, so the `Issue reference` setting decides them. A ⠿ appears on hover, its space held either way. It only reads, so it works on a read-only store; it does nothing while the rename field is open, or on an empty collection. **The bookmarks bar takes only the first link and gives it no name** — the browser's limit, not ours (§2.9.2) |
 | The collection's name | drawer, the collection's heading | Click to rename it in place. Enter or blur commits. Escape cancels |
 | ⌫ | drawer, the collection's heading | Empties the collection and keeps its name. Click once to arm it — the label becomes `Empty N?` — and again to commit |
 | ↻ | drawer, the collection's heading | Refreshes every summary in the collection |
-| A collection chip | drawer, below the collection | Makes that collection active. Each chip carries its own count |
+| A collection chip | drawer, below the collection | Makes that collection active. Each chip carries its own count. **Since 1.6.0 it is also a drop target**: drop an issue on it and it joins that collection at the end, and the collection does *not* become active. An empty collection's chip cannot be dragged and still accepts a drop (§2.9.3) |
 | A collection chip, dragged | drawer, below the collection → anywhere else | **Drags THAT collection out** (1.5.0), to the same six places the heading reaches — and **without making it active**, which nothing else in the drawer can do. No ⠿ on a chip: its name is the one label in the drawer that ellipsises, so the tooltip does the work instead (§2.9.2) |
 | ✕ on a chip | drawer, below the collection | Deletes that collection. Armed first: the chip turns red and its tooltip names what goes. On the only collection it empties it instead (§2.4) |
 | `new collection…` + create | drawer, below the chips | Creates a collection and makes it active |
@@ -4018,6 +4465,63 @@ Notes on the controls:
    **Expect a tenth**, and this time there is a named candidate rather than a
    guess: `datasource-table-view` is the smart-link table, not a Jira list, so it is
    embedded in issue descriptions and Confluence pages that no survey has opened.
+20. **THE FILING DRAG REMOVES SOMETHING AND CANNOT WARN FIRST (§2.9.3, 1.6.0).** Every
+   other destructive control in the drawer arms itself — ⌫ becomes `Empty 3?`, a chip's
+   ✕ turns red and names what goes — and a drop has no second click to arm in. Dragging
+   a row onto another collection's chip therefore takes it out of the one you are in,
+   with the cursor's `move` as the only warning and dragging it back as the only undo.
+   **This is the design the user chose knowingly**, over copy-always, because the
+   workflow it serves is filing and a copy would leave `Scratch` full. It is recorded
+   as a risk rather than only as a cost because of **one case that looks like a bug**:
+   filing an issue the target collection *already holds* removes it from the source and
+   leaves the target's count unchanged, so nothing on screen moves except the row
+   disappearing. That is the same end state a successful move reaches, and §2.9.3
+   argues it, but it is the report to expect. **Ctrl on the drop is the escape and
+   nobody discovers a modifier** — the two tooltips are the whole of how it is taught.
+21. **AN ISSUE LINK IS NOT DRAGGABLE OFF EVERY VIEW. MEASURED AND CLOSED ON
+   2026-08-26, the day 1.6.0 shipped — EVERY view of §2.1 reported, SEVEN YES AND TWO
+   NO.** The third of §2.9.3's three sources is the page's own anchors, and this risk
+   opened as a guess about the board and the backlog.
+   **Both of those work**, and so do search results, child work items, the issue view and
+   Rovo search. **The PLANS TIMELINE and LINKED WORK ITEMS do not.** §2.9.3 holds the
+   table and the reasoning.
+   **THE PREDICTION WAS WRONG IN BOTH DIRECTIONS, and that is the part worth keeping.**
+   The two views this risk was written about turned out fine — a card's drag-and-drop and
+   a key's link drag coexist — and **both failures came from views this risk never
+   named.** A per-view question answered by argument would have got every part of this
+   backwards, which makes it the strongest evidence in this document for why a browser
+   question gets a numbered step and a table.
+   **THE TWO FAILURES DIFFER IN KIND, and only one of them is closed.** The timeline has a
+   rival gesture that is a Jira *feature* — dragging a bar changes a date — so ours must
+   lose, and that is **declined**. Linked work items has no rival gesture at all, so
+   nothing is being taken from us and something is merely stopping the drag from
+   starting: that one is **open**, probe C.6 asks the question that comes first (does a
+   `dragstart` fire at all?), and one fix is already ruled out — the Cart writes to the
+   page only through a stylesheet, so putting `draggable` on a node React owns is not
+   available to it.
+   **What was at stake was a shortcut and not a capability, and that held on both.** Every
+   issue either view draws is in `On this page`, and a live row drags from anywhere on
+   the row.
+   **And one finding is sharper than anything this risk asked for:** Jira makes a real
+   link out of the **key** only. The summary beside it is clickable but is not an anchor,
+   so a page drag starts on the key, on every view. §2.9.3 has it.
+22. **A DROP WE REFUSED CAN STILL BE DELIVERED TO US, because an ancestor can accept it
+   — and it is Jira. Found on 2026-08-26 from the user's report, and fixed the same
+   day.** `dragover` bubbles, so a `preventDefault` anywhere above the drawer allows
+   the drop, and the `drop` that follows is dispatched at the element under the pointer
+   and reaches our listeners. **The drawer is in `<body>`, so its events reach
+   `document` no matter what `#jira-frontend` does**, and Jira's board and backlog
+   drag-and-drop listens there. §2.9.3 has the correction and both drop handlers now
+   re-read what their `dragover` decided, so a refused drop is neither written nor
+   consumed.
+   **What is still open is the visible half, and it is the user's own question.** A
+   refused drag over the drawer shows **no blue line**, which is correct and is our
+   whole signal — but **no no-drop cursor appears either**, and that half is the
+   platform's. The likely reason is the same second acceptor: if Jira has already told
+   the browser the drop is acceptable, the browser has nothing to refuse. **That is a
+   hypothesis. Probe C.6 settles it in one paste**, and it is worth pasting because the
+   same probe answers whether a Jira card's own drag carries the issue key anywhere we
+   could read — which would let a card be grabbed by its summary as well as by its key.
 
 ---
 
@@ -4071,10 +4575,44 @@ These are not gaps in the design. Each was named, and each was left.
    clipboard, and the two grabs send nothing the foot row cannot. **So this drag is
    the one place the limit costs a keyboard user nothing at all.** The count is five
    and the rule is unchanged.
+   **A SIXTH ARRIVED AT 1.6.0 — adding by drop (§2.9.3) — and it is the most expensive
+   one yet for a keyboard user, because it is the first gesture in the Cart that has NO
+   BUTTON ANYWHERE.** The other five each duplicate something clickable: a reorder can
+   be got at by removing and re-adding, and every export the two drag-out gestures
+   perform is also a press in the foot. **Filing an issue into a collection that is not
+   the active one cannot be done any other way at all** — the nearest route is switch
+   collection, add, switch back, which is three clicks and changes which collection an
+   add goes into twice on the way.
+   **It is still refused, and the reason is still the one this item has given four
+   times: granting a keyboard path to one drag and not the other five would say the
+   limit had moved when it has not.** What is different is that this is the first entry
+   where the cost is a *capability* rather than a convenience, and that is worth
+   recording as the thing most likely to reopen item 4. **If it does reopen, this is the
+   drag to serve first**, and the shape is already obvious — the right-click menu
+   (§2.9's context entry) is the one surface in the Cart that already names a collection
+   and could carry *Add to ▸*. The count is six and the rule is unchanged.
 5. **The dashboard gadget.** See risk 7.
 6. **Import into a collection** — pasting a list of keys, or adding every result of
    a JQL query. "Add all 12,816 results" belongs here, not to the scan. Search
    results is where it is easiest, and where `09` recommends building it first.
+   **THE DROP HALF IS CLOSED ON 2026-08-26 — see §2.9.3.** An issue is added by
+   dropping it: from a live-list row, from a row of the collection, or straight off the
+   Jira page, onto a collection's chip or into a gap in the item list. This item is
+   what §2.9.1 and §2.9.2 both cited when they said adding by drop was not their
+   feature, so the citations now point at a closed half.
+   **What is still open is the two things this item was really about, and they are not
+   the same as each other.** *A pasted list of keys* is a text problem, and §2.1's
+   decision stands in front of it: a key typed as plain text is invisible to the Cart,
+   so an importer has to decide whether a paste box overturns that for its own input
+   only. *Every result of a JQL query* is a fetch problem, and `09` still recommends
+   search results as the place to build it.
+   **MERGING TWO COLLECTIONS ALSO STAYS HERE, and 1.6.0 spent code keeping it out.**
+   A chip drag carries N issue URLs, so once the chips became drop targets a chip
+   dropped on a chip would have merged them silently. §2.9.3 refuses it by marker
+   rather than by accident, which means the day merging is wanted, **the mechanism for
+   recognising it already exists and only the write has to be designed** — and the
+   question that has to be answered first is what a merge does to the source, because
+   §2.9.3's move already establishes that a drop can empty the thing it came from.
 7. **Ordering and grouping inside a collection** — manual reorder, group by epic,
    sort by key. Note that a board card renders its parent epic's **summary text**,
    not its key, so grouping from the DOM would join on a display string. Take
@@ -4287,19 +4825,33 @@ These are not gaps in the design. Each was named, and each was left.
 There is no test system in this repository. Use these steps in a browser, with
 `jira-ux-improvements` and `jira-backlog-sprints` also installed.
 
-**What is confirmed outside a browser, and by what.** Seven Node harnesses hold
-**1,137 checks at 1.3.0**, against 372 at 1.0.0: the pure helpers, the store and every
+**What is confirmed outside a browser, and by what.** Eight Node harnesses hold
+**1,372 checks at 1.6.0**, against 372 at 1.0.0: the pure helpers, the store and every
 preference it clamps, the (row, key) group, the six formats and the API's response
 validation, the whole script against a fake DOM, the generated stylesheet's cascade,
 and the script run twice over one store. They pull the real functions out of the file
 by brace matching, so they cannot drift from it and a rename breaks them loudly.
-**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0, 1,137 at 1.3.0** — 1.2.0 more than
+**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0, 1,137 at 1.3.0, 1,279 at 1.5.0, 1,372 at
+1.6.0** — 1.2.0 more than
 doubled them, and almost all of the 604 it added are in two files: `format-smoke` holds every
 byte each setting can reach, and `boot-smoke` drives the ⚙ screen's own controls.
 That ratio is what a configurable output costs to keep checkable: the outputs are
 still a finite set, and asserting them means asserting all of them.
 
-**1.3.0's 48 checks were mutated the same way, on the same day: 14 single edits, 0
+**1.6.0's 93 checks were mutated the same way, in two runs: 13 single edits, 0
+survived.** Eight against behaviour — the move that does not remove, the marker that does
+not refuse, the same-origin rule removed, the gap ignored so every drop appends, Ctrl
+ignored, the read-only gate removed, and — from the second run, after the user's report
+— **each drop handler made to consume a drop it had refused**, which is the defect that
+report found — and **five against the stylesheet**, which is
+where this feature's invisible decisions live: the chip's ring made a border colour
+instead of an outline, the live grip switched to `display`, `user-select` taken off a
+live row, the empty list's outline offset made positive so it draws where the parent
+clips, and the ring moved after the armed rule so a chip armed for deletion repaints as
+a drop target. **A fourteenth edit survived and was a bad mutation rather than a missing
+check** — it added a CSS comment and changed no byte, which is the trap this
+repository's harness README already records twice. **1.3.0's 48
+checks were mutated the same way, on the same day: 14 single edits, 0
 survived.** Ten against the script's behaviour and four against the stylesheet, and
 the stylesheet ones are the reason that file exists — *the `+` is still a containing
 block* is invisible to JavaScript, because a plus whose two bars have escaped to the
@@ -4357,6 +4909,7 @@ replaced by something else.
 | 39, less two items | **CONFIRMED IN A BROWSER, 2026-08-25, and itemised rather than taken from "it works"** | Both halves of a row and the append; a row grabbed by its KEY, with the key still opening the issue afterwards; the copy in the new order; the refusal onto `On this page`; and the drag OUT into a plain editor, a rich one or Slack/Teams, **and again after `Issue reference` was changed**, which is the only way from outside the harness to see that one place decides what a collected issue looks like. **The item this step exists for came back working: the list auto-scrolls at its edge**, so §2.9.1's bet on the platform paid and no auto-scroll needs writing. **And the mis-drop hazard did not fire** — a row dropped on the Jira page did not navigate the tab, which §2.9.1 records as *unobserved* rather than *retired*, because Jira's own drop handlers explain it as well as the browser does. **NOT RUN:** the whole step at the 300×215 floor, auto-scroll included — which is the size decision 26's equivalent was actually about — and the two paint items, which were not itemised |
 | 33 | **NOT RUN, and it is the cheapest step in this section** | The truncation the ⚙ screen replaces, in devtools, at the 300×215 floor. Every argument for the screen rests on it and nobody has looked at it. It confirms a REJECTED design was as bad as this document says — the one step here with that job |
 | 34 | **NOT RUN. Appendix A.9.1 says in its own words what it does not record** | Each of the five line shapes pasted into Outlook and into Teams in both skins, itemised. A.9.1 answered the yes/no that was blocking — a visible URL survives and stays clickable — from the user's own report rather than from a screenshot matrix, so **there is no per-target table for the shapes** the way there is for the chips. Nothing blocks on it, and 1.2.0 shipped without it |
+| adding by drop, since 1.6.0 | **DRIVEN IN THE HARNESS, and the accept/refuse decision is now observable too** | `boot-smoke` runs both drop targets through `dragover` → `drop`, with a `dataTransfer` that can be READ — `types` for the accept, `getData` for the drop — which the 1.5.0 stub never had to be. A `dragover` that does not call `preventDefault` **is** the refusal, so the harness asserts acceptance directly rather than inferring it. It holds: every live row draggable with its key opted out and its grip reserved; the live drag's three types and `copy`; a chip taking a drop without becoming active; the move, the Ctrl copy, and Ctrl released mid-drag changing the cursor back; the item carried **whole**, proved by making the stored summary differ from the page's; the duplicate reaching the same end state; the gap above, the gap below, the append with no row under the pointer, and an issue already in the list moving rather than duplicating; and all four refusals — a collection, a payload with no url-list, a foreign origin, and a read-only store. **What is still nobody's but a hand's:** whether an issue link can be dragged off a Jira backlog or board at all, which is risk 21 and step 41's first item, and whether Ctrl is findable. |
 | 35 | **Needs Tampermonkey's storage view** | The remembered tab across a reload, and a tab id no build knows landing on the first tab **with content drawn**. `boot-smoke` holds both in state; what is missing is the paint, and this is the one preference whose failure mode is an empty screen rather than a wrong value |
 | 36, 37, 38 | **NOT RUN. 1.3.0's own three, and 36 is the one that matters** | The copy button (§2.7.1). What the harnesses hold: that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued; that a press reaches **item scope** and writes both flavours with no bullet and no `<ul>`; that the shape is read at the press; that the summary comes off the page through the same six tiers the `+` uses, with its tier on the console; that the flash survives a re-render where the foot's cannot; that the pointer on the copy button leaves the `+` green rather than red; that the switch reads *anything that is not exactly `false` is on*; that exactly one export is marked as the single-issue one; and that the menu's third entry copies the same bytes through the same path. **What none of it can see is layout**: whether the 52px rail covers the issue-search table's own checkbox (step 36, §6 item 19), whether the `🔗` can be picked out beside the blue circle, and what a single line with **no `<ul>` around it** does in Outlook and in Teams — which appendix A.9's whole lesson says is not a thing to reason about (step 37) |
 | 19, 21 | **Needs Tampermonkey's storage view, and a real logout** | A hand-edited key, and the event the `@grant` exists to survive |
@@ -4886,6 +5439,121 @@ pass each, and they are cheap.
     > and whether the chip's grab cursor is worth anything under a button that covers
     > it. **That last one is the one to itemise first**, because §2.9.2 already
     > records it as the weakest part of the design and names what to try instead.
+41. **ADDING BY DROP, WHICH IS THREE SOURCES AND TWO TARGETS (§2.9.3, 1.6.0).** The
+    writes are held in `boot-smoke` end to end — the move, the Ctrl copy, the duplicate,
+    the gap, the four refusals — so nothing here re-checks what lands in the store. What
+    needs a hand is **whether the gestures can be started at all**, which is the half no
+    stub can see, and the one thing about this feature that is not measured anywhere.
+    **Have three collections: the active one with at least three items, a second with
+    one, and an empty one.**
+    - **THE ONE TO RUN FIRST, because everything else assumes it: can an issue link be
+      dragged off the page?** Try it on each view and write down what happened, because
+      the answer is expected to differ. **The backlog** and **the board** are the ones
+      in doubt: Jira runs its own drag-and-drop over those cards, and it may take the
+      gesture before the browser starts a link drag. **Search results**, **the issue
+      view**, **the timeline**, **linked work items** and **Rovo search** should be
+      ordinary anchors. A view where the card's own drag wins is **not a defect** — it
+      is risk 21, and the live list covers that view.
+      **DONE — reported per view on 2026-08-26, and the prediction above was wrong in
+      BOTH directions.** The board, the kanban view, the **backlog**, **search results**,
+      **child work items**, **the issue view** and **Rovo search** all work: a card's own
+      drag-and-drop and a key's link drag coexist. **The PLANS TIMELINE and LINKED WORK
+      ITEMS do not** — and the two failures differ in kind, which is risk 21's table and
+      §2.9.3's paragraph. Nothing is left of this item; what replaced it is the
+      linked-work-items diagnosis, which is **probe C.6** and not a step.
+      **AND GRAB THE KEY, not the summary.** Measured the same day: Jira makes a real
+      link out of the key only, so a drag started on the summary carries something else
+      and the drop is correctly refused. The live list is the one place where grabbing
+      the summary works, because that row is ours (§2.9.3).
+    - **Drag a live-list row onto the empty collection's chip.** The chip must ring, the
+      cursor must say **copy**, and on release that collection's count must go to 1
+      **without becoming active** — the chips must not reorder and the heading must
+      still name the collection you were in. The live list must be unchanged: it mirrors
+      the page.
+    - **Hover a live row without dragging.** The `⠿` must appear and **nothing in the
+      row may move when it does** — the width is reserved, so a summary that shifts
+      sideways means the reservation has been lost. **Then click that row.** It must
+      still add or remove: the drag may not have eaten the click. **Then click its
+      key.** The issue must open.
+    - **Try to select a live row's summary text with the mouse.** You cannot, and that
+      is the `user-select: none` the drag needs — the same cost §2.9.1 paid in the other
+      list. Confirm it so a later session recognises it instead of filing it.
+    - **Drag a row of the collection onto the second collection's chip.** The cursor
+      must say **move**. On release the row must **leave** the collection above and the
+      target's count must go up by one. **Now do it again holding Ctrl**: the cursor
+      must say **copy** and the row must **stay**.
+    - **Press and release Ctrl in the middle of one drag, watching the cursor.** It must
+      follow, both ways. The drop reads the modifier at the moment of release, not at
+      the grab, and this is the only place that is visible.
+    - **Drag a row onto the chip of the collection it is ALREADY in.** Nothing may
+      happen at all. **Then drag it onto a chip whose collection already holds that
+      issue.** The row must leave the source and the target's count must **not** change.
+      That is the end-state rule and it is risk 20 — confirm it is what happens, because
+      it is the one case that reads as a deletion.
+    - **Drag an issue link off the page into the collection list, aiming between two
+      rows.** A line must appear on the edge you are aiming at, and the issue must land
+      in that gap — not at the end. **Then aim below the last row**, in the empty space:
+      the line must go on the last row's lower edge and the issue must append.
+    - **With the collection EMPTY, drop a link on the list.** The whole list must outline
+      and the issue must land. This is the one gap a list with no rows still has.
+    - **Drop a link for an issue that is already in the collection, into a gap.** It
+      must **move** to that gap, not duplicate.
+    - **THE FOUR REFUSALS, and each must show the browser's own "no" cursor rather than
+      doing nothing quietly.** Drag a **chip** onto another chip and onto the item list —
+      **no merge**, and this is the marker of §2.9.2 earning its keep. Drag a **text
+      selection** into the drawer — refused, and a key spelled in that text must not be
+      collected. Drop anything on the **live list**, the **heading** or the **foot** —
+      refused. And with a **read-only store** (make it look like a newer version's, the
+      way step 27 does) every drop must be refused while **a live row still drags out**.
+    - **Drag a live row out to a text editor.** The `Issue reference` shape must arrive,
+      not a bare URL — this row used to be the platform's own anchor drag, and taking it
+      over is only worth it if the bytes are better. **Change `Issue reference` and do
+      it again**: the text must change with it.
+    - **At the drawer's 300×215 floor.** The `⠿` must fit in a live row beside the key,
+      the summary and the mark without wrapping, and the chip row must still be a
+      reachable drop target. Step 40's equivalent surprised nobody and was worth running.
+    - **The gap-fill case, if you can catch it.** Start a drag over a chip and hold it
+      while a summary arrives (a collection with missing summaries, drawer open). The
+      indicator may repaint; the drop must still land on the chip you were aiming at.
+      Nothing freezes here on purpose, and this is the only way to see that it did not
+      need to.
+    - **THE ONE THE HARNESS CANNOT SEE AT ALL: what the browser draws when it refuses.**
+      Drag a card by its **summary** over the drawer. The blue line must **not** appear —
+      that is our signal and it is an absence by design. Whether a **no-drop cursor**
+      appears is the platform's half, and on 2026-08-26 it did not. **Probe C.6 is what
+      diagnoses that**, and it is worth pasting before anything is changed, because the
+      likely cause is that Jira accepted the drop above us and there is then nothing for
+      the Cart to fix (risk 22).
+    > **REPORTED WORKING IN USE ON 2026-08-26, THE DAY IT SHIPPED, AND THIS STEP IS
+    > MOSTLY UNRUN.** The user tried the feature, said it works well, and then answered
+    > this step's first item **view by view** when asked — which is the whole argument
+    > for asking rather than recording "it works".
+    >
+    > **What the report closed: risk 21, in full, and not the way it was predicted.**
+    > Board, kanban, backlog, search results, child work items, the issue view and Rovo
+    > search all drag. **The Plans timeline and linked work items do not**, and **neither
+    > of those views was named in the risk** — while the two it was written about turned
+    > out fine. An answer reached by argument would have got every part of this
+    > backwards, which is the strongest evidence in this document for why per-view
+    > questions get a numbered step. **It took three rounds of asking to get here**, and
+    > each round moved a view from predicted to read.
+    >
+    > **And it produced one fact nobody had: the key is the only real link Jira
+    > draws.** That is now §2.9.3's own paragraph, and it is a better answer than the
+    > per-view question this step opened with, because it holds on every view.
+    >
+    > **What the report FOUND, which is the part worth keeping.** It asked why a refused
+    > drag shows no no-drop cursor. Following that question found a real defect in the
+    > shipped code — both drop handlers consumed a drop they had refused, because a
+    > comment in the file claimed `drop` fires only when our own `dragover` accepted,
+    > and `dragover` bubbles. Fixed the same day, with five checks that go red on it, and
+    > recorded as risk 22. **The visible half of the question is still open** and
+    > probe C.6 is the instrument.
+    >
+    > **What nobody has looked at:** every remaining item above — the Ctrl modifier in
+    > either direction, the duplicate that reads as a deletion, the empty list's
+    > outline, the four refusals, and the 300×215 floor. **The per-view item is the only
+    > one of the fourteen that is finished.**
 
 ---
 
@@ -5335,6 +6003,20 @@ in row 1. So a handler that has to recognise our own drag mid-drag needs no modu
 flag and cannot get stuck armed — which is what §2.9.2's blocking code would have
 used, had the evidence not removed the reason for it.
 
+> **"NOTHING NOW USES IT" LASTED ONE DAY. §2.9.3 uses it, on 2026-08-26.** The chips
+> and the item list became drop targets, and a chip drag carries N issue URLs — so our
+> own collection drag has to be recognised during `dragover` and refused, or dropping a
+> chip on a chip would merge two collections silently. That is exactly the mechanism
+> this paragraph measured, put to the opposite purpose: refusing our own drag rather
+> than swallowing it.
+>
+> **Two things about this rig therefore cover 1.6.0 without a second session.** The
+> readable-`types` measurement above is the whole basis of the refusal. And **box A's
+> payload already carried `application/x-gt-cart-collection`** through rows 1 to 10 —
+> it was in the ship candidate for the swallow that was not built — so adding the
+> marker to the real collection drag changes nothing at any external target, and that
+> is measured rather than argued.
+
 **What the rig cannot tell us.** One machine, one Windows, Edge and Chrome from the
 same Chromium family. Nothing here says anything about Firefox, which ticket 04
 records as a nice-to-have rather than a target. The bookmarks-bar findings are the
@@ -5423,13 +6105,16 @@ appendix, not from code.
 
 ---
 
-## Appendix C — The five probes, of which three are unrun
+## Appendix C — The six probes, of which four are unrun
 
 The first two are blocked items from §6. The third confirms arithmetic that 1.0.0
 acted on without measuring. **The fourth was added and CLOSED on 2026-08-20**, half from
 the project's own metadata and half from one console line. The fifth blocks nothing
-yet. The three unrun ones need a live Jira page and the developer tools. None of
-them blocks a build.
+yet. **The sixth was added on 2026-08-26** and is the only one of the six that answers a
+question about a SHIPPED feature rather than a deferred one — it settles why a refused
+drag over the drawer shows no no-drop cursor (risk 22), and asks in the same paste
+whether Jira's own card drag carries the issue key. The four unrun ones need a live Jira
+page and the developer tools. None of them blocks a build.
 
 ### C.1 Probe 1 — which element holds a backlog section's rows
 
@@ -5632,3 +6317,124 @@ fetch('/rest/api/3/field', { headers: { Accept: 'application/json' } })
 
 If there is more than one, §2.14's rule that an absent value drops out along with
 its separator is what should apply to the rows whose project uses another.
+
+### C.6 Probe 6 — who else accepts a drop over the drawer, and why one panel will not drag
+
+**Why.** Three questions, one paste, all opened by the user's reports of 2026-08-26.
+
+**One: a refused drag over the drawer shows no no-drop cursor.** The Cart's own signal —
+no blue line — is correct and deliberate (§2.9.3), and the browser's half is missing.
+The hypothesis is that **something above the drawer has already told the browser the
+drop is acceptable**, so there is nothing left to refuse; Jira's board and backlog
+drag-and-drop is the candidate, and it is the same second acceptor risk 22 names. That
+risk's *write* half is fixed on reasoning about how `dragover` bubbles, and this probe
+is the only thing that would confirm the reasoning is about the actual page.
+
+**Two: what does Jira's own card drag carry?** If the key is readable anywhere in it,
+then a card grabbed **by its summary** could be accepted as well as one grabbed by its
+key — which is the one rough edge of ask 3, because Jira makes a real link out of the
+key only. That would be a widening of `droppedLinks` and nothing else.
+
+**Three, and it is the one with something at stake: why will LINKED WORK ITEMS not
+drag?** Risk 21 measured that it does not, on a panel with **no rival gesture** — nothing
+there is draggable, so unlike the Plans timeline nothing is being taken from us. **The
+question that comes first is whether a `dragstart` fires at all.** A drag that never
+starts is Jira's markup and there is nothing on our side to change; a drag that starts
+and is then refused is a payload we could learn to read. Until that is known, anything
+tried is a guess — and §2.1 records one oddity about that panel to keep in mind without
+treating it as the cause: its card carries **two anchors to the same issue**.
+
+**Where to run it. Three views, and the comparison between them is the experiment.** A
+**board**, where the missing-cursor question was asked and where a page drag works; the
+**Plans timeline**, where a rival drag handler is now *known* to exist because risk 21
+measured it taking the gesture; and an **issue with linked work items**, where the drag
+does not start and nothing is known about why. Read the three side by side rather than
+one at a time.
+
+Run this, then drag things over the open drawer:
+
+```js
+window.__gtDragProbe?.();
+window.__gtDragProbe = (() => {
+  const seen = new Set();
+  const drawer = document.getElementById("gt-cart-drawer");
+  const where = (t) => {
+    if (!(t instanceof Element)) return String(t);
+    const box = t.closest("#gt-cart-item-list, #gt-cart-chips, #gt-cart-live-list");
+    return (box ? box.id + " > " : "") + t.tagName.toLowerCase() +
+           (t.className && typeof t.className === "string" ? "." + t.className.split(/\s+/)[0] : "");
+  };
+  const report = (phase) => (e) => {
+    // Only over the drawer, and only when something changes: dragover fires ~60/s.
+    if (!drawer?.contains(e.target)) return;
+    const line = [phase, e.defaultPrevented, where(e.target), [...e.dataTransfer.types].join(" ")].join(" | ");
+    if (seen.has(line)) return;
+    seen.add(line);
+    console.log("[probe]", line);
+  };
+  // CAPTURE runs before every listener on the way down; BUBBLE runs after all of them,
+  // so the difference between the two is who cancelled it and where.
+  const down = report("dragover DOWN");
+  const up = report("dragover UP  ");
+  // QUESTION THREE lives here. A drag that never starts logs NOTHING, and that absence
+  // is the answer: the key is not a drag source on that panel, and no change to the Cart
+  // can make it one. A line with an empty `types` means the drag started and carried
+  // nothing we can read, which is a different problem with a different fix.
+  const started = (e) => console.log("[probe] DRAGSTART |", where(e.target),
+    "| types:", [...(e.dataTransfer?.types ?? [])].join(" ") || "(none)",
+    "| uri:", JSON.stringify(e.dataTransfer?.getData("text/uri-list") ?? "").slice(0, 120));
+  const dropped = (e) => console.log("[probe] DROP | prevented:", e.defaultPrevented,
+    "| types:", [...e.dataTransfer.types].join(" "),
+    "| plain:", JSON.stringify(e.dataTransfer.getData("text/plain")).slice(0, 200),
+    "| uri:", JSON.stringify(e.dataTransfer.getData("text/uri-list")).slice(0, 200));
+  document.addEventListener("dragover", down, true);
+  document.addEventListener("dragover", up, false);
+  document.addEventListener("drop", dropped, false);
+  // CAPTURE, so it is logged even if something on the way down cancels the drag.
+  document.addEventListener("dragstart", started, true);
+  console.log("[probe] armed. Drag: (a) a card by its KEY, (b) the same card by its SUMMARY, (c) a live-list row, (d) a LINKED WORK ITEM by its key. Call window.__gtDragProbe() to stop.");
+  return () => {
+    document.removeEventListener("dragover", down, true);
+    document.removeEventListener("dragover", up, false);
+    document.removeEventListener("drop", dropped, false);
+    document.removeEventListener("dragstart", started, true);
+    console.log("[probe] off");
+  };
+})();
+```
+
+**How to read it.** For each drag, compare the `DOWN` and `UP` lines over the same
+target.
+
+| What you see | What it means |
+| --- | --- |
+| `DOWN false` and `UP false` on a drag we refuse | **Nobody accepted it.** The browser should be drawing a no-drop cursor, and if none is visible the cause is the cursor's own visibility — a large drag preview covering the badge — and not a second acceptor |
+| `DOWN false` and `UP true` on a drag we refuse | **A second acceptor, below `document`'s bubble phase.** That is the hypothesis confirmed, and it is the whole explanation of the missing cursor |
+| `DOWN true` | Something accepted it in the CAPTURE phase, above us. Same conclusion, one phase earlier |
+| `UP true` on a drag we *accept* | Expected and not a finding: that is our own `dragover` |
+| A **timeline bar** giving `UP true` where a **board card** gives `UP false` | The two views have different handlers, and only one of them reaches over the drawer. That would also explain why the timeline is the view where the page drag loses |
+
+**And the second question is the `types` column and the `DROP` line.** Drag a card by
+its **summary** and read what it carries. If any type holds the issue key — Jira's own
+private type with the key inside it, or a `text/plain` that is the key — then accepting
+it is one more branch in `droppedLinks` plus a parser for that shape, and §2.9.3's
+"three sources" becomes "three sources and a card". If it carries nothing but Jira's
+opaque payload, then **the key is the only grab there will ever be**, and that closes
+the question rather than deferring it.
+
+**And the third question is read off the `DRAGSTART` line, or off its absence.**
+
+| On a linked work item's key | What it means |
+| --- | --- |
+| **No `DRAGSTART` line at all** | The key is not a drag source there. Jira's own component suppresses it, and **there is nothing on the Cart's side to change** — the answer is that the live list is the route, and risk 21's open half closes as *declined* rather than *deferred* |
+| `DRAGSTART` with `types: (none)` or no `uri` | The drag starts and carries nothing readable. Then the question becomes whether anything in that payload names the issue, which the same line answers |
+| `DRAGSTART` with a `uri` of this instance | The drag is fine and the **drop** is where it fails. That would be a bug in the Cart, and the `dragover` lines above say which condition refused it |
+
+**Compare it with a board card's key**, which is known to work: the difference between
+the two `DRAGSTART` lines is the whole finding.
+
+**One warning about the probe itself.** It attaches to `document` and never calls
+`preventDefault`, so it cannot change what the page does — but it does log during a
+drag, and a console that is open and scrolling can slow a drag enough to change how it
+feels. Judge the *feel* of the gesture with the probe off.
+

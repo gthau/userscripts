@@ -1847,12 +1847,20 @@ is("the grip sits before the two action buttons, so ⌫ and ↻ stay at the far 
 is("the tooltip says what a drag out does, since the glyph is invisible until hovered",
   /Drag .* out to send all 3 links at once/.test(collHead().title), true);
 
-/* ---- THE BYTES, AND THE ONE RULE THEY EXIST TO KEEP. Three types, no internal one:
-   this drag is not a drop target, so there is nothing for a marker to tell apart. */
+/* ---- THE BYTES, AND THE ONE RULE THEY EXIST TO KEEP. Three external types and, SINCE
+   1.6.0, a fourth that is ours: §2.9.2 designed the marker and declined to build it
+   because nothing read it, and §2.9.3 gave it a reader -- the chips and the item list
+   have to REFUSE a collection, because merging is §6 item 6, and N issue URLs are
+   otherwise exactly what an add looks like. The refusal itself is checked at the end
+   of this file. */
 const dtColl = transfer();
 dispatch(collHead(), "dragstart", { dataTransfer: dtColl });
-is("three types, and NOT the reorder's own -- there is nothing here to recognise",
-  Object.keys(dtColl.data), ["text/plain", "text/html", "text/uri-list"]);
+is("three types for the world, and one for us to recognise our own drag by",
+  Object.keys(dtColl.data),
+  ["text/plain", "text/html", "text/uri-list", "application/x-gt-cart-collection"]);
+is("and the marker's VALUE is the collection's id, which nothing reads -- the type is the message",
+  dtColl.data["application/x-gt-cart-collection"],
+  JSON.parse(store["gt-jira-cart.collections"]).collections[0].id);
 is("copy, not copyMove: a collection never MOVES anywhere", dtColl.effectAllowed, "copy");
 is("the text is 🔗 Links at COLLECTION scope, so every line carries its bullet",
   dtColl.data["text/plain"],
@@ -1958,13 +1966,287 @@ is("and so do the chips that have items",
     .every((c) => c.attrs.draggable === "true"), true);
 const dtLocked = transfer();
 dispatch(collHead(), "dragstart", { dataTransfer: dtLocked });
-is("and the bytes are all three types, unchanged by the lock",
-  Object.keys(dtLocked.data), ["text/plain", "text/html", "text/uri-list"]);
+is("and the bytes are all four types, unchanged by the lock",
+  Object.keys(dtLocked.data),
+  ["text/plain", "text/html", "text/uri-list", "application/x-gt-cart-collection"]);
 store["gt-jira-cart.collections"] = savedStore;
 dispatch(document, "visibilitychange");
 flush();
 is("and the lock lifts", collHead().attrs.draggable, "true");
 
+
+/* ---- ADDING BY DROP (§2.9.3), DRIVEN END TO END. Added at 1.6.0, and this is the
+   first drag in the file that comes INTO the Cart rather than out of it.
+
+   WHAT MAKES IT DRIVABLE HERE is the same thing that made §2.9.1's reorder drivable:
+   the decisions are a `dataTransfer`, an element and a rect, and all three can be
+   stubbed. What is NEW is that the accept and the refuse are now observable -- a
+   `dragover` that does not call `preventDefault` is the refusal (§2.9.3), so
+   `over` below returns whether the handler took it.
+
+   WHAT IS STILL A HAND'S, and the quiet here is not coverage of it: whether an issue
+   link can be dragged off a Jira BACKLOG or BOARD at all, where Jira runs its own
+   drag over the cards. §7 step 41 itemises that per view. Everything below assumes a
+   payload that arrived; nothing below says one can be produced. */
+
+// A `dataTransfer` that can be READ, which the drag-out stub above never had to be:
+// `types` for `dragover`, `getData` for `drop`.
+const incoming = (data = {}) => ({
+  data: { ...data },
+  get types() { return Object.keys(this.data); },
+  effectAllowed: "", dropEffect: "",
+  setData(type, value) { this.data[type] = value; },
+  getData(type) { return this.data[type] ?? ""; },
+});
+const url = (key) => `https://dalet.atlassian.net/browse/${key}`;
+// Whether the handler ACCEPTED. It is the only observable difference between a drop
+// target and a thing that is not one: no `preventDefault` leaves the platform's own
+// refusal standing, so the cursor says no and `drop` never fires (§2.9.3).
+const over = (target, dataTransfer, extra = {}) => {
+  let took = false;
+  dispatch(target, "dragover", { dataTransfer, preventDefault() { took = true; }, ...extra });
+  return took;
+};
+const dropOn = (target, dataTransfer, extra = {}) => {
+  let took = false;
+  dispatch(target, "drop", { dataTransfer, preventDefault() { took = true; }, ...extra });
+  flush();
+  return took;
+};
+const stored = () => JSON.parse(store["gt-jira-cart.collections"]).collections;
+const keysOf = (name) => stored().find((c) => c.name === name).items.map((i) => i.key);
+const chipDrops = () => chips().filter((c) => c.attrs["data-gt-drop"] === "on").map((c) => text(c).split(" ")[0]);
+const marked = () => items().map((r) => r.attrs["data-gt-drop"] || "").join("|");
+
+is("the drawer publishes what the drop targets read instead of the store",
+  byId.get("gt-cart-drawer").attrs["data-gt-writable"], "true");
+
+/* ---- ASK ONE: THE LIVE LIST'S ROWS DRAG. They never did before -- §2.9.2 left it as
+   "a separate feature if it is ever wanted", and this is that feature. */
+// FOUR ROWS BY NOW, and one of them -- RDC-21069 -- is in no collection at all, which
+// is the case that matters: a live row is draggable whether the issue is collected or
+// not, because it is a link to an issue either way.
+is("every live row offers itself, collected or not",
+  rows().map((r) => r.attrs.draggable), ["true", "true", "true", "true"]);
+is("and the key inside it opts OUT, so the row is what leaves",
+  rows().map((r) => keyOf(r).attrs.draggable), ["false", "false", "false", "false"]);
+is("the grip is first, so its width is reserved whether it is painted or not",
+  rows().map((r) => r.children[0].classList.includes("gt-cart-grip")), [true, true, true, true]);
+is("the row carries the key the drop resolves against",
+  rows().map((r) => r.attrs["data-gt-key"]), ["RDC-1", "RDC-77", "GLX-402", "RDC-21069"]);
+is("and the tooltip says so, since the glyph is invisible until hovered",
+  /drag it onto a collection's chip/i.test(rows()[0].title), true);
+
+const liveDt = incoming();
+dispatch(rows()[2], "dragstart", { dataTransfer: liveDt });
+/* NO INTERNAL TYPE, and it would have had no reader: what a drop target needs to know
+   is whether the row is OURS TO TAKE AWAY, and only §2.9.1's rows are. A live row is,
+   to both targets, exactly what a link off the page is -- which is the truth and not a
+   simplification, because the row IS a link off the page, drawn by us. */
+is("a live row writes the three external types and no internal one",
+  Object.keys(liveDt.data), ["text/plain", "text/html", "text/uri-list"]);
+is("copy and never copyMove: nothing anywhere can be MOVED by this drag",
+  liveDt.effectAllowed, "copy");
+is("and the bytes are the one-issue bytes the 🔗 button writes",
+  liveDt.data["text/uri-list"], url("GLX-402"));
+
+/* ---- ASK ONE'S TARGET: A CHIP. An EMPTY collection's chip is used on purpose -- it
+   is the one chip that cannot be DRAGGED (§2.9.2 refuses a payload of zero items) and
+   it must still ACCEPT, because the two halves are unrelated. */
+const gaps = () => chipNamed("Gaps");
+is("the empty collection's chip still cannot be dragged", gaps().attrs.draggable, "false");
+is("but it accepts the drop", over(gaps(), liveDt), true);
+is("and the cursor says copy, because a live row is not ours to take away",
+  liveDt.dropEffect, "copy");
+is("it wears the indicator, and it is the only chip that does", chipDrops(), ["Gaps"]);
+// `relatedTarget` is the element being ENTERED, so a crossing between two chips is not
+// a leave. Without that guard the mark would be cleared and repainted at every
+// boundary, which is a flicker under a hand that is aiming.
+dispatch(gaps(), "dragleave", { dataTransfer: liveDt, relatedTarget: chipNamed("Sprint 42") });
+is("crossing to the next chip is NOT a leave", chipDrops(), ["Gaps"]);
+dispatch(gaps(), "dragleave", { dataTransfer: liveDt, relatedTarget: byId.get("gt-cart-live-list") });
+is("leaving the chip row clears it, which no dragend of ours would have done", chipDrops(), []);
+
+over(gaps(), liveDt);
+is("the drop is taken", dropOn(gaps(), liveDt), true);
+is("and the issue joined THAT collection", keysOf("Gaps"), ["GLX-402"]);
+is("the active collection is untouched -- the live list is a mirror, not a source",
+  keysOf("Scratch"), ["RDC-77", "GLX-402", "RDC-1"]);
+/* THE HALF THE FEATURE EXISTS FOR. Filing into a collection you are not working in is
+   the whole ask, and activating it would defeat it -- the same property §2.9.2 gave
+   the chip's drag out. */
+is("and it did NOT become active", stored()[0].name, "Scratch");
+
+/* ---- ASK TWO: A ROW OF THE COLLECTION ONTO ANOTHER COLLECTION'S CHIP. It MOVES, and
+   Ctrl copies -- the user's decision on 2026-08-26, taken over copy-always. */
+/* THE STORED SUMMARY IS MADE TO DIFFER FROM THE PAGE'S FIRST, so the check below can
+   prove which one a move carries. `itemFor` reads the page; a move must not -- the
+   page a collected issue came from may not even be the page we are on. */
+const pokeBlob = JSON.parse(store["gt-jira-cart.collections"]);
+pokeBlob.collections[0].items.find((i) => i.key === "RDC-77").summary = "stored, not scraped";
+store["gt-jira-cart.collections"] = JSON.stringify(pokeBlob);
+dispatch(document, "visibilitychange");
+flush();
+
+const filed = rowOf("RDC-77");
+const filedDt = incoming();
+dispatch(filed, "dragstart", { dataTransfer: filedDt });
+is("this one DOES carry the internal type, which is what makes it ours",
+  Object.keys(filedDt.data)[0], "application/x-gt-cart-item");
+is("the chip accepts it", over(gaps(), filedDt), true);
+is("and the cursor says MOVE, which is the default the user chose", filedDt.dropEffect, "move");
+is("holding Ctrl says copy instead, and the cursor is where that is visible",
+  (over(gaps(), filedDt, { ctrlKey: true }), filedDt.dropEffect), "copy");
+// Read again with no modifier: Ctrl is read on the EVENT that is happening, never
+// remembered from `dragstart`, so releasing the key mid-drag has to change it back.
+is("and letting Ctrl go changes it back", (over(gaps(), filedDt), filedDt.dropEffect), "move");
+is("the drop is taken", dropOn(gaps(), filedDt), true);
+dispatch(filed, "dragend", { dataTransfer: filedDt });
+flush();
+is("the row LEFT the active collection", keysOf("Scratch"), ["GLX-402", "RDC-1"]);
+is("and joined the other one at the END", keysOf("Gaps"), ["GLX-402", "RDC-77"]);
+is("the item was carried WHOLE: the stored summary moved, not the page's",
+  stored().find((c) => c.name === "Gaps").items[1].summary, "stored, not scraped");
+
+/* ---- THE DUPLICATE, AND IT NEEDS NO RULE OF ITS OWN. A drop makes the END STATE
+   true: the issue is in the target, and for a move it is out of the source. So
+   dropping something the target already holds adds nothing -- and a MOVE still takes
+   it out of the source, because that is the end state a successful move reaches. It is
+   the sharp edge of the gesture and it is deliberate (§2.9.3). */
+const dupe = rowOf("GLX-402");
+const dupeDt = incoming();
+dispatch(dupe, "dragstart", { dataTransfer: dupeDt });
+over(gaps(), dupeDt);
+dropOn(gaps(), dupeDt);
+dispatch(dupe, "dragend", { dataTransfer: dupeDt });
+flush();
+is("the target already had it, so nothing was added and it is NOT duplicated",
+  keysOf("Gaps"), ["GLX-402", "RDC-77"]);
+is("and the move still removed it from the source -- the same end state",
+  keysOf("Scratch"), ["RDC-1"]);
+
+// Ctrl on the same shape of drop leaves the source alone, which is the whole of what
+// the modifier buys.
+const kept = rowOf("RDC-1");
+const keptDt = incoming();
+dispatch(kept, "dragstart", { dataTransfer: keptDt });
+over(gaps(), keptDt, { ctrlKey: true });
+dropOn(gaps(), keptDt, { ctrlKey: true });
+dispatch(kept, "dragend", { dataTransfer: keptDt });
+flush();
+is("a Ctrl drop copies: the target gains it", keysOf("Gaps"), ["GLX-402", "RDC-77", "RDC-1"]);
+is("and the source keeps it", keysOf("Scratch"), ["RDC-1"]);
+
+/* ---- ASK THREE: A LINK OFF THE PAGE, DROPPED INTO THE COLLECTION AT A POSITION.
+   Nothing of ours started this drag, so there is no module state to read and every
+   decision comes out of the payload -- which is why one parser serves all three asks
+   (§2.9.3). */
+const list = byId.get("gt-cart-item-list");
+const pageDt = incoming({ "text/uri-list": url("RDC-77"), "text/plain": url("RDC-77") });
+const only = rowOf("RDC-1");
+only.getBoundingClientRect = () => RECT;
+is("the item list accepts a link that is not one of its own rows", over(only, pageDt, { clientY: 105 }), true);
+is("and the cursor says copy: this drag takes nothing out of anywhere", pageDt.dropEffect, "copy");
+is("a pointer in the TOP half marks the gap ABOVE the row", marked(), "before");
+is("the drop lands in that gap and not at the end", (dropOn(only, pageDt, { clientY: 105 }), keysOf("Scratch")),
+  ["RDC-77", "RDC-1"]);
+is("and it arrived with the summary the page had for it",
+  stored()[0].items[0].summary, "The linked issue's own summary");
+is("nothing is left painted, and no dragend of ours could have cleared it", marked(), "|");
+
+/* NO ROW UNDER THE POINTER IS NOT A REFUSAL for an add: the pointer is below the last
+   row, or on the empty-state paragraph, and both mean the END of the list -- the one
+   gap a list with no rows still has. The REORDER still requires a row, which is the
+   1.4.0 gesture left exactly as it shipped. */
+const tailDt = incoming({ "text/uri-list": url("GLX-402") });
+is("the empty space below the rows accepts it", over(list, tailDt), true);
+is("and the indicator goes on the last row's lower edge", marked(), "|after");
+is("the drop appends", (dropOn(list, tailDt), keysOf("Scratch")), ["RDC-77", "RDC-1", "GLX-402"]);
+
+// Already in the list: the drop still means "put it here", so it MOVES. Resolved by
+// key against the array the read returned, and the gap walks back once for the item
+// taken out from before it -- `moveInList`'s off-by-one, generalised to N.
+const againDt = incoming({ "text/uri-list": url("RDC-77") });
+const glxRow = rowOf("GLX-402");
+glxRow.getBoundingClientRect = () => RECT;
+over(glxRow, againDt, { clientY: 115 });
+is("an issue already in the list moves to the gap instead of duplicating",
+  (dropOn(glxRow, againDt, { clientY: 115 }), keysOf("Scratch")), ["RDC-1", "GLX-402", "RDC-77"]);
+
+/* ---- FOUR REFUSALS, and every one of them is a `dragover` that does not call
+   `preventDefault`, so the cursor says no and `drop` never fires. A refusal that is
+   VISIBLE, which a silent no-op would not be. */
+
+// ONE: A COLLECTION. A chip drag carries N issue URLs, so without the marker it is
+// indistinguishable from dropping N links -- and it would MERGE two collections, which
+// is §6 item 6 and is not built. This is the marker's one reader (§2.9.2, §2.9.3).
+const mergeDt = incoming({
+  "application/x-gt-cart-collection": "some-id",
+  "text/plain": "- a list",
+  "text/uri-list": [url("RDC-500"), url("RDC-501")].join("\r\n"),
+});
+is("a collection dropped on a chip is refused", over(gaps(), mergeDt), false);
+is("and so is one dropped in the collection's own list", over(list, mergeDt), false);
+is("and a collection DROPPED on a chip anyway is not consumed either",
+  [dropOn(gaps(), mergeDt), dropOn(list, mergeDt)], [false, false]);
+is("nothing was marked and nothing was written",
+  [chipDrops(), marked(), keysOf("Scratch")], [[], "||", ["RDC-1", "GLX-402", "RDC-77"]]);
+
+// TWO: NO URL LIST. A dragged paragraph that happens to spell a key is not a link, and
+// §2.1's decision -- a key typed as plain text is invisible to the Cart -- is not
+// overturned by a gesture.
+const proseDt = incoming({ "text/plain": "please look at RDC-999 today" });
+is("a text drag with no url-list is refused at the chip", over(gaps(), proseDt), false);
+is("and at the list", over(list, proseDt), false);
+
+/* ---- AND A REFUSED DROP THAT ARRIVES ANYWAY IS NOT CONSUMED. Added on 2026-08-26,
+   from the user's report, and it corrects a comment this file shipped with.
+
+   `drop` DOES NOT ONLY FIRE BECAUSE WE ACCEPTED. `dragover` fires at the element under
+   the pointer and BUBBLES, so an ANCESTOR that calls `preventDefault` allows the drop —
+   and the `drop` is then dispatched at the element under the pointer, which is ours,
+   and reaches these listeners. **Jira's own board and backlog drag-and-drop listens
+   above us**, so a card dragged across the drawer is exactly that case (ADR risk 22).
+
+   WHAT MUST HAPPEN is that we neither write nor consume: no `preventDefault`, so the
+   drop is left to whoever did accept it. A drawer that ate gestures never aimed at it
+   would be worse than one that ignores them. */
+const beforeStray = keysOf("Scratch");
+is("a refused payload dropped on a chip is NOT consumed", dropOn(gaps(), proseDt), false);
+is("nor on the list", dropOn(list, proseDt), false);
+is("and neither wrote anything", keysOf("Scratch"), beforeStray);
+
+// THREE: ANOTHER ORIGIN. `issueUrl` rebuilds every link from `location.origin`, so
+// accepting a foreign host would silently retarget it at this instance and store a key
+// that means nothing here. The ACCEPT is granted -- `types` cannot see a host -- and
+// the parse is what yields nothing, so this refusal is at `drop` and not at `dragover`.
+const foreignDt = incoming({ "text/uri-list": "https://other.atlassian.net/browse/RDC-999" });
+is("a url from another origin is offered a drop, because types cannot see a host",
+  over(list, foreignDt), true);
+is("and then writes nothing at all",
+  (dropOn(list, foreignDt), keysOf("Scratch")), ["RDC-1", "GLX-402", "RDC-77"]);
+
+// FOUR: A READ-ONLY STORE. Adding WRITES, so §2.9.2's asymmetry applies in the other
+// direction: the live rows still drag OUT of a store this build must not touch, and
+// every drop is refused.
+const lockedAgain = JSON.parse(store["gt-jira-cart.collections"]);
+store["gt-jira-cart.collections"] = JSON.stringify({ ...lockedAgain, v: 99 });
+dispatch(document, "visibilitychange");
+flush();
+is("the drawer says the store cannot be written",
+  byId.get("gt-cart-drawer").attrs["data-gt-writable"], "false");
+const lockedDt = incoming({ "text/uri-list": url("RDC-77") });
+is("so a chip refuses the drop", over(chipNamed("Gaps"), lockedDt), false);
+is("and so does the list", over(byId.get("gt-cart-item-list"), lockedDt), false);
+is("and a drop that reaches them anyway is not consumed",
+  [dropOn(chipNamed("Gaps"), lockedDt), dropOn(byId.get("gt-cart-item-list"), lockedDt)],
+  [false, false]);
+is("but a live row still drags out, because that only reads",
+  rows().every((r) => r.attrs.draggable === "true"), true);
+store["gt-jira-cart.collections"] = JSON.stringify(lockedAgain);
+dispatch(document, "visibilitychange");
+flush();
+is("and the lock lifts", byId.get("gt-cart-drawer").attrs["data-gt-writable"], "true");
 
 // ---- Escape does not close the drawer, and nothing on the page does either
 dispatch(byId.get("gt-cart-live-list"), "keydown", { key: "Escape" });
