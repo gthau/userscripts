@@ -1995,6 +1995,27 @@ mis-drop is easier to make. §7 step 39 looks at it rather than assuming either 
 > swallows our own drag, which §2.9.1 costed and declined precisely because the
 > hazard was thought to be the browser's rather than ours to prevent.
 
+> **AMENDED 2026-08-26: THE PARAGRAPH ABOVE NAMES THE WRONG HAZARD.** A link drop on
+> ordinary page content does **not** navigate the tab. **A new tab opens** with the
+> dropped URL, and the page you were on survives. Measured twice in the collection
+> drag's rig — once with a single URL, once with four — see appendix A.10.
+>
+> **What was wrong was the hazard's shape, not the reasoning.** The 2026-08-25 run
+> above saw nothing happen at all, which is consistent with either explanation it
+> gives, so neither could be separated and both were kept. What nobody tested was
+> what the browser does *when it does act*. It opens a tab. So the accepted cost was
+> never *losing the page the live list is mirroring* — it was a stray tab you close.
+>
+> **The remedy this note recommends is the one §2.9.2 designed, chose, and then did
+> not build**, and the reason is measured on the other side of the same trade:
+> dragging an item row into a Jira comment or description **works today**, inserting
+> the link in the shape the `Issue reference` setting names. A `dragover` on the
+> document that swallowed our drags would take that away — from this drag as well as
+> the collection's, since one handler cannot tell a wanted drop from an unwanted one
+> by target. So the declining stands, and it now stands on evidence rather than on
+> the guess that the hazard was the browser's to prevent. §2.9.2 has the full
+> reckoning.
+
 **And it corrects a line this document has carried since 1.0.0.** §2.9 says copying
 one row out of the collection is refused, *because the collection is the selection*.
 That was never quite true — the platform gave per-row extraction away through the
@@ -2390,6 +2411,234 @@ which theme is active.
 new-collection input must stop `keydown`, `keypress` and `keyup` from propagating.
 Jira binds plenty of bare keys, and a keystroke that opened Jira's quick-search
 while you were naming a collection would be diagnosed as our bug.
+
+### 2.9.2 The collection drags out — 1.5.0, 2026-08-26
+
+**Asked for by the user, and it is §2.9.1 applied to the whole list.** The item drag
+made one issue draggable into Teams, Notepad and an editor. The same want at
+collection scope is *🔗 Links without the clipboard*: drop the whole collection
+where the paste was going to go. Two extra targets came with the ask — the
+browser's **tab strip**, to open every issue, and its **bookmarks bar**, to keep
+them.
+
+**Everything below the design was measured on 2026-08-26 in a rig, before any of it
+was written.** Appendix A.10 has the readings. Two of the four targets came back
+differently from the design, and one paragraph of §2.9.1 came back wrong. The rig is
+`test/jira-cart/drag-test.html` and it is committed for the reason the paste rig is:
+these are questions about browser chrome, and no unit test can reach them.
+
+#### Two grabs, not one
+
+| Grab | What leaves |
+| --- | --- |
+| The collection heading | The active collection |
+| Any chip | That chip's collection, active or not |
+
+**The chips are the half that earns its keep.** They export a collection *without
+activating it*, which nothing else in the drawer can do. The heading is the obvious
+grab and the chips are the useful one.
+
+**The 🔗 Links button was offered as the grab and refused by the user as
+counter-intuitive.** It had one argument going for it — the foot row is where
+getting-data-out lives, so the drag would have sat beside the press whose bytes it
+sends. Against it: nobody expects a button to be draggable. The user is right that
+a button is a thing you press.
+
+**The heading is not draggable while a rename is open.** Clicking the name swaps it
+for an input. If the heading stayed draggable, dragging across that input's text
+would start a collection drag instead of selecting the text — the same trap
+`draggable="false"` on the key link was added to avoid in §2.9.1, arriving from the
+other direction.
+
+**A chip dropped anywhere inside the drawer does nothing.** Merging collections is
+§6 item 6. A grab that exports when you drop it outside and reorders when you drop
+it inside is two gestures behind one hand, and collections have no user-set order to
+reorder — activating one moves it to index 0, which is the only ordering there is.
+
+#### What it sends
+
+**The 🔗 Links bytes at collection scope, and nothing else.** Three types, the same
+call, the same `Issue reference` setting:
+
+| Type | What it carries |
+| --- | --- |
+| `text/plain` | The markdown bulleted list — `formatLinks` at collection scope |
+| `text/html` | Its `<ul>` twin |
+| `text/uri-list` | One issue URL per line |
+
+**No internal type.** The collection drag has no drop target of its own, so there is
+nothing for a marker to tell apart. One was designed — see *the blocking code that
+was not built*, below — and it went when the thing that needed it went.
+
+**`effectAllowed` is `copy`, not `copyMove`.** §2.9.1 needs `copyMove` because that
+drag is also the reorder. This one only ever leaves.
+
+**NO COLLECTION NAME IN THE BYTES, and the user drew this line himself.** Asked
+whether a dropped collection should say which collection it is, the answer was: not
+in an editor, but yes as a bookmarks folder name. The first half keeps the rule
+§2.9.1 was built on — one collection leaving the Cart has one shape wherever it
+leaves from, so the drag and the press stay byte-identical and `format-smoke` still
+covers both with one set of literals. The second half turned out to be impossible;
+see below. So the bytes carry no title, and the cost is real and accepted: three
+collections dropped into Teams are three lists that look alike.
+
+#### Where it works, all measured
+
+| Target | What arrives |
+| --- | --- |
+| Teams | The `<ul>`, as a list of live links |
+| Notepad | The markdown list |
+| A Jira comment or description | The markdown list. **See the finding below — this was not known** |
+| The tab strip | **One tab per issue.** Four issues, four tabs |
+| A tab group you already made | All the tabs, **inside that group** |
+
+**THE TAB GROUP JOINS, IT DOES NOT GET CREATED.** Chromium takes the group for a
+dropped URL from the tab that was under the pointer. There is no way for a page to
+ask for a new group, named or otherwise. So the workflow is: make the group once,
+name it what you like, and drop the collection into it. The user accepted this
+trade knowingly, and it is the same trade the bookmarks bar could not offer.
+
+**No cap on how many URLs go out.** Fifty items dropped on the tab strip opens fifty
+tabs. The count sits in the heading you are about to grab, so it is not a surprise,
+and a cap would make the drag mean something different from the press at exactly the
+moment the whole collection was asked for. §2.8's own rule against silent
+truncation says the same thing from the other side.
+
+#### Where it does not work: the bookmarks bar
+
+**The ask was a folder named after the collection. It cannot be done from a
+userscript, on three independent grounds, two of them measured.**
+
+1. **No folder, ever.** Chromium's bookmark drop branches on one flag per dropped
+   element: a URL becomes a bookmark, a *folder* becomes a folder and recurses.
+   Nothing wraps a set of URLs in a new folder. Handing over a folder would mean
+   writing Chromium's private bookmark format, which a page cannot do — an
+   unrecognised `setData` type lands in a blob the bookmarks bar never reads, and
+   the real payload is a serialised pickle of node ids and profile paths.
+   `text/html` does not help: that bar accepts plain URLs and its private format
+   and nothing else.
+2. **One URL, not N.** Measured. The bar takes the **first** line of the URL list
+   and ignores the rest — dropped on the bar, and dropped onto a folder made by
+   hand, both give one bookmark.
+3. **No name.** Measured. The bookmark is created with no title. This is not a
+   multi-URL artefact: the single-URL control did the same, and our `text/html`
+   anchor text did not supply one either.
+
+**The same drag gave four tabs and one bookmark, which is the useful part of the
+finding.** The payload crossed to Windows intact. The two Chromium call sites simply
+differ — the tab strip asks for a URL *list*, the bookmarks bar reads a single URL
+and title. **So no change to what we send can fix this**, and no future session
+should spend a day trying. A `DownloadURL` payload handing over a Netscape bookmarks
+file was considered and declined: it names the folder `Imported` rather than the
+collection, needs a File → Import afterwards so it is not a drop at all, is
+Chromium-only, and is a second payload shape to build and check.
+
+**What ships for the bookmarks bar is therefore nothing, and one documented wart.**
+Dropping a collection there does not fail visibly — it silently creates one unnamed
+bookmark of the **first issue**, which looks like it might be the collection. We
+cannot intercept browser chrome, so this is recorded rather than prevented.
+
+**THE 1.4.0 ITEM DRAG HAS THE SAME WART AND THIS SECTION IS WHERE IT IS FIRST
+WRITTEN DOWN.** A single item dropped on the bookmarks bar has always produced an
+unnamed bookmark. §2.9.1 says the row is "a link on the way out" and it is, but the
+link has no label. Nobody had looked.
+
+#### The blocking code that was designed and not built
+
+**A document-level handler that swallowed our own drags was designed, chosen by the
+user, and then dropped on the evidence — in that order.** It is recorded because the
+reasoning is the useful part, and because a future session will have the same idea.
+
+**What it was for.** §2.9.1 accepted a named cost: a mis-drop onto the Jira page
+lets the browser navigate the tab to that issue, losing the page the live list
+mirrors. A collection drag makes that journey much longer — the heading is at the
+top of the drawer, the chips near the bottom, and both the tab strip and the
+bookmarks bar are at the top of the window, so every one of these drags crosses the
+whole page carrying live links.
+
+**How it would have worked, and this part is worth keeping.** `getData` is
+unreadable during `dragover`, which is why §2.9.1's reorder reads a variable — but
+**`dataTransfer.types` IS readable there**, measured. So the check needed no module
+flag: look for our own type in `types` and swallow. Stateless, and therefore unable
+to get stuck armed and start eating Jira's own board drags, which a flag cleared on
+`dragend` could have done.
+
+**Why it is not built. Two measurements, one on each side of the trade.**
+
+- **The harm is smaller than §2.9.1 wrote.** A stray link drop on page content
+  **opens a new tab**. It does not navigate the current one. Measured twice, with
+  one URL and with four. The page you were collecting from survives, so the cost is
+  a tab you close.
+- **The price was a working capability.** Dragging an item row into a Jira comment
+  or description **works today** and inserts the link in the shape the `Issue
+  reference` setting names. A handler that swallowed drops on the Jira page would
+  have taken that away — from the item drag as well, since it covers both.
+
+So the collection drag inherits §2.9.1's original judgement unchanged rather than
+reversing it: **this is the browser's to prevent and not ours.** And it gains a
+target nobody planned — a collection dropped into a Jira description arrives as the
+markdown bulleted list.
+
+#### It corrects a paragraph §2.9.1 has carried since 1.4.0
+
+§2.9.1 says a mis-drop lets "the browser's own answer to that" be *navigate the tab
+to the issue — losing the page the live list is mirroring*. **That is wrong, and now
+measured wrong: a new tab opens instead.** The claim survived 1.4.0 because the one
+run that looked at it saw nothing happen at all, which was read narrowly and
+correctly as *unobserved* rather than *retired*. What was never tested was the
+hazard's **shape**. It is a nuisance, not a loss, and §2.9.1's paragraph is amended
+in place rather than deleted, because the reasoning that accepted it was sound on
+the information it had.
+
+#### What never drags
+
+- **An empty collection.** `format` returns null on zero items rather than write
+  nothing, and a drag carrying no payload is a gesture that fails in silence.
+- **📋 Details and 📊 Report.** Their rows are fetched per press and never stored,
+  so a drag would carry either nothing or whatever happened to be armed — a payload
+  that depends on hidden state. §2.14's "nothing fetched is ever stored" is the
+  same rule from the other end.
+- **The live list.** It mirrors the page and is not a collection. A separate feature
+  if it is ever wanted.
+- **A read-only store still drags, and this is the one asymmetry with §2.9.1.** Item
+  rows are draggable only when the store is writable, because that drag *writes*.
+  This one only reads, so a collection written by a newer version of the Cart keeps
+  its export. Refusing it would withhold the one operation that is still safe.
+
+#### The hint, and why the chips do not get one
+
+The drawer has a settled way of saying *this drags*: the whole element is the
+target, `cursor: grab`, `user-select: none`, and an `aria-hidden` `⠿` whose width is
+**reserved always** and only painted on hover — so nothing reflows under a hand that
+is already reaching. The field rows and the item rows both wear it.
+
+**The heading gets all of it. The chips get the cursor and a longer tooltip and no
+glyph.** A chip is a tight pill whose name is the one thing in the drawer that
+ellipsises, and a reserved glyph would take that width from every chip on every
+install, wrapping the chip row one collection sooner. Painting the glyph on hover
+*without* reserving its width was considered and refused: it grows the element under
+a pointer that is about to press it, which is the reflow-under-the-hand defect
+§2.14 spent a day removing from the foot row, and the reason the item grip reserves
+its space in the first place.
+
+**So one gesture has two affordances, and that is a real inconsistency accepted with
+its reason.** The alternative was shorter chip names for everyone, for ever.
+
+#### What this hands to ticket 04
+
+**Two of the user's four asks need a browser extension and nothing else will do
+them.** A bookmark folder named after the collection, and a tab group named after
+it, are both one call away in `chrome.bookmarks` and `chrome.tabGroups`, and
+unreachable from any page.
+
+Ticket 04 settled *userscript, unconditionally*, and named exactly one thing that
+would reopen it: wanting Cart UI when no Jira tab is focused. **This is a second,
+and it is the first concrete want the Cart has produced that only a manifest
+serves.** It does not reopen the decision on its own — the trade the user took
+instead (make the folder or the group by hand, then drop into it) is good enough,
+and the rest of the feature is fully served by a userscript. It is recorded so that
+the trip-wire table has two rows rather than one, and so that a third want of this
+shape is recognised as a pattern rather than met as a surprise.
 
 ### 2.10 One signal, and one function that writes to the page
 
@@ -3476,12 +3725,14 @@ Everything else is inside the drawer.
 | A live-list row | drawer, `On this page (n)` | Adds the issue. Click a collected row to remove it. **The key itself is a link**: click to open the issue, middle-click or Ctrl-click for a new tab |
 | A key, in either section | drawer | A real link to the issue, so the browser's own gestures all apply, including its context menu |
 | A collection row | drawer, the collection | **Drag it to reorder** (1.4.0). The whole row is the target, key included; a ⠿ appears on whichever row the pointer is over, and its space is held whether or not it is painted. Which half of the row you drop on decides above or below; below the last row appends. **The array order is what every export emits**, so this sets what a paste says first. No keyboard path (§6 item 4), and no undo beyond dragging it back (§2.9.1) |
-| A collection row, dragged OUT of the drawer | drawer → anywhere else | **The same drag drops that issue into another application** (1.4.0), in whatever shape `Issue reference` names — the `🔗` button's bytes, plain and rich, plus a `text/uri-list` so it is a real link drag. It is a copy: the row stays in the collection. **A mis-drop onto the Jira page can navigate the tab to that issue**, which is the platform's own answer to a dropped link and was true of the key link before 1.4.0 (§2.9.1) |
+| A collection row, dragged OUT of the drawer | drawer → anywhere else | **The same drag drops that issue into another application** (1.4.0), in whatever shape `Issue reference` names — the `🔗` button's bytes, plain and rich, plus a `text/uri-list` so it is a real link drag. It is a copy: the row stays in the collection. **A mis-drop onto the Jira page opens a NEW TAB on that issue** — measured 2026-08-26; it does not take the page you were on away, which is what this row claimed until then (§2.9.1, appendix A.10). Dropping it into a **Jira comment or description** works and inserts the same shape |
 | `✕` on a collection row | drawer, the collection | Removes that item |
+| The collection's heading, dragged | drawer, the collection's heading → anywhere else | **Drags the whole collection out** (1.5.0). A plain editor gets the markdown list, Teams and a **Jira comment** get live links, and the **browser's tab strip opens one tab per issue** — inside a tab group if you drop it into one you already made. The bytes are 🔗 Links' own, so the `Issue reference` setting decides them. A ⠿ appears on hover, its space held either way. It only reads, so it works on a read-only store; it does nothing while the rename field is open, or on an empty collection. **The bookmarks bar takes only the first link and gives it no name** — the browser's limit, not ours (§2.9.2) |
 | The collection's name | drawer, the collection's heading | Click to rename it in place. Enter or blur commits. Escape cancels |
 | ⌫ | drawer, the collection's heading | Empties the collection and keeps its name. Click once to arm it — the label becomes `Empty N?` — and again to commit |
 | ↻ | drawer, the collection's heading | Refreshes every summary in the collection |
 | A collection chip | drawer, below the collection | Makes that collection active. Each chip carries its own count |
+| A collection chip, dragged | drawer, below the collection → anywhere else | **Drags THAT collection out** (1.5.0), to the same six places the heading reaches — and **without making it active**, which nothing else in the drawer can do. No ⠿ on a chip: its name is the one label in the drawer that ellipsises, so the tooltip does the work instead (§2.9.2) |
 | ✕ on a chip | drawer, below the collection | Deletes that collection. Armed first: the chip turns red and its tooltip names what goes. On the only collection it empties it instead (§2.4) |
 | `new collection…` + create | drawer, below the chips | Creates a collection and makes it active |
 | 🔗 Links | drawer, the foot | Copies the whole collection as a list, plus a spaced `<ul>` as HTML. **How each line names its issue is the `Issue reference` setting**, and the default is what 1.1.0 emitted (§2.8) |
@@ -3811,6 +4062,15 @@ These are not gaps in the design. Each was named, and each was left.
    refused before. It is still refused, and the reason is unchanged: granting it to
    one drag and not the other three would say the limit had moved. **The count in
    this item is now four, and the rule is still all-or-none.**
+   **A FIFTH ARRIVED AT 1.5.0 — the collection drags out of the drawer (§2.9.2),
+   from its heading and from any chip.** It is pointer-only like the rest, and it is
+   the first of the five that is **export rather than manipulation**: it changes
+   nothing, in the page or in storage. That makes the keyboard case *weaker* here
+   than for the item rows, not stronger — a keyboard user who cannot drag a
+   collection out can still press 🔗 Links, which puts the same bytes on the
+   clipboard, and the two grabs send nothing the foot row cannot. **So this drag is
+   the one place the limit costs a keyboard user nothing at all.** The count is five
+   and the rule is unchanged.
 5. **The dashboard gadget.** See risk 7.
 6. **Import into a collection** — pasting a list of keys, or adding every result of
    a JQL query. "Add all 12,816 results" belongs here, not to the scan. Search
@@ -3845,6 +4105,10 @@ These are not gaps in the design. Each was named, and each was left.
    here.** Both were offered alongside the drag on 2026-08-25 and declined: a sort
    silently destroys a hand-made order and has no undo, which is exactly what §2.9's
    two destructive controls are armed against.
+   **1.5.0 ADDS NOTHING TO THIS ITEM AND IS WORTH A LINE ANYWAY.** §2.9.2 makes the
+   collection *leave* by drag; it does not reorder or group anything. The array the
+   item drag writes is still the only order there is, and it is still what every
+   export emits — including the one that now leaves by hand rather than by clipboard.
 8. **Capture from Bitbucket and Confluence.** Out of scope for this effort, and
    **intended future work rather than a hypothetical** — the user's instruction.
    The store already reaches both, because it is per-script; Confluence Cloud also
@@ -4536,6 +4800,92 @@ pass each, and they are cheap.
       the key link before 1.4.0 and the target is bigger now; the cost was accepted
       with the type (§2.9.1), so what this item settles is how easy it is to hit,
       not whether it happens.
+      > **ANSWERED 2026-08-26, AND THE ITEM ABOVE NAMES THE WRONG OUTCOME.** The
+      > browser's answer to a link drop on page content is **a new tab**, not a
+      > navigation. Measured with one URL and with four — appendix A.10, rows 9 and
+      > 10. So the page you were collecting from survives and the cost is a tab you
+      > close. Keep running the item, because *which* browser does what is still
+      > worth recording, but stop expecting a lost page.
+      > **And one thing this bullet never thought to try turned out to matter more:
+      > drop the row into a Jira COMMENT BOX or a description.** It works, and it
+      > inserts the link in the `Issue reference` shape. That capability is why
+      > §2.9.2 designed a handler to swallow drops on the Jira page and then did not
+      > build it.
+
+40. **THE COLLECTION'S DRAG OUT, WHICH IS TWO GRABS AND SIX DESTINATIONS (§2.9.2,
+    1.5.0).** The payload is held in `boot-smoke` against the `🔗` button's own
+    literals, exactly as step 39's is, so nothing here re-checks bytes. What needs a
+    hand is the two new grabs, the clicks they must not eat, and the six places the
+    drag lands. Appendix A.10 already recorded every destination once from a rig; this
+    step is the same drops made by the real script. **Have two collections, one with
+    at least four items and one with none.**
+    - **Grab the collection heading, anywhere on it, and drag.** It must lift. Then
+      hover it without dragging: the `⠿` must appear, and **nothing on the heading may
+      move when it does** — the width is reserved, so a name that shifts sideways
+      means the reservation has been lost.
+    - **Grab the heading by the collection NAME.** It must drag the heading, because
+      a button is not draggable and the platform walks up to the nearest ancestor that
+      is. **Then click that same name.** The rename field must open: the drag may not
+      have eaten the click. This is step 39's key-link pair, one control up.
+    - **With the rename field open, select its text with the mouse.** You must be able
+      to. If the heading drags instead, the `draggable` swap on rename has gone and
+      the field cannot be edited by pointer at all.
+    - **Grab a chip and drag it.** It must lift. **Then click that chip.** It must
+      still activate its collection. **Then press its ✕ twice.** It must still arm and
+      then delete.
+    - **Drag the NON-ACTIVE chip out to a text editor.** What lands must be **that**
+      collection's items, and the active collection must not have changed. This is the
+      one thing the two grabs do differently and the whole reason chips drag.
+    - **Drop a chip inside the drawer** — on the item list, on the other chips, on the
+      foot row. **Nothing may happen.** No reorder, no merge, no activation. Like step
+      39's cross-list refusal this is the platform's own refusal standing, so there is
+      nothing in the file to assert about it.
+    - **The empty collection may not drag at all** — neither its heading while it is
+      active, nor its chip. A drag that lifts and delivers nothing is worse than one
+      that never starts.
+    - **THE SIX DESTINATIONS.** Drag the four-item collection into each, and in every
+      case the collection must **stay in the drawer** — this is a copy:
+      **a plain text editor**, which must get the markdown bulleted list;
+      **a rich editor or Teams**, which must get a real bulleted list of live links;
+      **a Jira comment box or description**, which must get the markdown list —
+      new at 1.5.0 and free, and the reason no handler swallows drops on the Jira
+      page; **the tab strip**, which must open one tab per issue;
+      **a tab group you made by hand**, which must open those tabs inside it; and
+      **the bookmarks bar**, which will give you **one unnamed bookmark of the first
+      issue**. That last one is the documented wart of §2.9.2, not a defect — confirm
+      it is what happens, so that a later session recognises it instead of filing it.
+    - **Change `Issue reference` and drag the same collection again.** The dropped
+      text must change with it, for step 39's reason: a second place deciding what an
+      issue looks like is what §4 rejected twice.
+    - **A read-only store must still drag.** Make the store look like a newer
+      version's, the way step 27's equivalent does. The item rows stop dragging and
+      **the heading and the chips must not** — a drag out only reads, and it is the
+      one operation still safe on a store this version must not write.
+    - **At the drawer's 300×215 floor.** The `⠿` must still fit beside a name, the
+      count, ⌫ and ↻ without any of them wrapping, and the chip row must still be
+      grabbable. This is where step 39's equivalent surprised nobody and was worth
+      running anyway.
+    - **NOT WORTH RUNNING UNLESS YOU WANT TO SEE IT: a fifty-item collection on the
+      tab strip.** It opens fifty tabs. §2.9.2 declined to cap it on purpose, so this
+      is the design working, and the only thing to check is that the count in the
+      heading told you first.
+    > **REPORTED WORKING IN USE ON 2026-08-26, AND THIS STEP IS STILL UNRUN.** The
+    > user tried the feature in the browser and said it works as expected. That is a
+    > **use report and not a run of the fifteen items above**, which is the
+    > distinction step 39's own note was written to keep — a use report says the
+    > feature is usable, and these items say which specific things were looked at.
+    >
+    > **What the use report does cover, because it could not work without them:** a
+    > grab that lifts, a payload that arrives somewhere, and at least one destination
+    > taking it. Appendix A.10 has every destination measured once from the rig, so
+    > the *bytes* and the *targets* are both held elsewhere.
+    >
+    > **What nobody has looked at:** the clicks the two grabs must not eat — the name
+    > still opening the rename, the chip still activating, the ✕ still arming; the
+    > rename field's text still being selectable; the drawer at its 300×215 floor;
+    > and whether the chip's grab cursor is worth anything under a button that covers
+    > it. **That last one is the one to itemise first**, because §2.9.2 already
+    > records it as the weakest part of the design and names what to try instead.
 
 ---
 
@@ -4913,6 +5263,83 @@ table had four rows and the script has five** — the fifth is the one this appe
 asked for — and nothing in the repository read that file, so nothing said so.
 
 ---
+
+### A.10 The drag targets, 2026-08-26, one session
+
+**Everything the collection drag rests on, and two things the item drag rested on
+wrongly.** The question was not answerable by reading: Chromium's tab strip *can*
+open one tab per URL — it asks for a URL list and loops — but nothing in the source
+says whether a **web page's** drag can hand several URLs across the
+renderer-to-Windows boundary, where the shell's own URL format carries one.
+
+**The rig is [`test/jira-cart/drag-test.html`](../test/jira-cart/drag-test.html),
+and it is committed for the paste rig's reason.** These are questions about browser
+chrome. No unit test reaches a tab strip. Rebuilding the rig is the expensive part.
+Five draggable boxes set five different payloads for the same four issues, so any
+difference in behaviour can be attributed to one change: the ship candidate; the
+same with bare URLs as plain text; the URL list alone; LF instead of CRLF line
+endings; and one URL as a control. A sink on the page reads every type back out
+before any of it leaves the browser.
+
+| # | Drop target | Result |
+| --- | --- | --- |
+| 1 | The rig's own sink | All four types arrive. The URL list has all four lines |
+| 2 | Tab strip | **Four tabs.** One per issue |
+| 3 | Tab group made by hand | **Four tabs, inside the group** |
+| 4 | Bookmarks bar | **One** bookmark. No name. The **first** URL |
+| 5 | A folder made by hand on the bar | The same: one unnamed bookmark of the first URL |
+| 6 | Teams message box | The `<ul>`, as a list of live links |
+| 7 | Notepad | The markdown list |
+| 8 | Jira comment / description editor | The link, in the `Issue reference` shape |
+| 9 | An ordinary web page, four URLs | **A new tab opens** on the first URL. No navigation |
+| 10 | An ordinary web page, one URL | **A new tab opens.** No navigation |
+
+**FIVE FINDINGS, AND THREE OF THEM CHANGED THE DESIGN.**
+
+**1. The multi-URL hand-off works, and `text/plain` did not need changing.** Row 2
+opened four tabs *while* `text/plain` was a markdown bulleted list, so the URL list
+wins over plain text at the tab strip. The two rig boxes built to diagnose a
+collapse — bare URLs as plain text, and LF line endings — were never needed and
+were not run. Nothing about the payload changed from the design.
+
+**2. Rows 2 and 4 disagree about the same drag, and that is the whole answer for the
+bookmarks bar.** Four tabs and one bookmark, from one drop payload. The payload
+crossed to Windows intact; the two Chromium call sites differ — one asks for a URL
+list, the other reads a single URL and title. **No change to what we send can fix
+the bookmarks bar**, which is worth writing down precisely so that no future session
+spends a day on the payload.
+
+**3. A bookmark made from our drag has no name, and this is true of one item too.**
+Row 4 and the single-URL control both produced an untitled bookmark, and the
+`text/html` anchor text did not supply one. So **the 1.4.0 item drag has always done
+this** and nobody had looked. §2.9.1 says the row is a link on the way out; it is,
+but on the bookmarks bar the link has no label.
+
+**4. A stray drop opens a tab. It does not navigate.** Rows 9 and 10, with four URLs
+and with one. **This makes §2.9.1's accepted cost wrong as written** — the paragraph
+said the browser navigates the tab to the issue, losing the page the live list
+mirrors. It does not. The page survives and the cost is a tab you close. §2.9.1 is
+amended in place; the reasoning that accepted the cost was sound on what it knew,
+and what was never tested was the hazard's shape rather than its existence.
+
+**5. Dragging into a Jira editor works, and nobody knew.** Row 8. An item row
+dropped into a comment box or a description inserts the link in the shape the
+`Issue reference` setting names. This is an undocumented capability of 1.4.0, found
+only because it was the price of a feature that then was not built — the
+document-level swallow of §2.9.2, which would have removed it.
+
+**One mechanism was confirmed rather than assumed, and it is worth keeping even
+though nothing now uses it.** During `dragover` the drag data store is in protected
+mode: `getData` returns `""`. **`dataTransfer.types` is still readable.** Measured
+in row 1. So a handler that has to recognise our own drag mid-drag needs no module
+flag and cannot get stuck armed — which is what §2.9.2's blocking code would have
+used, had the evidence not removed the reason for it.
+
+**What the rig cannot tell us.** One machine, one Windows, Edge and Chrome from the
+same Chromium family. Nothing here says anything about Firefox, which ticket 04
+records as a nice-to-have rather than a target. The bookmarks-bar findings are the
+ones most likely to be version-shaped, because they turn on one call site inside
+Chromium; the tab-strip findings are the ones most likely to hold.
 
 ## Appendix B — The store that was measured and rejected
 

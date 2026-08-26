@@ -1,7 +1,8 @@
 # 04 — Userscript or Chrome extension: the verdict
 
 Type: grilling
-Status: resolved — userscript, unconditionally (see Answer)
+Status: resolved — userscript, unconditionally (see Answer). Trip-wire table
+amended 2026-08-26: a second row, from the collection drag. Verdict unchanged.
 Blocked by: 01, 02 — both resolved
 Parent: ../map.md
 
@@ -212,6 +213,31 @@ of them do not force a move at all.**
 | You want Bitbucket capture (different origin, `localStorage` cannot reach) | `@grant GM_setValue`: Tampermonkey storage is per-*script*, not per-origin, so one script matching both domains shares one store. Confluence is free either way — same origin | **No** |
 | You want sync across machines | Tampermonkey's cloud sync of GM values, which also needs `@grant GM_setValue`. See §2 on why `chrome.storage.sync` is not the upgrade it looks like | **No** |
 | **You want Cart UI when no Jira tab is focused** | **Nothing. A userscript only exists inside a matched tab.** | **Yes** |
+| **You want to write the browser's own furniture — a bookmarks folder named after a collection, a tab group named after it** | **Nothing. A page can hand the browser a list of URLs and no more.** `chrome.bookmarks.create` and `chrome.tabGroups` each do it in one call | **Yes** |
+
+**A SECOND ROW ARRIVED ON 2026-08-26.** The table was written with one row in it and
+kept that row until now. The Cart's collection drag (ADR
+§2.9.2) was asked for with four targets, and two of them — a bookmarks *folder* named after the collection, and a
+tab *group* named after it — turned out to be unreachable from any web page, on
+grounds that are structural rather than incidental:
+
+- Chromium creates a bookmark folder on drop only when **the thing dragged is
+  already a folder**, which needs its private bookmark format; an unrecognised
+  `setData` type lands in a blob the bookmarks bar never reads.
+- The bookmarks bar takes the **first** URL of a list and gives it **no name**.
+  Measured — ADR appendix A.10.
+- A dropped URL joins the tab group it was dropped *into*. A page cannot ask for a
+  new one.
+
+**It does not reopen the verdict, and that is the point of recording it.** The
+workaround the user took — make the folder or the group by hand, then drop the
+collection into it — is good enough, and the rest of the feature is fully served by
+a userscript: the tab strip opens one tab per issue, Teams takes the rich list,
+Notepad takes the markdown, and a Jira comment takes the link. **What has changed is
+that this table is no longer a table of one hypothetical.** A third want of this
+shape should be read as a pattern rather than met as a surprise, and the shape is
+now nameable: **writing to the browser's own UI, as opposed to reading the page or
+calling Jira.**
 
 **So the trip-wire is exactly one thing, and it is not a technical failure —
 it is a change of ambition.** A toolbar-button popup, a global hotkey that

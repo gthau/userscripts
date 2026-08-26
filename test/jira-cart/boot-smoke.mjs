@@ -1801,6 +1801,171 @@ is("and the summary that arrived mid-drag survived the drop",
 is("which the drawer now shows, one render later", itemSummary(items()[1]),
   "filled in while the pointer was down");
 
+/* ---- THE WHOLE COLLECTION DRAGS OUT (§2.9.2), FROM TWO GRABS. Added at 1.5.0.
+
+   THIS IS EASIER TO HOLD HERE THAN §2.9.1'S WAS, and for one reason: there is no drop
+   target, so there is no rect, no half of a row, and no freeze. A grab writes bytes
+   and the platform takes them away. Every one of those bytes is assertable.
+
+   WHAT IS STILL A HAND'S: whether the ⠿ is findable, whether the chip's grab cursor
+   is worth anything under a button that covers it, and what the six real destinations
+   do with what is written here. That is §7 step 40 -- appendix A.10 has the rig's
+   answers for the destinations, and the quiet here is not coverage of any of it. */
+const collHead = () => byId.get("gt-cart-collection-head");
+const chipNamed = (name) =>
+  chips().find((c) => text(c).startsWith(name));
+
+// A known shape, so the bytes below are the document's and not the last test's.
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsRaw(), lineShape: "markdown" });
+flush();
+
+/* THREE COLLECTIONS, BUILT THROUGH THE DRAWER'S OWN CONTROLS, because the two grabs
+   need three different states to be told apart: the ACTIVE one the heading sends, a
+   NON-ACTIVE one with items that only a chip can reach, and an EMPTY one that must
+   refuse. Creating makes a collection active, so the order here matters. */
+byId.get("gt-cart-create").value = "Sprint 42";
+dispatch(byId.get("gt-cart-create"), "keydown", { key: "Enter" });
+flush();
+for (const at of [0, 1]) { dispatch(toggleOf(rows()[at]), "click"); flush(); }
+byId.get("gt-cart-create").value = "Gaps";
+dispatch(byId.get("gt-cart-create"), "keydown", { key: "Enter" });
+flush();
+// Back to the three-item one, so the heading below sends a known list.
+dispatch(chips().find((c) => text(c).startsWith("Scratch")).children[0], "click");
+flush();
+is("three collections: the active one, one with items, one empty",
+  JSON.parse(store["gt-jira-cart.collections"]).collections.map((c) => [c.name, c.items.length]),
+  [["Scratch", 3], ["Gaps", 0], ["Sprint 42", 2]]);
+
+is("the heading offers itself to the drag", collHead().attrs.draggable, "true");
+is("and its grip is IN the heading, so the width is reserved painted or not",
+  collHead().children.some((k) => k.classList.includes("gt-cart-grip")), true);
+is("the grip sits before the two action buttons, so ⌫ and ↻ stay at the far end",
+  collHead().children.map((k) => k.classList[0] ?? k.id),
+  ["gt-cart-name", "gt-cart-rename", "gt-cart-count", "gt-cart-grip",
+   "gt-cart-icon", "gt-cart-icon"]);
+is("the tooltip says what a drag out does, since the glyph is invisible until hovered",
+  /Drag .* out to send all 3 links at once/.test(collHead().title), true);
+
+/* ---- THE BYTES, AND THE ONE RULE THEY EXIST TO KEEP. Three types, no internal one:
+   this drag is not a drop target, so there is nothing for a marker to tell apart. */
+const dtColl = transfer();
+dispatch(collHead(), "dragstart", { dataTransfer: dtColl });
+is("three types, and NOT the reorder's own -- there is nothing here to recognise",
+  Object.keys(dtColl.data), ["text/plain", "text/html", "text/uri-list"]);
+is("copy, not copyMove: a collection never MOVES anywhere", dtColl.effectAllowed, "copy");
+is("the text is 🔗 Links at COLLECTION scope, so every line carries its bullet",
+  dtColl.data["text/plain"],
+  "- [RDC-77](https://dalet.atlassian.net/browse/RDC-77) The linked issue's own summary\n" +
+  "- [GLX-402](https://dalet.atlassian.net/browse/GLX-402) filled in while the pointer was down\n" +
+  "- [RDC-1](https://dalet.atlassian.net/browse/RDC-1) A live issue");
+is("and the rich flavour is a real list, which is what Teams and a Jira comment take",
+  dtColl.data["text/html"].startsWith('<ul><li style="line-height:1.5;margin-bottom:8px">'),
+  true);
+/* THE ONE TYPE THAT IS NOT THE BUTTON'S, and the whole reason the tab strip works:
+   one URL per line, CRLF per RFC 2483. Chromium opens one tab per entry. */
+is("the uri-list is every issue, one per line, CRLF",
+  dtColl.data["text/uri-list"],
+  ["https://dalet.atlassian.net/browse/RDC-77",
+   "https://dalet.atlassian.net/browse/GLX-402",
+   "https://dalet.atlassian.net/browse/RDC-1"].join("\r\n"));
+is("and its order is the collection's, which is what a reorder was for",
+  dtColl.data["text/uri-list"].split("\r\n").map((u) => u.split("/").pop()), keysIn());
+
+/* ONE COLLECTION LEAVING THE CART HAS ONE SHAPE WHEREVER IT LEAVES FROM, and this is
+   the check that says so -- not a second copy of the literals above. If the drag and
+   the press ever disagree, a literal has appeared in a drag handler, which is the
+   defect §4 rejected when it refused a fixed shape for the copy button. */
+dispatch(copy("links"), "click");
+await Promise.resolve();
+is("THE DRAG AND THE 🔗 PRESS ARE THE SAME BYTES, plain",
+  dtColl.data["text/plain"], clipboard.at(-1)["text/plain"].text);
+is("and rich", dtColl.data["text/html"], clipboard.at(-1)["text/html"].text);
+
+// A drag out is a copy and it writes nothing. There is no `dragend` at all -- nothing
+// froze, so nothing has to be thawed.
+is("the collection is untouched by having been dragged", keysIn(),
+  ["RDC-77", "GLX-402", "RDC-1"]);
+
+/* ---- A CHIP DRAGS ITS OWN COLLECTION, WITHOUT ACTIVATING IT. This is the one thing
+   the two grabs do differently, and the only way in the drawer to get a collection
+   out without switching to it (§2.9.2). */
+const otherChip = chipNamed("Sprint 42");
+is("a non-active chip with items exists to drag",
+  [!!otherChip, otherChip.attrs["data-gt-active"]], [true, "false"]);
+is("and it offers itself, because it has items", otherChip.attrs.draggable, "true");
+is("the id is on the PILL, because the pill is what drags -- its buttons are not",
+  !!otherChip.attrs["data-gt-id"], true);
+is("the pill's tooltip is the drag's, so it does not fight the button's own",
+  /without making it active/.test(otherChip.title), true);
+
+const activeBefore = JSON.parse(store["gt-jira-cart.collections"]).collections[0].id;
+const dtChip = transfer();
+dispatch(otherChip, "dragstart", { dataTransfer: dtChip });
+is("dragging a chip does NOT make it active",
+  JSON.parse(store["gt-jira-cart.collections"]).collections[0].id, activeBefore);
+is("and what it wrote is THAT collection, not the active one",
+  dtChip.data["text/plain"] === dtColl.data["text/plain"], false);
+is("resolved by the id on the pill, against the store",
+  dtChip.data["text/uri-list"].split("\r\n").length,
+  JSON.parse(store["gt-jira-cart.collections"]).collections
+    .find((c) => c.id === otherChip.attrs["data-gt-id"]).items.length);
+
+/* ---- THE TWO REFUSALS, and each is a different mechanism on purpose. */
+
+// ONE: an empty collection. `format` refuses zero items rather than write nothing, so
+// a drag that lifted would deliver an empty string to whatever it landed on.
+const emptyChip = chips().find((c) => text(c).includes("Gaps"));
+is("an empty collection's chip does not drag at all", emptyChip.attrs.draggable, "false");
+const dtEmpty = transfer();
+dispatch(emptyChip, "dragstart", { dataTransfer: dtEmpty });
+is("and if it ever did, it would write nothing rather than an empty list",
+  Object.keys(dtEmpty.data), []);
+
+// TWO: an open rename. Without this, dragging across the field's own text would start
+// the collection drag instead of selecting the text, so the field could not be edited
+// by pointer at all -- §2.9.1's `draggable="false"` on the key link, from the other side.
+dispatch(byId.get("gt-cart-name"), "click");
+flush();
+is("the rename field is open", byId.get("gt-cart-rename").hidden, false);
+is("SO THE HEADING STOPS DRAGGING, or its text could not be selected",
+  collHead().attrs.draggable, "false");
+const dtRenaming = transfer();
+dispatch(collHead(), "dragstart", { dataTransfer: dtRenaming });
+is("and the handler refuses it too, reading `renaming` rather than the attribute",
+  Object.keys(dtRenaming.data), []);
+dispatch(byId.get("gt-cart-rename"), "keydown", { key: "Escape" });
+flush();
+is("closing the field gives the drag back", collHead().attrs.draggable, "true");
+
+/* ---- THE ONE ASYMMETRY WITH §2.9.1: A READ-ONLY STORE STILL DRAGS OUT.
+   Item rows drag only when the store is writable, because that drag WRITES. This one
+   only reads, so a collection written by a newer version keeps its export -- taking
+   it away would withhold the one operation still safe on a store we must not touch. */
+const savedStore = store["gt-jira-cart.collections"];
+const lockedBlob = JSON.parse(savedStore);
+store["gt-jira-cart.collections"] = JSON.stringify({ ...lockedBlob, v: 99 });
+// `v`, not `version` -- the key §2.4 actually reads. And `visibilitychange` is this
+// harness's render trigger, the same one the cross-tab checks above use.
+dispatch(document, "visibilitychange");
+flush();
+is("the store is read-only now, so the item rows stop dragging",
+  items().every((r) => r.attrs.draggable === "false"), true);
+is("BUT THE HEADING STILL DOES -- a drag out only reads",
+  collHead().attrs.draggable, "true");
+is("and so do the chips that have items",
+  chips().filter((c) => text(c).includes("Gaps") === false)
+    .every((c) => c.attrs.draggable === "true"), true);
+const dtLocked = transfer();
+dispatch(collHead(), "dragstart", { dataTransfer: dtLocked });
+is("and the bytes are all three types, unchanged by the lock",
+  Object.keys(dtLocked.data), ["text/plain", "text/html", "text/uri-list"]);
+store["gt-jira-cart.collections"] = savedStore;
+dispatch(document, "visibilitychange");
+flush();
+is("and the lock lifts", collHead().attrs.draggable, "true");
+
+
 // ---- Escape does not close the drawer, and nothing on the page does either
 dispatch(byId.get("gt-cart-live-list"), "keydown", { key: "Escape" });
 dispatch(body, "pointerdown");

@@ -1,0 +1,324 @@
+<!-- THE COLLECTION-DRAG RIG. Open it in a browser; it runs on nothing.
+
+     ONE QUESTION, AND IT IS NOT ANSWERABLE BY READING. Chromium's tab strip can
+     open one tab per URL -- `BrowserRootView` reads `event.data().GetURLs(...)`,
+     plural, and loops. What is unknown is whether a WEB PAGE'S drag can hand N
+     URLs across the renderer-to-OS boundary on Windows, where the shell's own URL
+     clipboard format carries one. If it collapses to one, the tab-strip and
+     bookmarks-bar halves of the collection drag do not exist, whatever the
+     browser-side code says.
+
+     THE INSTRUMENTS. Five boxes, each setting a DIFFERENT payload for the same
+     four issues, so a difference in what the browser does can be attributed:
+
+       A  the ship candidate -- markdown plain text, <ul> html, N-line uri-list,
+          plus the internal marker the document guard would look for
+       B  A, but plain text is bare URLs        (does markdown plain text confuse
+                                                 the tab strip into searching?)
+       C  uri-list ONLY, nothing else           (does plain text interfere at all?)
+       D  A, but uri-list lines end \n not \r\n (RFC 2483 says CRLF)
+       E  ONE url, everything else the same     (the control: known to work)
+
+     WHAT IS DELIBERATELY ABSENT.
+       - No `DownloadURL`. Handing over a .html bookmarks FILE is a different
+         design (it would need a File > Import afterwards) and is not the question
+         this page asks. If A..E all collapse to one URL, that is when it matters.
+       - No internal REORDER type. `application/x-gt-cart-item` is the item drag's
+         and has no meaning at collection scope. Box A does carry
+         `application/x-gt-cart-collection`, for one reason only: the document
+         guard must recognise our own drag during `dragover`, and the sink below
+         measures whether `types` is readable there while `getData` is not.
+       - No real `formatLinks`. The markdown here is the SHAPE of it, not its
+         bytes; `format-smoke` owns the bytes. Do not copy anything from this file
+         into the script.
+       - Not run by `run.mjs`, which globs `*-smoke.mjs`. Nothing here can go red.
+
+     THE HOST IS AN INSTRUMENT TOO. Change it before dragging if you want the
+     opened tabs to be real issues. A wrong host still answers HOW MANY tabs
+     opened, which is the whole question. -->
+<title>Collection drag rig</title>
+
+<style>
+  :root {
+    --ink: #172b4d;
+    --dim: #626f86;
+    --line: #dfe1e6;
+    --ground: #ffffff;
+    --panel: #f7f8f9;
+    --accent: #0c66e4;
+    --warn: #ae2e24;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #c7d1db;
+      --dim: #96a0ab;
+      --line: #2c333a;
+      --ground: #1d2125;
+      --panel: #22272b;
+      --accent: #579dff;
+      --warn: #fd9891;
+    }
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--dim); }
+  p { max-width: 70ch; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 92%; }
+  .bench { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 8px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
+  input {
+    font: inherit; padding: 4px 8px; border: 1px solid var(--line);
+    border-radius: 4px; background: var(--ground); color: var(--ink);
+  }
+  .boxes { display: flex; gap: 12px; flex-wrap: wrap; }
+  .box {
+    border: 2px solid var(--accent); border-radius: 6px; background: var(--panel);
+    padding: 12px 14px; cursor: grab; user-select: none; min-width: 150px;
+  }
+  .box:active { cursor: grabbing; }
+  .box b { display: block; font-size: 15px; }
+  .box span { font-size: 12px; color: var(--dim); }
+  .readout, .log {
+    border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+    padding: 12px; overflow-x: auto; white-space: pre; font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px; margin: 0;
+  }
+  .log { min-height: 4em; }
+  .sink {
+    border: 2px dashed var(--line); border-radius: 6px; padding: 20px;
+    text-align: center; color: var(--dim);
+  }
+  .sink[data-over="true"] { border-color: var(--accent); color: var(--accent); }
+  ol { max-width: 70ch; }
+  li { margin-bottom: 6px; }
+  .warn { color: var(--warn); }
+</style>
+
+<h1>Collection drag rig</h1>
+<p>
+  Five payloads for the same four issues. Drag each box to the targets in the
+  checklist below and write down what happened. Nothing on this page talks to the
+  script, and nothing here can go red.
+</p>
+
+<div class="bench">
+  <label>Jira host<input id="host" value="dalet.atlassian.net" size="26"></label>
+  <label>How many issues<input id="count" type="number" value="4" min="1" max="12" size="4"></label>
+</div>
+
+<h2>The boxes</h2>
+<div class="boxes" id="boxes"></div>
+
+<h2>What box A will actually set</h2>
+<pre class="readout" id="readout"></pre>
+
+<h2>Round-trip sink — drop a box here first</h2>
+<p>
+  This reads every type back out. If a box looks wrong <em>here</em>, the browser
+  never had the payload and no answer about the tab strip means anything.
+</p>
+<div class="sink" id="sink">drop a box here</div>
+<pre class="log" id="log">nothing dropped yet</pre>
+
+<h2>The checklist</h2>
+<ol>
+  <li>Drop <b>A</b> on this page's sink. Confirm all <b>four</b> types arrive and
+    that <code>text/uri-list</code> has the full four lines — and read the
+    <code>during dragover</code> pair above it: <code>types</code> should list our
+    marker while <code>getData</code> returns <code>""</code>. That pair is the
+    document guard's whole mechanism.</li>
+  <li>Drop <b>A</b> on the <b>tab strip</b>, in the empty space right of the last
+    tab. <b>How many tabs opened?</b> Four, or one? If one — which URL was it, the
+    first or the last?</li>
+  <li>If step 2 gave one tab, drop <b>C</b> there, then <b>D</b>. Either changing
+    the answer tells us the plain text or the line ending was the problem.</li>
+  <li>If step 2 gave one tab and it was a <em>search</em> rather than an issue,
+    drop <b>B</b> there. That says plain text won over the URL list.</li>
+  <li><b>THE ONE THAT DECIDES THE BOOKMARKS HALF.</b> Make an empty
+    <b>folder</b> on the bookmarks bar, name it anything, and drop <b>A</b>
+    <em>onto the folder itself</em> — not beside it. How many bookmarks landed
+    inside, and what are they named? Chromium's clone loop targets the folder
+    when the drop location says <code>on</code>, so this is the shipping design:
+    you own the folder, the Cart fills it. A named folder cannot be created by a
+    drop at all, from any web page — that is settled, not being tested here.</li>
+  <li>Make a <b>tab group</b> by hand, then drop <b>A</b> onto a tab
+    <em>inside</em> it. Did what opened join the group? Same trade as the
+    folder: dropping into a group you already made works, making a new one does
+    not.</li>
+  <li>Drop <b>A</b> on the <b>bookmarks bar</b> itself, beside the folder. How
+    many bookmarks appeared, and what are they named? This is the fallback
+    behaviour, not the design — worth knowing, not worth building on.</li>
+  <li>Drop <b>A</b> into <b>Teams</b>' message box. Did it arrive as a list of
+    live links?</li>
+  <li>Drop <b>A</b> into <b>Notepad</b>. Which of the three types won?</li>
+  <li>Drop <b>E</b> — the single-URL control — on the tab strip and the bookmarks
+    bar. This is the shape that already works today for one row, so if <em>it</em>
+    misbehaves the rig is at fault, not the design.</li>
+  <li class="warn">The hazard: drop <b>A</b> onto an ordinary web page. Did the
+    tab navigate away, or did a new tab open?</li>
+  <li class="warn"><b>THE ONE THAT DECIDES THE GUARD.</b> Drop <b>E</b> — the
+    single URL — onto an ordinary web page. <b>Did the page you were on navigate
+    away, or did a new tab open?</b> Those are two different hazards. A new tab
+    is a nuisance you close. Navigating away loses the page you were collecting
+    from, which is the cost §2.9.1 accepted in writing, and it would still be
+    live for the item drag that ships today.</li>
+</ol>
+
+<script>
+  const KEYS = ["RDC-14817", "RDC-14820", "GLX-402", "GLX-511"];
+  const SUMMARIES = [
+    "Playout fails to resume after a network blip",
+    "Rendition queue stalls above 400 jobs",
+    "Ingest wizard loses the selected profile",
+    "Timeline scrubbing drops frames on 4K",
+  ];
+
+  const hostField = document.getElementById("host");
+  const countField = document.getElementById("count");
+  const readout = document.getElementById("readout");
+  const log = document.getElementById("log");
+
+  // Every box reads this at DRAGSTART, not at build time, so editing the bench
+  // changes the next drag rather than needing a reload.
+  function items() {
+    const n = Math.max(1, Math.min(12, Number(countField.value) || 1));
+    const host = hostField.value.trim() || "example.invalid";
+    return Array.from({ length: n }, (_, at) => ({
+      key: KEYS[at % KEYS.length],
+      summary: SUMMARIES[at % SUMMARIES.length],
+      url: `https://${host}/browse/${KEYS[at % KEYS.length]}`,
+    }));
+  }
+
+  // The SHAPE of formatLinks at collection scope, not its bytes. See the fence.
+  const markdown = (rows) =>
+    rows.map((row) => `- [${row.key}](${row.url}) ${row.summary}`).join("\n");
+  const html = (rows) =>
+    `<ul>${rows
+      .map(
+        (row) =>
+          `<li style="line-height:1.5;margin-bottom:8px"><a href="${row.url}">${row.key}</a> ${row.summary}</li>`,
+      )
+      .join("")}</ul>`;
+  const urls = (rows, sep) => rows.map((row) => row.url).join(sep);
+
+  const VARIANTS = [
+    {
+      id: "A",
+      title: "ship candidate",
+      note: "markdown + html + N urls (CRLF)",
+      payload: (rows) => ({
+        // The marker the document guard would look for. Inert everywhere else,
+        // and its only job here is to appear in `types` during dragover.
+        "application/x-gt-cart-collection": "rig-collection-id",
+        "text/plain": markdown(rows),
+        "text/html": html(rows),
+        "text/uri-list": urls(rows, "\r\n"),
+      }),
+    },
+    {
+      id: "B",
+      title: "bare urls as plain",
+      note: "plain text is urls, not markdown",
+      payload: (rows) => ({
+        "text/plain": urls(rows, "\n"),
+        "text/html": html(rows),
+        "text/uri-list": urls(rows, "\r\n"),
+      }),
+    },
+    {
+      id: "C",
+      title: "uri-list only",
+      note: "no plain, no html",
+      payload: (rows) => ({ "text/uri-list": urls(rows, "\r\n") }),
+    },
+    {
+      id: "D",
+      title: "LF line endings",
+      note: "uri-list joined with \\n",
+      payload: (rows) => ({
+        "text/plain": markdown(rows),
+        "text/html": html(rows),
+        "text/uri-list": urls(rows, "\n"),
+      }),
+    },
+    {
+      id: "E",
+      title: "single url control",
+      note: "one issue, the shape that works today",
+      payload: (rows) => {
+        const one = rows.slice(0, 1);
+        return {
+          "text/plain": `[${one[0].key}](${one[0].url}) ${one[0].summary}`,
+          "text/html": `<a href="${one[0].url}">${one[0].key}</a> ${one[0].summary}`,
+          "text/uri-list": one[0].url,
+        };
+      },
+    },
+  ];
+
+  const boxes = document.getElementById("boxes");
+  for (const variant of VARIANTS) {
+    const box = document.createElement("div");
+    box.className = "box";
+    box.draggable = true;
+    box.innerHTML = `<b>${variant.id} — ${variant.title}</b><span>${variant.note}</span>`;
+    box.addEventListener("dragstart", (event) => {
+      const payload = variant.payload(items());
+      for (const [type, value] of Object.entries(payload)) {
+        event.dataTransfer.setData(type, value);
+      }
+      // The script's own choice, and it matters: a target that means to COPY
+      // refuses a move-only drag.
+      event.dataTransfer.effectAllowed = "copyMove";
+      log.textContent = `dragging ${variant.id}, set: ${Object.keys(payload).join(", ")}`;
+    });
+    boxes.append(box);
+  }
+
+  function drawReadout() {
+    const payload = VARIANTS[0].payload(items());
+    readout.textContent = Object.entries(payload)
+      .map(([type, value]) => `${type}\n${value.replace(/^/gm, "  ")}`)
+      .join("\n\n");
+  }
+  hostField.addEventListener("input", drawReadout);
+  countField.addEventListener("input", drawReadout);
+  drawReadout();
+
+  const sink = document.getElementById("sink");
+  /* THE GUARD'S MECHANISM, VERIFIED RATHER THAN ASSERTED. The document-level
+     swallow has to decide during `dragover` whether the drag in flight is ours,
+     and the spec says the data store is in PROTECTED MODE there: `getData`
+     returns "" but `types` is still readable. If that holds, the guard needs no
+     module flag and can never get stuck armed and start swallowing Jira's own
+     board drags. This logs both, so the claim is measured. */
+  let overSeen = "";
+  sink.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    sink.dataset.over = "true";
+    overSeen =
+      `during dragover: types = [${[...event.dataTransfer.types].join(", ")}]\n` +
+      `during dragover: getData("text/uri-list") = ${JSON.stringify(event.dataTransfer.getData("text/uri-list"))}`;
+  });
+  sink.addEventListener("dragleave", () => (sink.dataset.over = "false"));
+  sink.addEventListener("drop", (event) => {
+    event.preventDefault();
+    sink.dataset.over = "false";
+    const lines = [];
+    for (const type of event.dataTransfer.types) {
+      const value = event.dataTransfer.getData(type);
+      const shown = value.split("\n").map((one) => `    ${JSON.stringify(one)}`).join("\n");
+      lines.push(`${type}  (${value.length} chars, ${value.split("\n").length} lines)\n${shown}`);
+    }
+    log.textContent =
+      (overSeen ? overSeen + "\n\n-- and at drop --\n\n" : "") +
+      (lines.join("\n\n") || "the drop carried nothing");
+  });
+</script>

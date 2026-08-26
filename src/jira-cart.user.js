@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.4.0
-// @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Drag the drawer's rows to set the order a paste comes out in, or drag one straight into Slack or an editor. Or press the 🔗 beside a key to copy that one link without opening the issue.
+// @version      1.5.0
+// @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Drag the drawer's rows to set the order a paste comes out in, or drag one straight into Slack or an editor. Drag the whole collection by its heading or its chip to send every link at once -- into Teams, a Jira comment, or the browser's tab strip to open them all. Or press the 🔗 beside a key to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atlassian.net
@@ -41,7 +41,18 @@
  * - THE SAME DRAG GOES OUT OF THE DRAWER. Drop a row into Slack, an editor or a
  *   note and you get that issue in whatever shape `Issue reference` names -- the
  *   same bytes the `🔗` gives, plain and rich. It is a real link drag, so a
- *   mis-drop onto the Jira page can navigate the tab to that issue.
+ *   mis-drop onto the Jira page opens a new tab on that issue -- measured, and it
+ *   does NOT take the page you were on away (appendix A.10).
+ * - THE WHOLE COLLECTION DRAGS OUT, SINCE 1.5.0. Grab the collection's heading, or
+ *   any chip below the list, and drop it where the paste was going: a plain editor
+ *   gets the markdown list, Teams and a Jira comment get the live links, and the
+ *   BROWSER'S TAB STRIP OPENS ONE TAB PER ISSUE -- inside a tab group if you drop
+ *   it into one you already made. The bytes are 🔗 Links' own, so nothing new
+ *   decides what a collection looks like. A chip drags ITS collection without
+ *   making it active, which nothing else in the drawer can do.
+ *   Two things it cannot do, and both are the browser's rather than ours: the
+ *   bookmarks bar takes only the FIRST link and gives it no name, and neither a
+ *   bookmarks folder nor a tab group can be created by a drop from a web page.
  * - Every collected link is tinted green on the page, including in the rows
  *   React has not built yet, so scrolling a virtualised list costs nothing and
  *   re-applies nothing.
@@ -4475,6 +4486,7 @@ ${selectors.join(",\n")} {
   const DIVIDER_ID = "gt-cart-divider";
   const NAME_ID = "gt-cart-name";
   const RENAME_ID = "gt-cart-rename";
+  const COLL_HEAD_ID = "gt-cart-collection-head";
   const COUNT_ID = "gt-cart-count";
   const REFRESH_ID = "gt-cart-refresh";
   const EMPTY_ID = "gt-cart-empty";
@@ -5091,7 +5103,26 @@ ${selectors.join(",\n")} {
     const refresh = actionButton("gt-cart-icon", "refresh");
     refresh.id = REFRESH_ID;
     refresh.textContent = "↻";
-    collectionHead.append(name, rename, count, empty, refresh);
+    /* THE HEADING IS A DRAG SOURCE SINCE 1.5.0 (§2.9.2), and the grip is the same
+       decoration the item rows carry: the whole heading is the target, so a name read
+       aloud beside it would be one more thing for a screen reader to say about a
+       gesture that has no keyboard path anyway. The space it takes is RESERVED and
+       only the paint changes on hover -- the item grip's rule, for the item grip's
+       reason: growing the heading under a hand already reaching for it is the
+       reflow-under-the-pointer defect §2.14 spent a day removing from the foot. */
+    const headGrip = el("span", "gt-cart-grip", "⠿");
+    headGrip.setAttribute("aria-hidden", "true");
+    collectionHead.id = COLL_HEAD_ID;
+    collectionHead.append(name, rename, count, headGrip, empty, refresh);
+    /* ONE LISTENER, AND THERE IS NO `dragover`, `drop` OR `dragend` BESIDE IT.
+       §2.9.1's reorder needs all four because it is also a drop target inside this
+       drawer. This drag only ever LEAVES: every byte it carries is written here, the
+       platform delivers them, and nothing in the Cart has to know the gesture ended.
+       `dragend` would have one job -- lifting a freeze -- and this drag freezes
+       nothing, because it changes neither the store nor the list. */
+    collectionHead.addEventListener("dragstart", (event) =>
+      guard(() => onCollectionDragStart(event)),
+    );
 
     const itemList = el("div", "gt-cart-list");
     itemList.id = ITEM_LIST_ID;
@@ -5110,6 +5141,13 @@ ${selectors.join(",\n")} {
 
     const chips = el("div", "gt-cart-chips");
     chips.id = CHIPS_ID;
+    /* DELEGATED, for `itemList`'s reason: `renderChips` calls `replaceChildren`, so a
+       listener on a chip would go stale on the next render and this box never is
+       replaced. A chip drags ITS OWN collection rather than the active one, which is
+       the one thing the two grabs of §2.9.2 do differently. */
+    chips.addEventListener("dragstart", (event) =>
+      guard(() => onChipDragStart(event)),
+    );
 
     // The create field is a sibling of the chips rather than a child, so a chip
     // rebuild can never replace the field you are typing into.
@@ -5865,6 +5903,94 @@ ${selectors.join(",\n")} {
     dataTransfer.setData("text/uri-list", issueUrl(key));
   }
 
+  /* -- the collection's own drag OUT of the drawer (§2.9.2), added at 1.5.0.
+   *
+   * TWO GRABS, ONE PAYLOAD WRITER. The heading sends the ACTIVE collection; a chip
+   * sends ITS OWN, active or not, which is the only way in the drawer to get a
+   * collection out without switching to it.
+   *
+   * IT IS NOT A DROP TARGET AND THAT IS WHY THIS BLOCK IS SHORT. §2.9.1 needs four
+   * listeners because its drag is also the reorder. This one only leaves, so there
+   * is no `dragover` to accept anything, no `drop`, and no `dragend` -- nothing here
+   * freezes, because nothing here writes.
+   *
+   * `effectAllowed` IS `copy`, NOT `copyMove`. §2.9.1 needs `copyMove` so that the
+   * cursor tells the truth both inside the list, where the row moves, and outside it,
+   * where it is copied. A collection never moves anywhere. Saying `copy` is what
+   * makes a target that only accepts copies accept this.
+   *
+   * NO INTERNAL TYPE. One was designed: a `dragover` on the document that swallowed
+   * our own drags, so a mis-drop on the Jira page could do nothing, would have needed
+   * a marker to recognise them by -- and `dataTransfer.types` is readable during
+   * `dragover` even though `getData` is not, so it needed no module flag either
+   * (measured, appendix A.10). It is not built. A stray drop opens a NEW TAB rather
+   * than navigating, so the harm is a tab you close; and swallowing drops on the Jira
+   * page would have taken away dropping a row into a Jira comment box, which works
+   * today. §2.9.2 has the reckoning. With the swallow gone the marker has no reader,
+   * so it is not written.
+   */
+  function onCollectionDragStart(event) {
+    /* THE RULE IS READ FROM WHERE `render` READS IT, not from the `draggable`
+       attribute this file also writes. A handler that trusts an attribute it set
+       itself has two sources of truth for one rule, and they can only disagree
+       silently. `render` taking the attribute away is what stops the gesture; this is
+       what makes the stop correct even if it does not. */
+    const collection = activeCollection(load());
+    if (renaming === collection.id) return;
+    writeCollectionDragPayload(event.dataTransfer, collection);
+  }
+
+  function onChipDragStart(event) {
+    const chip =
+      event.target instanceof Element ? event.target.closest(".gt-cart-chip") : null;
+    if (!chip) return;
+    // THE ID OFF THE CHIP, and the collection re-read from the store rather than
+    // taken from whatever the last render put on screen. §2.9.1's own block gives
+    // the reason for resolving by key: a copy is a read, and a read reads storage.
+    const collection = load().collections.find(
+      (one) => one.id === chip.dataset.gtId,
+    );
+    if (collection) writeCollectionDragPayload(event.dataTransfer, collection);
+  }
+
+  /* THE BYTES ARE 🔗 LINKS' OWN, at collection scope, from the same `format` call the
+     button presses -- which is §2.9.1's rule applied one level up: ONE COLLECTION
+     LEAVING THE CART HAS ONE SHAPE WHEREVER IT LEAVES FROM. A literal here would be a
+     second place deciding what a collected issue looks like, the exact defect §4
+     rejected when it refused a fixed shape for the copy button, and `format-smoke`
+     would no longer be checking every reachable output because one would be
+     unreachable from any button.
+
+     NO COLLECTION NAME IN THE BYTES, and the user drew that line: not in an editor.
+     The same ask wanted it as a BOOKMARKS FOLDER name, which cannot be done from
+     a web page at all -- Chromium creates a folder on drop only when the thing
+     dragged is already one, and its bookmarks bar takes the first URL of a list and
+     titles it nothing (§2.9.2, measured in appendix A.10).
+
+     `text/uri-list` IS WHAT MAKES THE TAB STRIP WORK, and it is the one type here
+     that is not the button's. One URL per line, CRLF per RFC 2483. Chromium's tab
+     strip asks for a URL *list* and opens one tab per entry -- four issues, four
+     tabs, measured -- and drops them into a tab group if the pointer was over one.
+     The bookmarks bar reads the same drag through a different call that takes a
+     single URL, which is why it gets one unnamed bookmark and why no change to these
+     bytes can fix it. */
+  function writeCollectionDragPayload(dataTransfer, collection) {
+    if (!dataTransfer || !collection) return;
+    const entry = EXPORTS.find((one) => one.single);
+    // `format` refuses zero items rather than write nothing, so an empty collection
+    // cannot put an empty string on a drop target. `render` also takes `draggable`
+    // away from an empty collection, so this is the second of two refusals.
+    const payload = format(entry?.kind, collection.items, "collection");
+    if (!payload) return;
+    dataTransfer.setData("text/plain", payload.text);
+    if (payload.html) dataTransfer.setData("text/html", payload.html);
+    dataTransfer.setData(
+      "text/uri-list",
+      collection.items.map((item) => issueUrl(item.key)).join("\r\n"),
+    );
+    dataTransfer.effectAllowed = "copy";
+  }
+
   function onItemDragEnd() {
     itemDrag = null;
     clearItemDrop();
@@ -6535,6 +6661,34 @@ ${selectors.join(",\n")} {
     const count = document.getElementById(COUNT_ID);
     if (count) count.textContent = String(collection.items.length);
 
+    /* THE HEADING DRAGS THE WHOLE COLLECTION OUT (§2.9.2), and two conditions turn
+       it off.
+
+       NOT WHILE THE RENAME IS OPEN. Dragging across an input's own text would start
+       this drag instead of selecting the text, so the field could not be edited by
+       pointer at all -- §2.9.1's `draggable="false"` on the key link, arriving from
+       the other direction. `editing` is already computed above for the swap.
+
+       NOT WHEN THE COLLECTION IS EMPTY. `format` refuses zero items, so the drag
+       would lift and deliver nothing, which is worse than a drag that never starts.
+
+       AND `state.writable` IS DELIBERATELY ABSENT FROM THIS CONDITION. It is the one
+       asymmetry with §2.9.1, whose rows drag only when the store is writable because
+       that drag WRITES. This one only reads, so a collection written by a newer
+       version of the Cart keeps its export -- withholding it would take away the one
+       operation still safe on a store this version must not touch. */
+    const head = document.getElementById(COLL_HEAD_ID);
+    if (head) {
+      const items = collection.items.length;
+      const canDrag = !editing && items > 0;
+      // `setAttribute`, not the property, because that is what `itemRow` does and
+      // because the stylesheet selects on the attribute.
+      head.setAttribute("draggable", String(canDrag));
+      head.title = canDrag
+        ? `Drag ${collection.name} out to send all ${items} link${items === 1 ? "" : "s"} at once — to Teams, an editor, a Jira comment, or the browser's tab strip to open them all.`
+        : "";
+    }
+
     const empty = document.getElementById(EMPTY_ID);
     if (empty) {
       const count = collection.items.length;
@@ -6732,6 +6886,33 @@ ${selectors.join(",\n")} {
       const chip = el("div", "gt-cart-chip");
       chip.dataset.gtActive = String(row.active);
       chip.dataset.gtArmed = String(row.armed);
+      /* THE CHIP DRAGS ITS OWN COLLECTION OUT (§2.9.2). The id goes on the pill as
+         well as on its two buttons, because the drag is the pill's -- the buttons are
+         not draggable, so the platform walks up to this element and `onChipDragStart`
+         reads the id from here.
+
+         NO ⠿ ON A CHIP, and it is the one place §2.9.2 breaks the drawer's own
+         vocabulary on purpose. The item rows and the field rows both reserve a
+         glyph's width always and paint it on hover. A chip is a tight pill whose NAME
+         is the one label in the drawer that ellipsises, so a reserved glyph would
+         shorten every chip name on every install for ever, and wrap the chip row one
+         collection sooner. Painting it on hover WITHOUT reserving the width was the
+         obvious escape and is worse: it grows the pill under a pointer that is about
+         to press it. So a chip says `grab` with its cursor and its tooltip, and the
+         inconsistency is accepted with its reason.
+
+         An empty collection does not drag, for the heading's reason: `format` refuses
+         zero items, so the gesture would deliver nothing. */
+      chip.dataset.gtId = row.id;
+      chip.setAttribute("draggable", String(row.count > 0));
+
+      /* THE PILL'S TOOLTIP IS THE DRAG'S AND THE BUTTON'S IS THE CLICK'S, which is
+         the only way to say two things about one chip: a title on the pill would be
+         shadowed by the button covering most of it, and one merged sentence would
+         describe a click and a drag as if they were one gesture. */
+      chip.title = row.count
+        ? `Drag ${row.name} out to send all ${row.count} link${row.count === 1 ? "" : "s"} at once, without making it active.`
+        : "";
 
       const main = actionButton(
         "gt-cart-chip-main",
@@ -7946,6 +8127,39 @@ ${D} h2.gt-cart-section-head {
   text-transform: uppercase;
   white-space: nowrap;
 }
+/* THE COLLECTION HEADING IS A DRAG SOURCE (§2.9.2). Scoped to the draggable
+   attribute rather than to the id, so both conditions that turn the drag off -- an
+   open rename field, an empty collection -- also take the cursor and the user-select
+   with them, from one attribute that render already sets. That matters for the rename
+   in particular: with user-select none still applied, the field's own text could not
+   be selected with the mouse even though the drag had stood down. */
+${D} h2.gt-cart-section-head[draggable="true"] {
+  cursor: grab;
+  /* Without this a drag across the name or the count selects that text instead, and
+     the selection is then what the browser offers to drag -- the item rows' own rule
+     and their own reason (§2.9.1). */
+  user-select: none;
+}
+/* :active RATHER THAN A data-gt-dragging ATTRIBUTE, and the difference is that this
+   one cannot get stuck. The item rows use an attribute because their drag has a
+   dragend to clear it in; this drag has no dragend at all -- it never writes, so it
+   has nothing to undo -- and an attribute set at dragstart with nothing to clear it
+   would leave the heading painted as grabbed for ever. */
+${D} h2.gt-cart-section-head[draggable="true"]:active {
+  cursor: grabbing;
+}
+/* RESERVED ALWAYS, PAINTED ON HOVER -- the item grip's rule verbatim, because the
+   reason is the same one: the heading's name already ellipsises at 300px, so taking
+   the glyph's width away when it is quiet would re-ellipsise the name under the hand
+   about to grab it. A heading that cannot be dragged holds the same space and never
+   paints, so an empty collection's heading is the same width as a full one's. */
+${D} h2.gt-cart-section-head span.gt-cart-grip {
+  visibility: hidden;
+  font-size: 11px;
+}
+${D} h2.gt-cart-section-head[draggable="true"]:hover span.gt-cart-grip {
+  visibility: visible;
+}
 
 /* RULE 1, the other half: ONE SCROLLER PER SECTION, and nothing else in the
    drawer scrolls. Everything above and below it is flex: none, and every
@@ -8345,6 +8559,26 @@ ${D} div.gt-cart-chip {
   color: var(--gt-cart-text);
   font-size: 12px;
   line-height: 1.4;
+}
+/* THE CHIP IS A DRAG SOURCE TOO (§2.9.2), and this rule is nearly all of what it
+   gets. No grip glyph: a chip's name is the one label in the drawer that ellipsises,
+   and reserving a glyph's width would shorten every chip name on every install for
+   ever and wrap the chip row one collection sooner. Painting a glyph on hover without
+   reserving its width is worse -- it grows the pill under a pointer about to press
+   it, which is the reflow-under-the-hand defect §2.14 removed from the foot.
+
+   AND BE HONEST ABOUT WHAT THIS CURSOR IS WORTH. The main button covers most of the
+   pill and keeps cursor: pointer, because a click on it activates the collection and
+   the cursor must say so. So grab shows only on the pill's own padding, and the
+   TOOLTIP is doing most of the discovery work here. §7 step 40 is where that gets
+   looked at with a real hand rather than argued about. If it turns out nobody finds
+   the gesture, the next thing to try is the heading's ⠿ on the ACTIVE chip only,
+   which is the one chip whose name the drawer can afford to shorten. */
+${D} div.gt-cart-chip[draggable="true"] {
+  cursor: grab;
+}
+${D} div.gt-cart-chip[draggable="true"]:active {
+  cursor: grabbing;
 }
 ${D} div.gt-cart-chip[data-gt-active="true"] {
   border-color: var(--gt-cart-selected-text);

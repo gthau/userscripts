@@ -467,5 +467,61 @@ is("and no width floor fights max-inline-size, which keeps the grip reachable",
 is("exactly one min-block-size on the drawer, so the floor cannot be shadowed",
    (drawerRule?.body.match(/min-block-size:/g) ?? []).length, 1);
 
+/* ---- 2f. THE COLLECTION'S DRAG OUT (§2.9.2, 1.5.0). Three rules, and each one is a
+   decision that only exists in the cascade -- so this is the only harness that can
+   see any of them. */
+const headDrag = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer h2.gt-cart-section-head[draggable="true"]',
+);
+// Scoped to the attribute rather than to the heading's id ON PURPOSE: `render` takes
+// the attribute away while the rename field is open, and that has to take
+// `user-select` with it -- or the field's own text could not be selected by mouse
+// even though the drag had stood down.
+is("only a draggable heading says grab", /cursor:\s*grab/.test(headDrag?.body ?? ""), true);
+is("and it turns off text selection, or the browser drags the selection instead",
+   /user-select:\s*none/.test(headDrag?.body ?? ""), true);
+is("the rule is keyed on the attribute, so the rename takes both away with it",
+   /\[draggable="true"\]/.test(headDrag?.sel ?? ""), true);
+/* `:active` AND NOT AN ATTRIBUTE, and the difference is that this one cannot stick.
+   The item rows paint their grabbed state from `data-gt-dragging`, cleared in
+   `dragend`. THIS DRAG HAS NO `dragend` -- it writes nothing, so it has nothing to
+   undo -- and an attribute set at `dragstart` with nothing to clear it would leave
+   the heading painted as grabbed for ever. */
+is("the grabbing cursor comes from :active, which clears itself",
+   rules.some((r) => /h2\.gt-cart-section-head\[draggable="true"\]:active/.test(r.sel)
+     && /cursor:\s*grabbing/.test(r.body)), true);
+is("and NO data-gt-dragging attribute is painted on the heading, since none is set",
+   rules.some((r) => /h2\.gt-cart-section-head/.test(r.sel) && /data-gt-dragging/.test(r.sel)),
+   false);
+// The item grip's rule, applied to the heading for the item grip's reason: the name
+// already ellipsises at 300px, so the glyph's width is held whether it is painted or
+// not.
+const headGrip = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer h2.gt-cart-section-head span.gt-cart-grip",
+);
+is("the heading grip is hidden by visibility, so the name never re-ellipsises",
+   /visibility:\s*hidden/.test(headGrip?.body ?? "") && !/display:/.test(headGrip?.body ?? ""),
+   true);
+is("and it is painted on hover, but only when the heading can actually be dragged",
+   rules.some((r) => /h2\.gt-cart-section-head\[draggable="true"\]:hover span\.gt-cart-grip/.test(r.sel)
+     && /visibility:\s*visible/.test(r.body)), true);
+/* THE CHIP GETS A CURSOR AND NO GLYPH, which is the one place §2.9.2 breaks the
+   drawer's own vocabulary. A reserved glyph would shorten every chip name for ever,
+   because a chip's name is the one label in the drawer that ellipsises. */
+const chipDrag = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-chip[draggable="true"]',
+);
+is("a draggable chip says grab", /cursor:\s*grab/.test(chipDrag?.body ?? ""), true);
+is("and NO chip anywhere reserves a grip glyph",
+   rules.some((r) => /gt-cart-chip/.test(r.sel) && /gt-cart-grip/.test(r.sel)), false);
+/* AND THE COST OF THAT, HELD HERE SO IT IS NOT MISTAKEN FOR AN OVERSIGHT. The main
+   button covers most of the pill and keeps `cursor: pointer`, because a click on it
+   activates the collection. So the grab cursor shows only on the pill's own padding
+   and the TOOLTIP does most of the discovery work -- which is what §7 step 40 looks
+   at with a real hand. */
+is("the chip's main button still says pointer, because clicking it still activates",
+   /cursor:\s*pointer/.test(rules.find((r) =>
+     r.sel === "aside#gt-cart-drawer button.gt-cart-chip-main")?.body ?? ""), true);
+
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

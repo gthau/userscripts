@@ -84,7 +84,7 @@ the `injectStyle` call, resolves the `${...}` names from the real constants, par
 the rules, and computes selector specificity. That is the only way to see the three
 bugs it exists for, because **none of them is visible to JavaScript**.
 
-## `paste-test.html` — the one thing here that is not a harness, and since 1.2.0 the ONLY one
+## `paste-test.html` — one of the two things here that are not harnesses
 
 Open it in a browser. It emits **byte-identical HTML to `formatDetails`** and has a
 button that puts both flavours on the real clipboard, so a paste into Outlook, Teams,
@@ -95,6 +95,9 @@ It is committed because rebuilding it is the expensive part, and because the nex
 question about a paste target will be answered the same way. **Keep its chips shape
 byte-identical to the script** — if it drifts it starts answering a question about
 itself. `run.mjs` does not pick it up; it globs `*-smoke.mjs`.
+
+> **IT STOPPED BEING THE ONLY ONE AT 1.5.0.** `drag-test.html` is the second page of
+> this kind, and the sentence above applies to it word for word.
 
 Since 1.2.0 the page carries two more things:
 
@@ -338,3 +341,46 @@ nothing was pasted and nothing was looked at.** Whether a 52px rail covers the
 issue-search table's checkbox, whether the `🔗` can be picked out beside the blue
 circle, and what a single line with **no `<ul>` around it** does in Outlook are ADR §7
 steps 36 and 37, and no mutation of any check in this directory can reach them.
+
+## `drag-test.html` — the second page that is not a harness. Added 1.5.0
+
+Open it in a browser. It answers the questions the **collection drag out** (ADR
+§2.9.2) rests on, and not one of them is reachable from Node: they are all about what
+the **browser's own furniture** does with a drag — the tab strip, the bookmarks bar, a
+tab group — and about what Teams, Notepad and Jira's editor accept.
+
+Five draggable boxes set five different payloads for the same four issues, so any
+difference in behaviour can be pinned to one change: the shipping payload; the same
+with bare URLs as plain text; the URL list alone; LF instead of CRLF; and one URL as
+a control. A sink on the page reads every type back out, so a payload can be checked
+*inside* the browser before any conclusion is drawn about what a drop target did with
+it.
+
+**What it found, in one session on 2026-08-26** — the full readings are ADR appendix
+A.10:
+
+| It works | It does not |
+| --- | --- |
+| Tab strip: **one tab per issue** | Bookmarks bar: **one** unnamed bookmark, the **first** URL only |
+| A tab group you made: all tabs join it | A bookmarks folder or a tab group **cannot be created** by a drop from any web page |
+| Teams: the `<ul>` as live links | |
+| Notepad: the markdown list | |
+| A Jira comment or description: the link | |
+
+**Three of those changed the design and two corrected the ADR.** The bookmarks half of
+the feature was dropped. §2.9.1's claim that a mis-drop *navigates the tab* was found
+wrong — a new tab opens instead — and a document-level handler that would have
+swallowed drops on the Jira page was designed, chosen, and then not built, because the
+same session found that dragging a row into a Jira comment box **works today**.
+
+**It is committed for `paste-test.html`'s reason.** Rebuilding it is the expensive
+part, and the next question about a drop target will be answered the same way. It also
+carries the one mechanism check worth keeping even though nothing now uses it:
+`dataTransfer.types` **is** readable during `dragover` while `getData` returns `""`,
+so a handler that has to recognise our own drag mid-drag needs no module flag and
+cannot get stuck armed.
+
+**Keep its fence honest.** The header lists what the page deliberately does *not*
+carry. Box A carries an internal marker type that nothing in the script sets any
+more — it is there only to exercise the `types` check above, and the fence says so.
+`run.mjs` does not pick this file up; it globs `*-smoke.mjs`.
