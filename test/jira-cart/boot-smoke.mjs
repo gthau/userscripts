@@ -2047,8 +2047,30 @@ is("a live row writes the three external types and no internal one",
   Object.keys(liveDt.data), ["text/plain", "text/html", "text/uri-list"]);
 is("copy and never copyMove: nothing anywhere can be MOVED by this drag",
   liveDt.effectAllowed, "copy");
-is("and the bytes are the one-issue bytes the 🔗 button writes",
+/* THE BYTES ARE THE `🔗` BUTTON'S, and this asserts the PLAIN one as well as the URL --
+   added on 2026-08-26, after probe C.6 read a real drop's `text/plain` off a live row and
+   nothing in this file had ever checked it. The uri-list alone was not enough: it is the
+   one type that cannot be wrong, because `issueUrl` builds it, while `text/plain` is the
+   one the `Issue reference` setting decides. **One issue leaving the Cart has one shape
+   wherever it leaves from** (§2.9.1), and the live list is the third place it leaves
+   from. Same literals as the item drag's own check above, deliberately. */
+is("the uri-list is the issue, which is what makes it a link drag",
   liveDt.data["text/uri-list"], url("GLX-402"));
+is("and the text is the 🔗 button's own bytes at item scope: no bullet",
+  liveDt.data["text/plain"],
+  "[GLX-402](https://dalet.atlassian.net/browse/GLX-402) A smart link title");
+is("with its rich twin, so a real editor gets a real link",
+  liveDt.data["text/html"],
+  '<a href="https://dalet.atlassian.net/browse/GLX-402">GLX-402</a>&nbsp;A smart link title');
+/* AND THE SUMMARY CAME FROM THE PAGE, NOT FROM THE STORE, which these two literals
+   prove rather than merely illustrate: the store's copy of GLX-402 says *filled in while
+   the pointer was down* -- poked in by the freeze section above and still there -- and
+   the page says *A smart link title*. **A live row reads the page and an item row reads
+   the store** (§2.9.3), and this is the only check in the file where the two sources
+   disagree, so it is the only one that can tell them apart. */
+is("the store still says something else for the same key, which is what makes this a check",
+  stored().find((c) => c.name === "Scratch").items.find((i) => i.key === "GLX-402").summary,
+  "filled in while the pointer was down");
 
 /* ---- ASK ONE'S TARGET: A CHIP. An EMPTY collection's chip is used on purpose -- it
    is the one chip that cannot be DRAGGED (§2.9.2 refuses a payload of zero items) and

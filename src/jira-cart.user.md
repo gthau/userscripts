@@ -31,6 +31,14 @@
   and declined to build**: the collection drag's marker type. §2.9.2 dropped it because
   nothing read it; the chips became drop targets, so something reads it now, and
   appendix A.10's measurement of it was already on record.
+  **1.6.0'S OWN CLAIMS WERE THEN MEASURED, on the day it shipped, and two of them were
+  wrong.** Probe C.6 was run and appendix A.11 holds the readings: nothing above the
+  drawer accepts a drop, so the second acceptor §2.9.3 named does not exist and risk 22's
+  guard is **cheap rather than load-bearing**; linked work items fires **no `dragstart` at
+  all**, which closes risk 21's open half as declined; and the Plans timeline's decline
+  was argued from the drag *source* when the question is about the drag *target*, which
+  **reopens it as §6 item 20**. The feature is unchanged by all three — what changed is
+  what this document claims about it.
   **1.5.0 made the whole collection drag OUT of the drawer, from its heading and from
   any chip (§2.9.2). 1.4.0 made the collection's items reorder by drag, and made one
   row a link on the way out (§2.9.1).** Both are recorded in their own sections with
@@ -2839,6 +2847,22 @@ accepted it. A drawer that consumed gestures never aimed at it would be worse th
 that ignores them — and this is the same rule §2.9.2 applied when it refused to swallow
 drops on the Jira page: **our refusals may not take away anything that already works.**
 
+> **AND THE GUARD IS CHEAP RATHER THAN LOAD-BEARING — corrected on 2026-08-26 from
+> appendix A.11.** The reason above named Jira's drag-and-drop as the ancestor that
+> accepts, and the probe measured that it **does not**: nothing above the drawer calls
+> `preventDefault`, on any drag, in either phase. So the state this guard defends is real
+> per the spec and **unobserved on this page**.
+>
+> **It stays, and the reason changes from reachability to construction.** It is two
+> comparisons; it makes each handler say the same thing as its own `dragover`; and
+> consuming a drop we refused is wrong however unlikely it is. What is no longer claimed
+> is that anything on this page produces it.
+>
+> **That is twice in one feature that this guard was argued from the wrong mechanism** —
+> once to delete it, once to restore it — and it is right now only because it is right by
+> construction. **For platform behaviour, prefer a guard that holds whoever else is on
+> the page over an argument about who is.**
+
 **Past that line the `preventDefault` is unconditional, and that is the other half.** We
 accepted, so we consume — including when the payload turns out to hold nothing usable,
 which is exactly what refusal 3 produces. Handing *that* drop back would open a tab on
@@ -2987,19 +3011,24 @@ is ours.
 **It is a fact to state in the open rather than a defect to file**, and it is the second
 reason ask 1 earns its keep. Ask 3 is the shortcut; the live list is the reliable route.
 
-> **AND THE REFUSAL MAY NOT LOOK LIKE ONE, which the user asked about and the answer is
-> two-sided.** The drawer correctly shows **no blue line** — that is our whole signal,
-> and it is an absence by design: the "no" belongs to the platform, which is the same
-> division §2.14's field lists chose when they refused a cross-list drop.
+> **AND THE REFUSAL MAY NOT LOOK LIKE ONE, which the user asked about. MEASURED ON
+> 2026-08-26, appendix A.11.** The drawer correctly shows **no blue line** — that is our
+> whole signal, and it is an absence by design: the "no" belongs to the platform, which
+> is the same division §2.14's field lists chose when they refused a cross-list drop.
 > **What is missing is the platform's half**: no no-drop cursor appears either.
 >
-> **The likely cause is that something above us told the browser the drop is
-> acceptable**, so the browser has nothing to refuse — and Jira's own drag-and-drop is
-> the obvious candidate, since it is the same second acceptor the correction above
-> names. **This is a hypothesis and not a measurement.** Probe C.6 settles it in one
-> paste and answers a second question at the same time: whether a Jira card's own drag
-> carries the issue key anywhere we could read, which would make grabbing a card
-> — summary included — work as well as grabbing its key.
+> **The cause offered here was that something above us had accepted the drop, and that
+> is now measured FALSE.** Probe C.6 reported `defaultPrevented` false at `document` in
+> both phases, over seven elements of the drawer, on every refused drag. **Nothing above
+> the Cart accepts anything.** The browser is being told the operation is `none` and
+> simply does not paint it where it can be seen — and the surviving candidate is
+> Atlassian's own drag preview, which is `@atlaskit/pragmatic-drag-and-drop` and is
+> between Chromium and Atlassian. **There is nothing here for the Cart to fix.**
+>
+> The paragraph is amended rather than deleted, because the way it was wrong is the
+> useful part: A.10 had measured that `types` is readable during `dragover`, and that
+> reading was used to make a *guess about who was accepting* sound like a measurement.
+> **A mechanism existing is not a mechanism being in play.**
 
 #### The source side, measured per view on 2026-08-26
 
@@ -3015,27 +3044,27 @@ view of §2.1 is now answered: SEVEN YES AND TWO NO.**
 | **Child work items** | **Works.** The same `native-issue-table.ui.issue-row` as search results and an epic's children (§2.1), so one reading covers three views |
 | The issue view | **Works** |
 | Rovo search | **Works.** The ninth view, and the newest |
-| **The PLANS TIMELINE** | **Does NOT work.** The timeline has its own drag handler and it takes the gesture |
-| **LINKED WORK ITEMS** | **Does NOT work**, and the cause is unknown |
+| **The PLANS TIMELINE** | **Does NOT work.** The drag source resolves to **Jira's own container**, not our anchor, and what leaves is `application/vnd.pdnd` — Atlassian's drag library (A.11) |
+| **LINKED WORK ITEMS** | **Does NOT work.** Measured: **no `dragstart` fires at all**, from the key or from anywhere on the row (A.11) |
 
 **The board and the backlog were the two this section was worried about, and both work.**
 Jira's card drag-and-drop does not take the gesture away from the key — so the two
 mechanisms coexist rather than compete, which is the opposite of what was predicted.
 
-**THE TWO FAILURES ARE NOT THE SAME KIND OF FAILURE, and that distinction is the useful
-part of the reading.** The timeline's cause is known and its gesture is a Jira feature we
-must not beat. **Linked work items has no rival gesture at all** — nothing in that panel
-is draggable, so nothing is being taken from us; something is simply stopping the drag
-from starting. That makes it the one view where a fix might be possible, and it is
-therefore the one worth diagnosing rather than accepting.
+**THE TWO FAILURES ARE NOT THE SAME KIND OF FAILURE, and probe C.6 measured which is
+which on 2026-08-26 (A.11).**
 
-**The hint, labelled as a hint.** §2.1 already records something odd about that panel:
-its card carries **two anchors to the same issue**, which is why the Cart needed a
-two-segment testid there rather than a leaf. Whether that has anything to do with the
-drag is not known. **Probe C.6 answers the question that comes first** — does a
-`dragstart` fire at all? A drag that never starts is a source-side problem in Jira's
-markup; a drag that starts and is then refused is ours. Nothing should be tried until
-that is known.
+**Linked work items does not drag at all.** No `dragstart` fires, from the key or from
+anywhere on the row. There is no payload to teach a parser and no refusal of ours to
+relax: that panel suppresses dragging, and nothing in this file can change it. **Closed
+as declined, on measured grounds.** The hint §2.1 offered — that the card carries two
+anchors to the same issue — turned out to be irrelevant, and that is said out loud
+because it was offered.
+
+**The timeline does drag, and it drags as JIRA.** The `dragstart` target is Jira's own
+container rather than our anchor, so our key never becomes the drag source, and the
+payload that leaves is `application/vnd.pdnd`. **That reopens the decline below**, on a
+distinction the first version of this section got wrong.
 
 **THE TIMELINE IS DECLINED RATHER THAN DEFERRED.** A Plans timeline bar is draggable by
 Jira, because dragging it is how you change a date. Our gesture and Jira's are the same
@@ -3045,14 +3074,30 @@ which is exactly what §2.9.2 refused when it declined to swallow drops on the J
 *Our refusals may not take away anything that already works*, and neither may our
 acceptances.
 
-**LINKED WORK ITEMS IS OPEN RATHER THAN DECLINED**, on the distinction above: there is no
-Jira gesture there to protect. What it is not is a *defect in the Cart* — nothing in this
-file decides whether a page element can be dragged. **And whatever the cause turns out
-to be, one fix is already ruled out**: setting `draggable` on Jira's own anchors. The
-Cart writes to the page in exactly one way — a generated stylesheet (§2.7, §2.10) — and
-it does that precisely so that a virtualised list costs nothing and React cannot revert
-it. Putting an attribute on a node React owns would be a new kind of write, reverted at
-the next render, and §2.9's refusal to live inside `#jira-frontend` is the same argument.
+> **THE DECLINE ABOVE IS ARGUED TOO STRONGLY, and A.11 is what showed it.** *Dragging a
+> bar is how you change a date, so ours must lose* is an argument about the drag
+> **source**. Whether we accept a drop is a question about the drag **target**, and the
+> two are not the same: **Jira's drop targets are the timeline and ours is the drawer.** A
+> pdnd drag accepted over the drawer only would take nothing from Jira, because a bar
+> dropped back on the timeline is a drop we never see.
+>
+> **What actually blocks it is one unmeasured thing: whether `application/vnd.pdnd` names
+> the issue.** If it does, a board, backlog or timeline card becomes droppable from
+> anywhere on the card rather than from its key, which is the whole rough edge of the
+> section above. **The likely answer is that it does not** — pdnd holds internal drag data
+> in a closure and only marks the `dataTransfer`, because an internal drag never crosses a
+> process boundary and has nothing to serialise for — **and that is a hypothesis, flagged
+> as one.** Reading it needs a probe that *accepts*, which C.6 now carries as a fenced
+> opt-in switch. **§6 item 20 holds the item.**
+
+**LINKED WORK ITEMS IS DECLINED ON MEASURED GROUNDS** — no `dragstart` at all (A.11) — and
+what it is not is a *defect in the Cart*: nothing in this file decides whether a page
+element can be dragged. **One fix was ruled out before the measurement and stays ruled
+out**: setting `draggable` on Jira's own anchors. The Cart writes to the page in exactly
+one way — a generated stylesheet (§2.7, §2.10) — and it does that precisely so that a
+virtualised list costs nothing and React cannot revert it. Putting an attribute on a node
+React owns would be a new kind of write, reverted at the next render, and §2.9's refusal
+to live inside `#jira-frontend` is the same argument.
 
 **The remedy for both is already built, and it is the reason ask 1 exists.** Every issue
 either view draws is in `On this page` — §2.1 has both views' selectors, and the
@@ -4478,10 +4523,11 @@ Notes on the controls:
    disappearing. That is the same end state a successful move reaches, and §2.9.3
    argues it, but it is the report to expect. **Ctrl on the drop is the escape and
    nobody discovers a modifier** — the two tooltips are the whole of how it is taught.
-21. **AN ISSUE LINK IS NOT DRAGGABLE OFF EVERY VIEW. MEASURED AND CLOSED ON
-   2026-08-26, the day 1.6.0 shipped — EVERY view of §2.1 reported, SEVEN YES AND TWO
-   NO.** The third of §2.9.3's three sources is the page's own anchors, and this risk
-   opened as a guess about the board and the backlog.
+21. **AN ISSUE LINK IS NOT DRAGGABLE OFF EVERY VIEW. MEASURED AND CLOSED ON 2026-08-26,
+   the day 1.6.0 shipped — EVERY view of §2.1 reported, SEVEN YES AND TWO NO.** One of the
+   two nos then turned into §6 item 20 rather than into a limit. The third of §2.9.3's
+   three sources is the page's own anchors, and this risk opened as a guess about the
+   board and the backlog.
    **Both of those work**, and so do search results, child work items, the issue view and
    Rovo search. **The PLANS TIMELINE and LINKED WORK ITEMS do not.** §2.9.3 holds the
    table and the reasoning.
@@ -4491,14 +4537,21 @@ Notes on the controls:
    named.** A per-view question answered by argument would have got every part of this
    backwards, which makes it the strongest evidence in this document for why a browser
    question gets a numbered step and a table.
-   **THE TWO FAILURES DIFFER IN KIND, and only one of them is closed.** The timeline has a
-   rival gesture that is a Jira *feature* — dragging a bar changes a date — so ours must
-   lose, and that is **declined**. Linked work items has no rival gesture at all, so
-   nothing is being taken from us and something is merely stopping the drag from
-   starting: that one is **open**, probe C.6 asks the question that comes first (does a
-   `dragstart` fire at all?), and one fix is already ruled out — the Cart writes to the
-   page only through a stylesheet, so putting `draggable` on a node React owns is not
-   available to it.
+   **THE TWO FAILURES DIFFER IN KIND, and probe C.6 measured which is which the same day
+   (appendix A.11) — the OPPOSITE way round from the guess in this row's first version.**
+   **Linked work items is CLOSED as declined**: no `dragstart` fires at all, from the key
+   or from anywhere on the row. There is no payload to teach a parser and no refusal of
+   ours to relax, and one fix was ruled out before the measurement and stays ruled out —
+   the Cart writes to the page only through a stylesheet, so putting `draggable` on a node
+   React owns is not available to it.
+   **The TIMELINE is the one that REOPENS.** Its drag starts, as Jira: the `dragstart`
+   target is Jira's own container rather than our anchor and the payload is
+   `application/vnd.pdnd`. The decline was argued from the drag *source* — *dragging a bar
+   changes a date, so ours must lose* — and accepting a drop is a question about the drag
+   *target*. Jira's targets are the timeline; ours is the drawer; a drop we accept over
+   the drawer takes nothing from Jira. **What blocks it is whether that payload names the
+   issue, which is unmeasured** — §6 item 20, and C.6 carries the switch that would read
+   it.
    **What was at stake was a shortcut and not a capability, and that held on both.** Every
    issue either view draws is in `On this page`, and a live row drags from anywhere on
    the row.
@@ -4514,14 +4567,20 @@ Notes on the controls:
    drag-and-drop listens there. §2.9.3 has the correction and both drop handlers now
    re-read what their `dragover` decided, so a refused drop is neither written nor
    consumed.
-   **What is still open is the visible half, and it is the user's own question.** A
-   refused drag over the drawer shows **no blue line**, which is correct and is our
-   whole signal — but **no no-drop cursor appears either**, and that half is the
-   platform's. The likely reason is the same second acceptor: if Jira has already told
-   the browser the drop is acceptable, the browser has nothing to refuse. **That is a
-   hypothesis. Probe C.6 settles it in one paste**, and it is worth pasting because the
-   same probe answers whether a Jira card's own drag carries the issue key anywhere we
-   could read — which would let a card be grabbed by its summary as well as by its key.
+   **AND THE MECHANISM THIS ROW NAMES WAS MEASURED AND IS NOT HAPPENING — 2026-08-26,
+   appendix A.11.** Probe C.6 reported `defaultPrevented` false at `document`, in both
+   phases, over seven elements of the drawer, on every refused drag: **nothing above the
+   Cart accepts anything.** So the state is real per the spec and **unobserved on this
+   page**, and Jira's drag-and-drop is not the ancestor this row accused.
+   **The guard stays and its standing changes: it is CHEAP, not load-bearing.** Two
+   comparisons, and they make each handler agree with its own `dragover`; consuming a drop
+   we refused is wrong however unlikely it is. **What is no longer claimed is that
+   anything on this page produces it** — and per §2.9.3's own note, this guard has now
+   been argued from the wrong mechanism twice, once to delete it and once to restore it.
+   **The visible half of the user's question is answered and it is not ours.** The browser
+   is being told the operation is `none` and does not paint it where it can be seen; the
+   surviving candidate is Atlassian's own drag preview, which is between Chromium and
+   `@atlaskit/pragmatic-drag-and-drop`. There is nothing here for the Cart to fix.
 
 ---
 
@@ -4816,6 +4875,37 @@ These are not gaps in the design. Each was named, and each was left.
     each neighbouring row's own left margin instead of 28px into this row's. The
     switch shipped with the feature so that the answer is recoverable either way
     (§2.7.1). It is §7 step 36.
+20. **Whether a Jira CARD can be dropped as well as its key — that is, whether
+    `application/vnd.pdnd` names the issue. Opened on 2026-08-26 by probe C.6
+    (appendix A.11), and it is the correction of a decline rather than a new want.**
+    §2.9.3 shipped saying a page drag must start on the **key**, because that is the only
+    real link Jira draws, and it declined the Plans timeline on the ground that Jira's own
+    bar drag has to win. **The second half of that was argued too strongly.** *Ours must
+    lose* is about the drag SOURCE; whether we accept a drop is about the drag TARGET, and
+    Jira's targets are the timeline while ours is the drawer. A pdnd drag accepted over the
+    drawer takes nothing away from Jira, because a bar dropped back on the timeline is a
+    drop we never see.
+    **So the want is concrete: a board, backlog or timeline card droppable from ANYWHERE
+    on the card**, which removes the whole rough edge of §2.9.3's third source — and it
+    would be one more branch in `droppedLinks` plus a parser, with the two drop targets,
+    the write and every refusal unchanged.
+    **What blocks it is one measurement, and the expected answer is no.**
+    `@atlaskit/pragmatic-drag-and-drop` holds internal drag data in a **closure** and puts
+    only a marker in the `dataTransfer`, because an internal drag never crosses a process
+    boundary and has nothing to serialise for. If that is what it does, the type is a
+    token and there is nothing in it to read. **That is a hypothesis and it is flagged as
+    one**, and it is the second time in this feature that a confident-sounding mechanism
+    turned out to be a guess (A.11, finding 1).
+    **Reading it needs a probe that ACCEPTS**, because `getData` is unreadable during
+    `dragover` and no `drop` reaches us while we refuse. C.6 carries that as a fenced
+    opt-in switch. **Run that before designing anything**, and if the payload is opaque
+    then §2.9.3's decline stands on measured grounds instead of an argument, which is a
+    better outcome than the item staying open.
+    **One thing this item may NOT do, whatever the probe says: accept a payload we cannot
+    resolve to a key.** §2.1's decision holds — a key that is not in a link is invisible
+    to the Cart — and a private type whose shape Atlassian can change without telling
+    anyone is exactly the kind of thing principle 4 says must degrade to nothing rather
+    than to something wrong.
 
 
 ---
@@ -4826,29 +4916,31 @@ There is no test system in this repository. Use these steps in a browser, with
 `jira-ux-improvements` and `jira-backlog-sprints` also installed.
 
 **What is confirmed outside a browser, and by what.** Eight Node harnesses hold
-**1,372 checks at 1.6.0**, against 372 at 1.0.0: the pure helpers, the store and every
+**1,375 checks at 1.6.0**, against 372 at 1.0.0: the pure helpers, the store and every
 preference it clamps, the (row, key) group, the six formats and the API's response
 validation, the whole script against a fake DOM, the generated stylesheet's cascade,
 and the script run twice over one store. They pull the real functions out of the file
 by brace matching, so they cannot drift from it and a rename breaks them loudly.
-**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0, 1,137 at 1.3.0, 1,279 at 1.5.0, 1,372 at
+**372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0, 1,137 at 1.3.0, 1,279 at 1.5.0, 1,375 at
 1.6.0** — 1.2.0 more than
 doubled them, and almost all of the 604 it added are in two files: `format-smoke` holds every
 byte each setting can reach, and `boot-smoke` drives the ⚙ screen's own controls.
 That ratio is what a configurable output costs to keep checkable: the outputs are
 still a finite set, and asserting them means asserting all of them.
 
-**1.6.0's 93 checks were mutated the same way, in two runs: 13 single edits, 0
-survived.** Eight against behaviour — the move that does not remove, the marker that does
+**1.6.0's 96 checks were mutated the same way, in three runs: 14 single edits, 0
+survived.** Nine against behaviour — the move that does not remove, the marker that does
 not refuse, the same-origin rule removed, the gap ignored so every drop appends, Ctrl
 ignored, the read-only gate removed, and — from the second run, after the user's report
 — **each drop handler made to consume a drop it had refused**, which is the defect that
-report found — and **five against the stylesheet**, which is
+report found, and — from a third run, after probe C.6 — **a live-list row made to read the
+STORE instead of the page**, which is the one distinction the two drags turn on — and
+**five against the stylesheet**, which is
 where this feature's invisible decisions live: the chip's ring made a border colour
 instead of an outline, the live grip switched to `display`, `user-select` taken off a
 live row, the empty list's outline offset made positive so it draws where the parent
 clips, and the ring moved after the armed rule so a chip armed for deletion repaints as
-a drop target. **A fourteenth edit survived and was a bad mutation rather than a missing
+a drop target. **A fifteenth edit survived and was a bad mutation rather than a missing
 check** — it added a CSS comment and changed no byte, which is the trap this
 repository's harness README already records twice. **1.3.0's 48
 checks were mutated the same way, on the same day: 14 single edits, 0
@@ -5517,13 +5609,19 @@ pass each, and they are cheap.
       indicator may repaint; the drop must still land on the chip you were aiming at.
       Nothing freezes here on purpose, and this is the only way to see that it did not
       need to.
-    - **THE ONE THE HARNESS CANNOT SEE AT ALL: what the browser draws when it refuses.**
-      Drag a card by its **summary** over the drawer. The blue line must **not** appear —
-      that is our signal and it is an absence by design. Whether a **no-drop cursor**
-      appears is the platform's half, and on 2026-08-26 it did not. **Probe C.6 is what
-      diagnoses that**, and it is worth pasting before anything is changed, because the
-      likely cause is that Jira accepted the drop above us and there is then nothing for
-      the Cart to fix (risk 22).
+    - **DONE — what the browser draws when it refuses (probe C.6, appendix A.11).** A card
+      dragged by its summary over the drawer shows **no blue line**, which is our signal
+      and is an absence by design, and **no no-drop cursor either**. Measured: nothing
+      above the drawer accepts the drop, so the browser is being told `none` and does not
+      paint it where it can be seen. **The candidate that remains is Atlassian's own drag
+      preview, and there is nothing here for the Cart to fix** (risk 22). Re-run C.6 if
+      Atlassian changes drag library, and not otherwise.
+    - **DONE — a live-list row into the collection, seen from outside the harness.** The
+      same run dropped one and the console carried the bytes: the `Issue reference` shape
+      at item scope, the issue's URL, and `1 added to Scratch`. It also found that
+      `boot-smoke` had only ever asserted that drag's `text/uri-list` — the one type that
+      cannot be wrong — and three checks were added, including the one that tells the two
+      drags' sources apart (A.11, finding 5).
     > **REPORTED WORKING IN USE ON 2026-08-26, THE DAY IT SHIPPED, AND THIS STEP IS
     > MOSTLY UNRUN.** The user tried the feature, said it works well, and then answered
     > this step's first item **view by view** when asked — which is the whole argument
@@ -6023,6 +6121,129 @@ records as a nice-to-have rather than a target. The bookmarks-bar findings are t
 ones most likely to be version-shaped, because they turn on one call site inside
 Chromium; the tab-strip findings are the ones most likely to hold.
 
+
+### A.11 The drag SOURCES, 2026-08-26, one probe run
+
+**Probe C.6, run by the user on a Plans timeline with the drawer open. It answered three
+questions and it made one of this document's own paragraphs wrong.** A.10 measured where
+a drag can *go*; this measures where one can *come from*, and who else is listening.
+
+**Four drags, and the payload types are the whole reading.**
+
+| Drag | `dragstart` target | Types seen during `dragover` |
+| --- | --- | --- |
+| A timeline card, grabbed **by its key** | `div.ra40ka_container` — **Jira's own container, not our anchor** | `application/vnd.pdnd`, `chromium/x-drag-id` |
+| The same card, grabbed **by its summary** | `div.ra40ka_container` — the same element | The same two |
+| A **live-list row** of ours | `div.gt-cart-row` | `text/plain`, `text/uri-list`, `text/html`, `chromium/x-drag-id` |
+| A **linked work item**, anywhere on the row | **No `dragstart` at all** | — |
+
+**`application/vnd.pdnd` IS `@atlaskit/pragmatic-drag-and-drop`**, Atlassian's own drag
+library. So the two views where a page drag fails are not failing for the reason "a
+handler steals it": **the drag source itself resolves to Jira's element**, and the payload
+that leaves is Jira's private type. Our anchor never becomes the source.
+
+#### Finding 1 — nobody else accepts a drop over the drawer. THE HYPOTHESIS WAS WRONG
+
+**Every refused drag reported `dragover DOWN false` and `dragover UP false`** — capture
+and bubble, at `document`, over seven different elements of the drawer. **Nothing above
+the Cart called `preventDefault`.** Jira's drag-and-drop does not reach over the drawer.
+
+**§2.9.3 and risk 22 both said the likely cause of the missing no-drop cursor was a
+second acceptor, and named Jira. That is measured false**, and both are amended in place.
+The browser *is* being told the operation is `none`; what it does not do is paint
+something the user can see, and the remaining candidate is pdnd's own drag preview —
+which is between Chromium and Atlassian and is not the Cart's to change. **There is
+nothing here to fix and nothing here that the Cart is doing wrong.**
+
+> **The reasoning error is worth more than the finding.** A.10 had measured that
+> `dataTransfer.types` is readable during `dragover`, and that measurement was used to
+> make a *hypothesis* about who was accepting feel like a reading. **A mechanism existing
+> is not the same as a mechanism being in play**, and the sentence that named Jira should
+> have said "I think" and then been checked, which is what appendix A.9's whole lesson
+> already says about pastes.
+
+#### Finding 2 — the guard risk 22 restored is CHEAP, not load-bearing
+
+Risk 22 restored a check in both drop handlers: act only on what our own `dragover`
+accepted. **Its stated reason is now unobserved.** A `drop` can only reach us if somebody
+accepted, and on this page nobody else does — so the state the guard defends was not
+produced by the thing that was supposed to produce it.
+
+**The guard stays, and the reason changes from reachability to construction.** It is two
+comparisons, it makes the pair of handlers say the same thing as their own `dragover`, and
+the alternative — consuming a drop we refused — is wrong however unlikely it is. §2.9.3
+says so in those terms now. What is *not* claimed any more is that Jira produces the
+state.
+
+> **AND THAT IS TWICE IN ONE FEATURE that a guard here was argued from the wrong
+> mechanism** — once to delete it, once to restore it. The restore is right anyway,
+> because it is right by construction rather than by a story about the page. **For
+> platform behaviour, prefer a guard that is correct whoever else is on the page over an
+> argument about who is.**
+
+#### Finding 3 — linked work items does not drag AT ALL, so risk 21 closes as declined
+
+**No `dragstart` fires, from anywhere on the row.** Not from the key, not from the card.
+So there is no payload to widen a parser for and no refusal of ours to relax: that panel
+suppresses dragging, and **nothing the Cart can do changes it.** Risk 21's open half is
+therefore **declined rather than deferred**, on measured grounds.
+
+**And the hint §2.1 offered was irrelevant, which is worth saying because it was
+offered.** That panel's card carries two anchors to the same issue, and it has nothing to
+do with this — the card does not drag whether one anchor or two are inside it.
+
+#### Finding 4 — the timeline's decline was argued too strongly, and it reopens
+
+§2.9.3 declined the timeline because *dragging a bar is how you change a date, so our
+gesture must lose*. **That argument is about the drag SOURCE and the question is about the
+drop TARGET**, and conflating the two is what made the decline look settled.
+
+**Jira's own drop targets are the timeline. Ours is the drawer.** A pdnd drag accepted
+*over the drawer only* would take nothing away from Jira: the bar dropped back on the
+timeline still changes its date, because we never see that drop. So the decline as
+written does not hold.
+
+**What actually blocks it is one unmeasured thing: whether `application/vnd.pdnd` names
+the issue.** If it does, then a board, backlog or timeline card becomes droppable from
+*anywhere on the card* rather than from its key — which is the whole rough edge of ask 3.
+If it does not, the decline stands on real grounds instead of an argument.
+
+**The likely answer is that it does not, and this is a hypothesis flagged as one.** pdnd
+carries internal drag data in a closure and only marks the `dataTransfer`, because an
+internal drag never crosses the process boundary and has no need to serialise. If that is
+what it does, the type is a token and there is nothing in it to read.
+
+**Measuring it needs a probe that ACCEPTS**, because `getData` is unreadable during
+`dragover` and no `drop` reaches us while we refuse. C.6 gains that as a fenced, opt-in
+switch: one line that calls `preventDefault` over the drawer, which changes behaviour
+while it is armed and is therefore not something to leave running. **§6 item 20 holds the
+item.**
+
+#### Finding 5 — one thing was confirmed rather than corrected
+
+**A live-list row dropped into the collection worked end to end**, and the probe caught
+the bytes off the real drop: `text/plain` was
+`[RDC-1420](https://…/browse/RDC-1420) 4 Rundown - Duplicate accross date range` and
+`text/uri-list` was that issue's URL, with `prevented: true` and `1 added to Scratch` on
+the console. **That is the `Issue reference` shape, at item scope, from a real gesture** —
+the rule §2.9.1 built and §2.9.3 extended to a third source, seen from outside the
+harness for the first time.
+
+**It also exposed a gap in the harness, which is now closed.** `boot-smoke` had asserted
+only the live drag's `text/uri-list` — the one type that cannot be wrong, because
+`issueUrl` builds it — and not the `text/plain` the `Issue reference` setting decides.
+Three checks were added, and they do something the file could not do before: the live
+row's summary is asserted to be **the page's** while the store holds a different string
+for the same key, which is the only place the two sources are told apart.
+
+#### What this run does not say
+
+**One view, one browser, one drag library.** The timeline was the page; a board runs pdnd
+too but was not probed, and `dragover UP false` there is inferred rather than read.
+Nothing here says anything about Firefox. And the missing no-drop cursor was diagnosed by
+**elimination** — nobody accepted — rather than by seeing what Chromium does instead, so
+"pdnd's drag preview" remains the surviving candidate and not a reading.
+
 ## Appendix B — The store that was measured and rejected
 
 **The collections could have been mirrored into Jira's own per-user properties.**
@@ -6105,16 +6326,17 @@ appendix, not from code.
 
 ---
 
-## Appendix C — The six probes, of which four are unrun
+## Appendix C — The six probes, of which three are unrun
 
 The first two are blocked items from §6. The third confirms arithmetic that 1.0.0
 acted on without measuring. **The fourth was added and CLOSED on 2026-08-20**, half from
 the project's own metadata and half from one console line. The fifth blocks nothing
-yet. **The sixth was added on 2026-08-26** and is the only one of the six that answers a
-question about a SHIPPED feature rather than a deferred one — it settles why a refused
-drag over the drawer shows no no-drop cursor (risk 22), and asks in the same paste
-whether Jira's own card drag carries the issue key. The four unrun ones need a live Jira
-page and the developer tools. None of them blocks a build.
+yet. **The sixth was added AND RUN on 2026-08-26** — the only one of the six that asks about a
+SHIPPED feature rather than a deferred one, and the only one whose readings corrected this
+document. **Appendix A.11 holds them**, and they made two of §2.9.3's own paragraphs
+wrong. Its last section, the *accepting switch*, is still unrun and is the one thing §6
+item 20 needs. The three unrun ones need a live Jira page and the developer tools. None of
+them blocks a build.
 
 ### C.1 Probe 1 — which element holds a backlog section's rows
 
@@ -6320,6 +6542,13 @@ its separator is what should apply to the rows whose project uses another.
 
 ### C.6 Probe 6 — who else accepts a drop over the drawer, and why one panel will not drag
 
+> **RUN ON 2026-08-26. The readings are appendix A.11, and they answered all three
+> questions.** This section is kept because the probe is worth re-running whenever
+> Atlassian changes its drag library, and because **one line of it was wrong** — see the
+> warning on `DRAGSTART` below, which was found by running it against a drag we control.
+> **A fourth question was added afterwards**, at the end: the accepting switch that §6
+> item 20 needs.
+
 **Why.** Three questions, one paste, all opened by the user's reports of 2026-08-26.
 
 **One: a refused drag over the drawer shows no no-drop cursor.** The Cart's own signal —
@@ -6376,13 +6605,21 @@ window.__gtDragProbe = (() => {
   // so the difference between the two is who cancelled it and where.
   const down = report("dragover DOWN");
   const up = report("dragover UP  ");
-  // QUESTION THREE lives here. A drag that never starts logs NOTHING, and that absence
-  // is the answer: the key is not a drag source on that panel, and no change to the Cart
-  // can make it one. A line with an empty `types` means the drag started and carried
-  // nothing we can read, which is a different problem with a different fix.
-  const started = (e) => console.log("[probe] DRAGSTART |", where(e.target),
+  /* QUESTION THREE lives here. A drag that never starts logs NOTHING, and that absence is
+     the answer: the key is not a drag source on that panel, and no change to the Cart can
+     make it one.
+
+     TWO PHASES, AND THE FIRST RUN ONLY HAD ONE -- which produced a reading that meant
+     nothing. `DRAGSTART` in CAPTURE fires before every handler that writes the payload,
+     including OUR OWN, so its `types` is always empty and is not a fact about the drag.
+     It said `(none)` for a live-list row that demonstrably writes three types, which is
+     how the flaw was caught. Capture is still logged, because it is the phase that runs
+     even if something cancels the drag; BUBBLE is the one whose `types` can be read. */
+  const started = (phase) => (e) => console.log("[probe] DRAGSTART " + phase + " |", where(e.target),
     "| types:", [...(e.dataTransfer?.types ?? [])].join(" ") || "(none)",
     "| uri:", JSON.stringify(e.dataTransfer?.getData("text/uri-list") ?? "").slice(0, 120));
+  const startedDown = started("DOWN");
+  const startedUp = started("UP  ");
   const dropped = (e) => console.log("[probe] DROP | prevented:", e.defaultPrevented,
     "| types:", [...e.dataTransfer.types].join(" "),
     "| plain:", JSON.stringify(e.dataTransfer.getData("text/plain")).slice(0, 200),
@@ -6390,14 +6627,17 @@ window.__gtDragProbe = (() => {
   document.addEventListener("dragover", down, true);
   document.addEventListener("dragover", up, false);
   document.addEventListener("drop", dropped, false);
-  // CAPTURE, so it is logged even if something on the way down cancels the drag.
-  document.addEventListener("dragstart", started, true);
+  // CAPTURE, so it is logged even if something on the way down cancels the drag -- and
+  // BUBBLE, which is the only phase whose `types` has been written yet.
+  document.addEventListener("dragstart", startedDown, true);
+  document.addEventListener("dragstart", startedUp, false);
   console.log("[probe] armed. Drag: (a) a card by its KEY, (b) the same card by its SUMMARY, (c) a live-list row, (d) a LINKED WORK ITEM by its key. Call window.__gtDragProbe() to stop.");
   return () => {
     document.removeEventListener("dragover", down, true);
     document.removeEventListener("dragover", up, false);
     document.removeEventListener("drop", dropped, false);
-    document.removeEventListener("dragstart", started, true);
+    document.removeEventListener("dragstart", startedDown, true);
+    document.removeEventListener("dragstart", startedUp, false);
     console.log("[probe] off");
   };
 })();
@@ -6426,15 +6666,68 @@ the question rather than deferring it.
 
 | On a linked work item's key | What it means |
 | --- | --- |
-| **No `DRAGSTART` line at all** | The key is not a drag source there. Jira's own component suppresses it, and **there is nothing on the Cart's side to change** — the answer is that the live list is the route, and risk 21's open half closes as *declined* rather than *deferred* |
-| `DRAGSTART` with `types: (none)` or no `uri` | The drag starts and carries nothing readable. Then the question becomes whether anything in that payload names the issue, which the same line answers |
-| `DRAGSTART` with a `uri` of this instance | The drag is fine and the **drop** is where it fails. That would be a bug in the Cart, and the `dragover` lines above say which condition refused it |
+| **No `DRAGSTART` line at all** | The key is not a drag source there. Jira's own component suppresses it, and **there is nothing on the Cart's side to change** — the live list is the route, and risk 21's open half closes as *declined* rather than *deferred*. **This is what was measured** (A.11) |
+| `DRAGSTART UP` with `types: (none)` or no `uri` | The drag starts and carries nothing readable *for us*. The question then becomes whether any type in it names the issue, which is §6 item 20 and needs the switch below |
+| `DRAGSTART UP` with a `uri` of this instance | The drag is fine and the **drop** is where it fails. That would be a bug in the Cart, and the `dragover` lines above say which condition refused it |
 
-**Compare it with a board card's key**, which is known to work: the difference between
-the two `DRAGSTART` lines is the whole finding.
+**Read the `UP` line and never the `DOWN` line for `types`.** `DOWN` runs before any
+handler has written the payload — ours included — so its `types` is empty on every drag
+and says nothing. That is a flaw the first run of this probe had, and it is what makes the
+`DRAGSTART` row above trustworthy now.
+
+**Compare with a board card's key**, which is known to work: the difference between the
+two `DRAGSTART` lines is the whole finding.
 
 **One warning about the probe itself.** It attaches to `document` and never calls
 `preventDefault`, so it cannot change what the page does — but it does log during a
 drag, and a console that is open and scrolling can slow a drag enough to change how it
 feels. Judge the *feel* of the gesture with the probe off.
+
+#### The accepting switch, for §6 item 20 only
+
+**Everything above is read-only. This is not, and that is why it is fenced.** §6 item 20
+asks whether `application/vnd.pdnd` names the issue, and it cannot be read while the Cart
+refuses the drop: `getData` is unreadable during `dragover`, and no `drop` is dispatched
+for a drag nobody accepted. So something has to accept it, once, on purpose.
+
+```js
+// ACCEPTS EVERY DRAG OVER THE DRAWER, then prints the whole payload. It CHANGES what the
+// page does while it is armed -- a drag released over the drawer is consumed instead of
+// going where it would have gone -- so arm it, take the one reading, and turn it off.
+window.__gtDropProbe?.();
+window.__gtDropProbe = (() => {
+  const drawer = document.getElementById("gt-cart-drawer");
+  const take = (e) => { if (drawer?.contains(e.target)) e.preventDefault(); };
+  const read = (e) => {
+    if (!drawer?.contains(e.target)) return;
+    e.preventDefault();
+    for (const type of [...e.dataTransfer.types]) {
+      console.log("[drop]", type, "=>", JSON.stringify(e.dataTransfer.getData(type)).slice(0, 400));
+    }
+  };
+  // CAPTURE on both, so this runs before the Cart's own handlers and their refusal
+  // cannot get in the way of the reading.
+  document.addEventListener("dragover", take, true);
+  document.addEventListener("drop", read, true);
+  console.log("[drop] ARMED -- the drawer now accepts everything. Drag a board or timeline CARD onto it, then call window.__gtDropProbe().");
+  return () => {
+    document.removeEventListener("dragover", take, true);
+    document.removeEventListener("drop", read, true);
+    console.log("[drop] off");
+  };
+})();
+```
+
+**How to read it.** Drag a **card** — by its summary, not its key — onto the drawer and
+look at the `application/vnd.pdnd` line.
+
+| What that line holds | What it means for §6 item 20 |
+| --- | --- |
+| An issue key, or JSON containing one | **The item is buildable.** One branch in `droppedLinks` and a parser, and a card becomes droppable from anywhere on it |
+| An empty string, or an opaque token | **The item closes as declined, on measured grounds** — which is the expected answer, and a better outcome than an open item |
+| Something that looks like a key but is not documented | Treat as the row above. §2.1's principle 4 applies: a private shape Atlassian can change without telling anyone must degrade to nothing rather than to something wrong |
+
+**Turn it off before doing anything else.** While it is armed the drawer swallows every
+drag released over it, including Jira's own — which is precisely the document-level
+swallow §2.9.2 designed, measured and refused to ship.
 
