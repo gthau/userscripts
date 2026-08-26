@@ -467,5 +467,150 @@ is("and no width floor fights max-inline-size, which keeps the grip reachable",
 is("exactly one min-block-size on the drawer, so the floor cannot be shadowed",
    (drawerRule?.body.match(/min-block-size:/g) ?? []).length, 1);
 
+/* ---- 2f. THE COLLECTION'S DRAG OUT (§2.9.2, 1.5.0). Three rules, and each one is a
+   decision that only exists in the cascade -- so this is the only harness that can
+   see any of them. */
+const headDrag = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer h2.gt-cart-section-head[draggable="true"]',
+);
+// Scoped to the attribute rather than to the heading's id ON PURPOSE: `render` takes
+// the attribute away while the rename field is open, and that has to take
+// `user-select` with it -- or the field's own text could not be selected by mouse
+// even though the drag had stood down.
+is("only a draggable heading says grab", /cursor:\s*grab/.test(headDrag?.body ?? ""), true);
+is("and it turns off text selection, or the browser drags the selection instead",
+   /user-select:\s*none/.test(headDrag?.body ?? ""), true);
+is("the rule is keyed on the attribute, so the rename takes both away with it",
+   /\[draggable="true"\]/.test(headDrag?.sel ?? ""), true);
+/* `:active` AND NOT AN ATTRIBUTE, and the difference is that this one cannot stick.
+   The item rows paint their grabbed state from `data-gt-dragging`, cleared in
+   `dragend`. THIS DRAG HAS NO `dragend` -- it writes nothing, so it has nothing to
+   undo -- and an attribute set at `dragstart` with nothing to clear it would leave
+   the heading painted as grabbed for ever. */
+is("the grabbing cursor comes from :active, which clears itself",
+   rules.some((r) => /h2\.gt-cart-section-head\[draggable="true"\]:active/.test(r.sel)
+     && /cursor:\s*grabbing/.test(r.body)), true);
+is("and NO data-gt-dragging attribute is painted on the heading, since none is set",
+   rules.some((r) => /h2\.gt-cart-section-head/.test(r.sel) && /data-gt-dragging/.test(r.sel)),
+   false);
+// The item grip's rule, applied to the heading for the item grip's reason: the name
+// already ellipsises at 300px, so the glyph's width is held whether it is painted or
+// not.
+const headGrip = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer h2.gt-cart-section-head span.gt-cart-grip",
+);
+is("the heading grip is hidden by visibility, so the name never re-ellipsises",
+   /visibility:\s*hidden/.test(headGrip?.body ?? "") && !/display:/.test(headGrip?.body ?? ""),
+   true);
+is("and it is painted on hover, but only when the heading can actually be dragged",
+   rules.some((r) => /h2\.gt-cart-section-head\[draggable="true"\]:hover span\.gt-cart-grip/.test(r.sel)
+     && /visibility:\s*visible/.test(r.body)), true);
+/* THE CHIP GETS A CURSOR AND NO GLYPH, which is the one place §2.9.2 breaks the
+   drawer's own vocabulary. A reserved glyph would shorten every chip name for ever,
+   because a chip's name is the one label in the drawer that ellipsises. */
+const chipDrag = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-chip[draggable="true"]',
+);
+is("a draggable chip says grab", /cursor:\s*grab/.test(chipDrag?.body ?? ""), true);
+is("and NO chip anywhere reserves a grip glyph",
+   rules.some((r) => /gt-cart-chip/.test(r.sel) && /gt-cart-grip/.test(r.sel)), false);
+/* AND THE COST OF THAT, HELD HERE SO IT IS NOT MISTAKEN FOR AN OVERSIGHT. The main
+   button covers most of the pill and keeps `cursor: pointer`, because a click on it
+   activates the collection. So the grab cursor shows only on the pill's own padding
+   and the TOOLTIP does most of the discovery work -- which is what §7 step 40 looks
+   at with a real hand. */
+is("the chip's main button still says pointer, because clicking it still activates",
+   /cursor:\s*pointer/.test(rules.find((r) =>
+     r.sel === "aside#gt-cart-drawer button.gt-cart-chip-main")?.body ?? ""), true);
+
+/* ---- 2g. ADDING BY DROP (§2.9.3, 1.6.0). Two of these are cascade-only decisions and
+   one is a specificity ordering that nothing in JavaScript can see. */
+
+// THE LIVE ROWS DRAG NOW, and they wear the item rows' rules rather than a second
+// vocabulary -- with `:active` for the grabbing cursor, which is the HEADING's choice
+// for the heading's reason: this drag has no `dragend` listener, so an attribute set at
+// `dragstart` would have nothing to clear it.
+const liveDrag = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-row[draggable="true"]',
+);
+is("a draggable live row says grab", /cursor:\s*grab/.test(liveDrag?.body ?? ""), true);
+is("and turns off text selection, or the browser drags the selection instead",
+   /user-select:\s*none/.test(liveDrag?.body ?? ""), true);
+is("the grabbing cursor comes from :active on a live row too, which clears itself",
+   rules.some((r) => /div\.gt-cart-row\[draggable="true"\]:active/.test(r.sel)
+     && /cursor:\s*grabbing/.test(r.body)), true);
+is("and NO data-gt-dragging is painted on a live row, since none is set",
+   rules.some((r) => /div\.gt-cart-row/.test(r.sel) && /data-gt-dragging/.test(r.sel)), false);
+// The grip's one word, for the third list: `visibility`, never `display`, so the
+// summary does not re-ellipsise under the hand that is about to grab the row.
+const liveGrip = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer div.gt-cart-row span.gt-cart-grip",
+);
+is("the live grip is hidden by visibility, so the summary never re-ellipsises",
+   /visibility:\s*hidden/.test(liveGrip?.body ?? "") && !/display:/.test(liveGrip?.body ?? ""),
+   true);
+is("and it is painted on hover", rules.some((r) =>
+   /div\.gt-cart-row\[draggable="true"\]:hover span\.gt-cart-grip/.test(r.sel)
+   && /visibility:\s*visible/.test(r.body)), true);
+/* THE KEY MUST SAY POINTER over a row that is otherwise saying grab, and it must WIN.
+   The generated collected-keys sheet is the reason this is not obvious: it matches
+   `a[href$="/browse/KEY"]` and the drawer's own key rule already has to out-specify it,
+   so a cursor added at the wrong specificity here is a plausible mistake. */
+const liveKey = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer div.gt-cart-row a.gt-cart-row-key",
+);
+is("the key inside a live row says pointer, because clicking it opens the issue",
+   /cursor:\s*pointer/.test(liveKey?.body ?? ""), true);
+is("and it beats the row's own grab, so the cursor names the action under it",
+   beats(spec(liveKey?.sel ?? ""), spec(liveDrag?.sel ?? "")), true);
+
+/* THE CHIP'S DROP RING IS AN `outline`, AND THAT IS FORCED RATHER THAN CHOSEN. A
+   chip's 1px border already carries two meanings -- active paints it, armed paints it
+   -- so a third on the same declaration would be three states fighting over one edge.
+   An outline is a separate channel AND TAKES NO SPACE, so the chip row cannot wrap at
+   the moment a pointer arrives, which is the reflow-under-the-hand defect this chip
+   refused a grip glyph over. */
+const chipDrop = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div.gt-cart-chip[data-gt-drop="on"]',
+);
+is("the chip's drop ring exists", !!chipDrop, true);
+is("and it is an outline, not the border every other chip state paints",
+   [/outline:/.test(chipDrop?.body ?? ""), /border/.test(chipDrop?.body ?? "")], [true, false]);
+/* SOURCE ORDER IS LOAD-BEARING HERE, which is the trap this sheet has now hit five
+   times. The ring, the active fill and the armed red are all the same specificity, so
+   whichever comes last wins any property they share. They share none today -- the ring
+   is an outline and the other two are border/background -- and the ORDER still matters
+   for the day one of them gains a declaration: the ring must come after `active`, so it
+   shows on the active chip, and before `armed`, so a chip armed for DELETION is not
+   quietly repainted as a drop target. */
+const chipOrder = ["data-gt-active", "data-gt-drop", "data-gt-armed"].map((attr) =>
+  rules.findIndex((r) => r.sel === `aside#gt-cart-drawer div.gt-cart-chip[${attr}="${attr === "data-gt-drop" ? "on" : "true"}"]`));
+is("the three chip-state rules are all the same specificity, so order decides",
+   chipOrder.map((i) => JSON.stringify(spec(rules[i].sel))),
+   chipOrder.map(() => JSON.stringify(spec('aside#gt-cart-drawer div.gt-cart-chip[data-gt-active="true"]'))));
+is("and the drop ring sits between active and armed, in that order",
+   [chipOrder[0] < chipOrder[1], chipOrder[1] < chipOrder[2]], [true, true]);
+
+/* THE EMPTY LIST'S INDICATOR, and it is the tail case of the whole feature: a
+   collection with no rows still has exactly one gap. The rows paint their own
+   transparent border, which this box does not have -- and an outline is what keeps a
+   list already at its scroll limit from reflowing when the indicator appears. */
+const listDrop = rules.find(
+  (r) => r.sel === 'aside#gt-cart-drawer div#gt-cart-item-list[data-gt-drop="on"]',
+);
+is("the item list itself can wear an indicator", !!listDrop, true);
+is("as an outline drawn INSIDE it, because its parent clips",
+   [/outline:/.test(listDrop?.body ?? ""), /outline-offset:\s*-/.test(listDrop?.body ?? "")],
+   [true, true]);
+/* AND THE ROWS' OWN INDICATOR IS STILL A BORDER COLOUR AND NOTHING ELSE, which is what
+   makes it free of layout. §2.9.1 reserved a transparent border on both lists' rows for
+   exactly this, and a drop indicator that ever sets a border WIDTH would move every row
+   below it under a pointer that is mid-drag. */
+is("the item rows' indicators change a colour and never a width",
+   ["before", "after"].map((edge) => {
+     const r = rules.find((x) => x.sel === `aside#gt-cart-drawer div.gt-cart-item[data-gt-drop="${edge}"]`);
+     return /border-block-(start|end)-color:/.test(r?.body ?? "") && !/width|style/.test(r?.body ?? "");
+   }), [true, true]);
+
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
