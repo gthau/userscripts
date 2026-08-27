@@ -111,6 +111,34 @@ Since 1.2.0 the page carries two more things:
   rather than read about. It drives nothing above it, and the page's own fence says
   so.
 
+### The bench gained a fifth `Tabs` variant on 2026-08-27: `Presets · proposed`
+
+**It is a PROPOSAL and not a shipped screen** —
+[`docs/jira-cart/presets/`](../../docs/jira-cart/presets/README.md) is the design and
+`01-the-prototype.md` is the ticket. What it adds: a four-tab bar at full label length,
+the preset block in both export tabs, a per-preset `Issue reference`, and **three
+arrows in the foot**. It carries a readout under the drawer that measures the foot
+**with the arrows and without them**, in layout pixels, and prints the `MIN_BLOCK` the
+delta implies — which is the number the arrows ticket owes the ADR.
+
+**It deliberately breaks this page's own invariant** that every variant is built from
+the same controls, because it proposes new ones rather than rearranging the shipped
+ones. The break is stated in a comment beside `TAB_SETS`, and the fence at the foot of
+the page carries what the variant does not model: no fetch, no `Copy` ladder, no
+store, no clipboard behind the foot, and presets that live in a variable and do not
+survive a reload.
+
+**The three older variants are untouched**, because `tabs2` and `tabs4` are §2.9's
+rejected rows and the record's own reason for keeping them is that a choice should be
+lookable-at rather than read about. `tabs4` shortened its labels to `🔗 Line` and
+`⚙ Look`; the new variant uses the decided ones at full length, so the two can be
+switched between at 300px and the fit compared.
+
+**The fence's *"The Cart itself. No drawer…"* line was FIXED the same day.** It had
+been false since the bench landed at 1.2.0 — there has been a drawer on this page for
+five versions — and it is the fourth thing on this page found wrong by reading rather
+than by anything going red.
+
 ### `config-prototype.html` was MERGED INTO IT AND DELETED, at 1.2.0
 
 Ticket 06 named three options — merge, keep both, or let the prototype supersede the
@@ -131,6 +159,76 @@ the settings mock, and **its three approximations are fenced on the page itself*
 rather than left to be discovered: the `--cart-*` chrome colours, the sketched drawer
 body, and the tab remembered in `localStorage` where the script uses
 `gt-jira-cart.prefs`.
+
+### THE FOURTH DRIFT, 2026-08-27, and it invalidated a measurement
+
+**The rule at the top of this section says keep the chips shape byte-identical to the
+script. The FOOT was never covered by it, and the foot had drifted in four values.**
+
+The user read the foot readout back and it said the three arrows cost **0px** and the
+drawer's floor does not move. That number was better than the presets record's own
+arithmetic predicted, which is the direction that earns a second look — and the second
+look found this:
+
+| | script | the rig | effect |
+| --- | --- | --- | --- |
+| foot padding | `6px 10px` | `6px 8px` | the row was laid out in 4px more width than it has |
+| button padding | `3px 8px` | `2px 6px` | each of the six buttons 4px narrower, 2px shorter |
+| font-size | `12px` | `11px` | every label ~9% narrower, and **both `11ch` reservations with them** |
+| border-radius | `4px` | `3px` | cosmetic |
+
+Six buttons at 4px is 24px before the ~9% on the labels — enough to move where the row
+wraps. **The measurement was withdrawn**, all four values are the script's now, and the
+**head** (`gap: 8px; padding: 6px 10px`) and the **chips row** (`padding: 6px 10px 0`)
+were drifted too and went with them.
+
+**The tab bar was checked in the same pass and is byte-identical** —
+`padding: 3px 9px; font-size: 11px` on the button, `gap: 2px` and a 1px bottom border on
+the bar — which is why the *"four labels fit at 300px"* answer from the same press
+**stands** where the foot's did not. That check is the whole difference between a closed
+question and a withdrawn one.
+
+**What cannot be fixed here, and is now in the page's fence:** `ch` is the width of a
+`0` in the inherited font family, and this page inherits IBM Plex Sans where the drawer
+inherits Jira's stack. `11ch` is the right rule with a slightly wrong ruler.
+
+**And the sketch line is now drawn explicitly**, because it was doing no work: the
+head, the chips row and the foot are real and byte-identical, because
+`COLLECTION_FIXED_PX` and `MIN_BLOCK` are summed from them. The section headings, the
+collection rows and the inside of a chip are sketches — the script's chip is a div
+holding two buttons with their own paddings and here it is one span. **Do not measure a
+floor off those three.**
+
+### Running the bench's script in node, which found two things
+
+**Nothing here reads an HTML file**, and the table above is what that costs: a
+`renderStage` that threw on every call, a `render` in a temporal dead zone, and a
+shape table with four rows where the script has five. None of the three went red.
+
+So the 2026-08-27 change was checked by **extracting the bench's script block and
+running it in node against a small DOM stub** — a throwaway, not committed and not in
+`run.mjs`: load, then switch variant, then press every handler the panel built, one at
+a time, re-reading the tree after each press so no stale closure is mistaken for a
+defect. `node --check` was **not** enough and could not have been: every one of the
+three faults above is syntactically valid.
+
+It found two faults, and **both were in the check rather than in the page** — which is
+worth recording, because that is the usual result and it is not a reason to skip the
+run:
+
+| What went wrong | Where |
+| --- | --- |
+| The stub stored `textContent = ""` as a string instead of clearing the children, so the panel's tree grew on every render and node ran out of heap. The symptom read as a leak in the page | the stub |
+| The structural assertion pressed nothing first, so it measured the **`Appearance`** tab — which is `tabs[0]` and where the panel opens — and reported its two dropdowns and its checkbox as the preset block. **The counts looked plausible**, which is the whole hazard | the check |
+
+A second assertion matched the star note by its **leading ★** and found an `<option>`
+in the picker, whose text also starts with one — a check that passed on the wrong node.
+It matches on the class now.
+
+What the run does say: nothing throws at load or on any press, and a fresh presets
+panel on the 📋 Details tab draws four tabs, two dropdowns, nine buttons, nine inputs
+and its star note. What it does not say is anything about **layout**, which is the
+whole reason the ticket ends in a browser.
 
 ### Verifying the chips, which is the rule this page lives under
 

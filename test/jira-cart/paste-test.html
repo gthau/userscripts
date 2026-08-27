@@ -618,12 +618,18 @@
     overflow: clip;
   }
 
+  /* THE SCRIPT'S `div#${HEAD_ID}`, exactly. It was gap 6 / padding 6px 8px until
+     2026-08-27, found in the same reading that found the foot's four. Vertically it
+     made no difference -- 6px top and bottom either way, so the head's 35px that
+     `css-smoke` derives `MIN_BLOCK` from was never wrong -- but horizontally it gave
+     the head 6px more room than it has, which is room the collection name's ellipsis
+     is decided by. */
   .cart-head {
     flex: none;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
+    gap: 8px;
+    padding: 6px 10px;
     border-block-end: 1px solid var(--cart-border);
   }
   .cart-title {
@@ -670,7 +676,15 @@
     font-size: 12px;
   }
   /* The two standing sections, sketched only far enough to make the replacement
-     legible. They are not what this prototype is for. */
+     legible. They are not what this prototype is for.
+
+     WHAT IS A SKETCH AND WHAT IS NOT, stated on 2026-08-27 because the difference
+     was doing no work until then. The HEAD, the CHIPS ROW and the FOOT are real
+     fixed parts of the drawer and are byte-identical to the script's, because
+     `COLLECTION_FIXED_PX` and `MIN_BLOCK` are summed from them. The section
+     HEADINGS, the collection ROWS and the inside of a CHIP are sketches: the
+     script's chip is a div holding two buttons with their own paddings, and here it
+     is one span. Do not measure a floor off those three. */
   .cart-sections {
     flex: 1;
     min-block-size: 0;
@@ -703,7 +717,11 @@
   .cart-row:hover { background: var(--cart-hover); }
   .cart-row b { font-weight: 600; }
   .cart-row span { color: var(--cart-muted); overflow: hidden; text-overflow: ellipsis; }
-  .cart-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 8px; }
+  /* THE SCRIPT'S `div.gt-cart-chips`, exactly: 6px above and NONE below. It was
+     4px/8px, which made this row 2px taller and 4px narrower than the real one --
+     and this row is one of the five fixed parts `COLLECTION_FIXED_PX` is summed
+     from, so it is a number the floor depends on. Fixed 2026-08-27. */
+  .cart-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px 0; }
   .cart-chip {
     border: 1px solid var(--cart-border);
     border-radius: 11px;
@@ -719,24 +737,50 @@
 
   /* THE FOOT GOES WITH THE SECTIONS. Six buttons and a border is about 40px --
      a fifth of the drawer at MIN_BLOCK -- and none of them can act on anything
-     while ⚙ is up. */
+     while ⚙ is up.
+
+     ============================================================================
+     THE FOURTH DRIFT THIS PAGE HAS HAD, AND IT INVALIDATED A MEASUREMENT.
+     Found on 2026-08-27, by reading, after the user read the foot readout back.
+
+     This foot was 6px/8px padding, 2px/6px buttons and 11px text; the script's is
+     6px/10px, 3px/8px and 12px. So every one of the six buttons was 4px narrower
+     and 2px shorter than the real one, each label was about 9% narrower, and both
+     `11ch` reservations were 9% narrower -- while the foot itself had 4px MORE
+     usable width to lay them out in. The page said the three arrows cost 0px and
+     that `MIN_BLOCK` does not move, and that was an answer about the bench.
+
+     THIS IS THE RULE THIS PAGE LIVES UNDER, in its own words: keep it
+     byte-identical to the script, because if it drifts it starts answering a
+     question about itself. The chips shape has a hand diff for exactly this. The
+     FOOT had nothing, and now it has this comment and the four values below.
+
+     WHAT IS STILL AN APPROXIMATION, because it cannot be fixed here: `ch` is the
+     width of a `0` in the inherited FONT FAMILY, and this page inherits IBM Plex
+     Sans where the drawer inherits Jira's own stack. So `11ch` is the right rule
+     with a slightly wrong ruler, and the arrows-versus-rows answer is close rather
+     than exact. It is in the fence.
+     ============================================================================ */
   .cart-foot {
     flex: none;
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    padding: 6px 8px;
+    /* THE SCRIPT'S, exactly: `div#${FOOT_ID}` in `buildCollectedCss`. */
+    padding: 6px 10px;
     border-block-start: 1px solid var(--cart-border);
   }
   .cart-foot button {
     appearance: none;
     border: 1px solid var(--cart-border);
-    border-radius: 3px;
-    padding: 2px 6px;
+    /* THE SCRIPT'S `button.gt-cart-copy`, exactly. Four values were wrong here. */
+    border-radius: 4px;
+    padding: 3px 8px;
     background: var(--cart-input);
     color: var(--cart-text);
-    font: inherit;
-    font-size: 11px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
     cursor: pointer;
   }
   .cart-foot button:hover { background: var(--cart-hover); }
@@ -803,6 +847,143 @@
     font-style: italic;
   }
 
+  /* ------------------------------- the preset block. PROPOSED, not shipped
+     Everything under this comment belongs to the `Presets · proposed` variant and
+     to nothing else. See the note above `TAB_SETS`: this variant DELIBERATELY
+     breaks the rig's own invariant that every variant is built from the same
+     controls, because it is a proposal for NEW controls rather than a
+     rearrangement of the ones that shipped. */
+  .presets { display: flex; flex-direction: column; gap: 4px; }
+  .preset-row { display: flex; align-items: center; gap: 4px; }
+  .preset-row select,
+  .preset-row input {
+    flex: 1;
+    min-inline-size: 0;
+    padding: 2px 4px;
+    border: 1px solid var(--cart-border);
+    border-radius: 3px;
+    background: var(--cart-input);
+    color: var(--cart-text);
+    font: inherit;
+    font-size: 11px;
+  }
+  .preset-btn {
+    flex: none;
+    appearance: none;
+    border: 1px solid var(--cart-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    background: var(--cart-input);
+    color: var(--cart-text);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .preset-btn:hover { background: var(--cart-hover); }
+  /* ★ IS A STATE, and it is the same three declarations the active collection chip
+     and the ⚙ already carry, so "this is the one that is on" reads the same way
+     everywhere in the Cart. */
+  .preset-btn[aria-pressed="true"] {
+    border-color: var(--cart-selected-text);
+    background: var(--cart-selected-bg);
+    color: var(--cart-selected-text);
+    font-weight: 600;
+  }
+  /* THE SPECIFICITY TRAP, FOR THE FIFTH TIME IN THIS DESIGN. Without the twin, the
+     plain `:hover` rule wins on source order and an ON control goes quiet under the
+     pointer -- which is exactly how the ⚙ was inert for two versions. */
+  .preset-btn[aria-pressed="true"]:hover { background: var(--cart-selected-bg); }
+  .preset-btn[data-armed="true"] { border-color: var(--brass); color: var(--brass-ink); font-weight: 600; }
+  .preset-btn:disabled { opacity: .45; cursor: default; }
+  .preset-note { font-size: 10px; color: var(--cart-muted); }
+
+  /* --------------------------------------------- the foot's arrow. PROPOSED
+     A NATIVE `<select>`, and that is a measurement rather than a taste: every
+     container in this drawer is `overflow: clip`, so a menu we draw ourselves is
+     silently gone. The browser paints an option list on top of the page, outside
+     every clip we own -- which is already why the two band dropdowns are native.
+     The select is transparent and sits over the caret, so the caret is ours and
+     the list is the platform's. */
+  .split { flex: none; display: flex; align-items: stretch; }
+  .split[data-arrow="on"] > button {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+    border-inline-end: 0;
+  }
+  .split-arrow {
+    position: relative;
+    flex: none;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: 15px;
+    font-size: 9px;
+    cursor: pointer;
+  }
+  .split[data-arrow="on"] > .split-arrow { display: inline-flex; }
+  .split-arrow select {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font: inherit;
+  }
+  /* THE TWO CANDIDATE RESTING LOOKS, switchable, because the question is whether the
+     arrow is NOTICED. A beta tester could not find the ⚙ at 1.1.0: a 13px grey glyph
+     in a transparent box has no resting affordance, and the recorded fix was a bigger
+     glyph with a WORD held in reserve as the next thing to try. This control has no
+     room for a word, so the look is the whole of the choice.
+
+     BOTH OF THEM NOW CLOSE THE BUTTON'S RIGHT EDGE, and the first version did not.
+     `.split[data-arrow="on"] > button` drops the button's right border to make room,
+     and the quiet variant replaced it with a TRANSPARENT one -- so the button read as
+     cut off rather than as quiet. Reported on 2026-08-27 in those words: "without
+     border it looks strange, like if the button is somewhat cut". The fix is the
+     user's own: the caret sits INSIDE the button, sharing its border and its ground,
+     with no divider down the middle.
+
+     SO THE TWO LOOKS NOW DIFFER BY ONE DECLARATION -- whether the arrow carries a
+     left border. That is the divider, and the divider is the whole question: it is
+     the only thing on the control that says the caret does something other than what
+     the button does. */
+  .cart-foot[data-arrow-look="quiet"] .split-arrow {
+    border: 1px solid var(--cart-border);
+    /* NO DIVIDER. One continuous button with a caret at its right end.
+       REPORTED 2026-08-27: this reads as "too much space to the left of the arrow",
+       because the button's own 8px right padding sits between its label and a caret
+       that is then centred in its own box. The divider variant does not have the
+       problem, because the border gives the space a reason to be there. Narrowing
+       this box would be the fix if it were the one chosen; it is not. */
+    border-inline-start: 0;
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
+    background: var(--cart-input);
+    color: var(--cart-muted);
+  }
+  /* THE ONE CHOSEN, 2026-08-27. Both were pressed and both were reported as fine;
+     the divider wins on the space problem noted above. */
+  .cart-foot[data-arrow-look="bordered"] .split-arrow {
+    border: 1px solid var(--cart-border);
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
+    background: var(--cart-input);
+    color: var(--cart-text);
+  }
+  .split-arrow:hover { background: var(--cart-hover); }
+
+  .foot-read {
+    margin: .6rem 0 0;
+    padding: .5rem .65rem;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--panel);
+    font-size: .75rem;
+    color: var(--ink-quiet);
+  }
+  .foot-read b { color: var(--ink); }
+
   /* -------------------------------------------- variant B: collapsible groups */
   .tabs {
     display: flex;
@@ -857,7 +1038,7 @@
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">Jira Cart · the paste rig · the ⚙ bench · 1.2.0</p>
+    <p class="eyebrow">Jira Cart · the paste rig · the ⚙ bench · 1.6.0 shipped, presets proposed for 1.7.0</p>
     <h1>The Paste Test</h1>
     <p class="standfirst">
       Nine fields per issue have to land somewhere a person will read them. A table wins in
@@ -874,6 +1055,21 @@
       <strong>⚙ bench</strong>, absorbed from the configurability prototype: whether the settings
       screen fits and reads in a drawer that can be 300×215px. The two do not drive each other,
       and the fence at the bottom says so.
+    </p>
+    <p class="standfirst">
+      <strong>A fourth structure is a PROPOSAL, not a shipped screen.</strong> The bench's
+      <code>Tabs</code> switch gained <kbd>Presets · proposed</kbd>, which is
+      <a href="../../docs/jira-cart/presets/README.md">the export-presets design</a> made
+      pressable. Set <code>Width</code> to <code>300 min</code>, <code>Height</code> to
+      <code>215 min</code> and <code>Zoom</code> to <code>1×</code>, and it is there to answer four
+      things no argument can: whether <strong>four full tab labels fit</strong>; how many rows the
+      <strong>foot</strong> takes with three arrows and therefore what the drawer's minimum height
+      becomes — the readout under the drawer prints both, measured; whether the
+      <strong>arrow is noticed</strong> at rest, which is what the <code>Arrow</code> switch is
+      for; and whether the split between <strong>the preset you are editing and the preset that
+      prints</strong> is confusing in the hand. That last one is the one to take most seriously:
+      the last effort's panel layout was settled by argument, prototyped, chosen — and then
+      reversed twice by somebody pressing it.
     </p>
   </header>
 
@@ -1142,6 +1338,32 @@
             <button type="button" data-v="tabs2">Two tabs</button>
             <button type="button" data-v="tabs3">Three tabs · shipped</button>
             <button type="button" data-v="tabs4">Four tabs</button>
+            <button type="button" data-v="presets">Presets · proposed</button>
+          </div>
+        </div>
+        <!-- ONLY THE `presets` VARIANT USES THIS. The question it exists for is
+             whether the arrow is noticed at rest -- see limit 6 of the presets
+             record, and the ⚙ that a beta tester could not find at 1.1.0. -->
+        <!-- THE ARMED LABEL IS WHERE "WHICH PRESET" GETS ANSWERED, because the
+             label is the fetch ladder and never the preset's name: `📊 Report` →
+             `📊 Fetching…` → `📊 Copy`, whatever preset is in play. So the armed
+             label carries a MARK -- ★ for the default, ▾ for something picked from
+             the arrow. THE QUESTION THIS SWITCH ASKS IS WHETHER IT FITS: the two
+             stepped buttons reserve `min-inline-size: 11ch` because a changing label
+             used to rearrange this whole row, and a mark that overflows that box
+             brings the defect back. -->
+        <div class="switch-row">
+          <span class="b-micro">Foot labels</span>
+          <div class="b-seg" id="labelSeg">
+            <button type="button" data-l="idle">Idle</button>
+            <button type="button" data-l="armed">Armed · with the mark</button>
+          </div>
+        </div>
+        <div class="switch-row">
+          <span class="b-micro">Arrow</span>
+          <div class="b-seg" id="arrowSeg">
+            <button type="button" data-a="quiet">Caret inside, no divider</button>
+            <button type="button" data-a="bordered">Divider · preferred 27 Aug</button>
           </div>
         </div>
         <div class="switch-row">
@@ -1215,18 +1437,42 @@
           </section>
         </div>
 
-        <div class="cart-foot" id="foot">
-          <button type="button">🔗 Links</button>
+        <!-- THE SPLIT CONTROLS ARE IN THE MARKUP ALWAYS AND THE ARROWS ARE NOT
+             DRAWN unless the `presets` variant is on, so the SAME foot can be
+             measured with them and without them. That delta is the number ticket
+             04 needs: `COLLECTION_FIXED_PX` derives the foot as ONE ROW at 38px,
+             and `css-smoke` counts the `flex: none` list because a fifth fixed
+             part makes it stale and the clipping comes back silently.
+
+             A `<select>` cannot live inside a `<button>`, so the pair is a wrapper
+             that READS as one control. The button keeps its `min-inline-size: 11ch`
+             untouched -- that reservation is what stops the label ladder
+             rearranging this row (§2.14). -->
+        <div class="cart-foot" id="foot" data-arrow-look="quiet">
+          <span class="split" id="splitLinks" data-arrow="off">
+            <button type="button">🔗 Links</button>
+            <span class="split-arrow"><span aria-hidden="true">▾</span><select
+                  title="Export with a line shape other than the one the 🔗 Links tab holds. Picking one COPIES AT ONCE — the arrow does what the button does."></select></span>
+          </span>
           <button type="button">📃 Names</button>
           <button type="button">🔑 Keys</button>
-          <button type="button" class="stepped">📋 Details</button>
-          <button type="button" class="stepped">📊 Report</button>
+          <span class="split" id="splitDetails" data-arrow="off">
+            <button type="button" class="stepped" id="footDetails">📋 Details</button>
+            <span class="split-arrow"><span aria-hidden="true">▾</span><select
+                  title="Export with a preset other than ★. Picking one FETCHES, and the Copy press that follows uses it."></select></span>
+          </span>
+          <span class="split" id="splitReport" data-arrow="off">
+            <button type="button" class="stepped" id="footReport">📊 Report</button>
+            <span class="split-arrow"><span aria-hidden="true">▾</span><select
+                  title="Export with a preset other than ★. Picking one FETCHES, and the Copy press that follows uses it."></select></span>
+          </span>
           <button type="button">🔍 Search</button>
         </div>
       </div>
     </div>
 
     <p class="overflow-warn" id="overflowWarn" hidden></p>
+    <p class="foot-read" id="footRead"></p>
   </section>
 
   <!-- ================================ fence ================================= -->
@@ -1236,8 +1482,27 @@
       <li><b>The two-step button.</b> No fetch, no <kbd>📋 Table</kbd> → <kbd>Copy table 12</kbd>
         ladder, no ⚠️. That behaviour is already settled; this page is only about the shape of what
         comes out.</li>
-      <li><b>The Cart itself.</b> No drawer, no live list, no collection chips. The shapes are shown
-        in their destinations, not in the panel they are copied from.</li>
+      <li><b>The Cart's REAL behaviour.</b> There is a drawer on this page — the ⚙ bench below is
+        one, at the real 300×215 — and this line used to say there was not. It was true when the
+        page held only the paste rack and it has been false since the bench landed at 1.2.0.
+        Corrected 2026-08-27. What is absent is everything the drawer <em>does</em>: no fetch, no
+        <kbd>📋 Details</kbd> → <kbd>Copy</kbd> ladder, no ⚠️, no clipboard behind the six foot
+        buttons, no store, and no second tab writing.</li>
+      <li><b><code>ch</code> is measured with the wrong ruler.</b> The two stepped buttons reserve
+        <code>min-inline-size: 11ch</code>, and a <code>ch</code> is the width of a <code>0</code>
+        in the inherited font family. This page inherits IBM Plex Sans; the drawer inherits Jira's
+        own stack. The foot's four other values were made byte-identical to the script on
+        2026-08-27 — after a drift there invalidated a measurement — but this one cannot be, so
+        the arrows-versus-rows answer is close rather than exact.</li>
+      <li><b>Everything the <kbd>Presets · proposed</kbd> variant models is a PROPOSAL.</b> It is
+        the only variant that adds controls the shipped Cart does not have, which breaks this
+        page's own rule that the variants differ only in arrangement — said out loud beside
+        <code>TAB_SETS</code> rather than left to be discovered. Its presets live in a variable and
+        nowhere else: no <code>gt-jira-cart.presets</code> key, no normalisation, no repair of a
+        hand-edited entry, and nothing survives a reload.</li>
+      <li><b>What an arrow pick would do.</b> The list opens and the pick sticks in the dropdown,
+        and that is all. The rule it is standing in for — <em>the arrow does what its button
+        does</em> — needs a fetch and a clipboard, and neither is on this page.</li>
       <li><b>Teams' and Slack's real renderers.</b> The chat panel is a width and a typeface, not a
         simulation. It is honest about the 430px constraint and about nothing else — which is exactly
         why the <em>Copy this shape for real</em> button is there.</li>
@@ -2200,9 +2465,137 @@
   /* Opens ON the settings, because the settings are what this bench is for. The
      state line above the drawer says what ⚙ replaced, and ⚙ is the only way in or
      out, so one press shows you the swap. */
-  let stage = { w: 360, h: 520, z: 2, v: "tabs3", mode: "settings" };
+  let stage = { w: 360, h: 520, z: 2, v: "tabs3", mode: "settings", arrow: "bordered", labels: "idle" };
   let ui = { tab: null };
   let restoreArmed = false;
+
+  /* ==================== THE PRESETS PROPOSAL, 1.7.0, NOT SHIPPED ==============
+     Everything from here to `presetBlock` belongs to the `Presets · proposed`
+     variant. It exists to be PRESSED: the four questions it has to answer are in
+     `docs/jira-cart/presets/01-the-prototype.md`, and two of them are numbers.
+
+     PRESETS ARE THE EXPORT CONFIGURATION. There is no unnamed copy of the fields,
+     the order or the headings -- a preset holds them, and one preset per list
+     carries ★, which is what a plain press of that button uses. The list below is
+     seeded with three shapes rather than one so that the sort, the ★ and the arrow
+     all have something to do.
+
+     THE SEEDS ARE OUT OF ALPHABETICAL ORDER ON PURPOSE. The panel and the arrow
+     both display sorted by name, so a source order that already agreed with the
+     display would hide whether the sort runs at all. */
+  const PRESET_SEEDS = {
+    details: [
+      { name: "Standard", star: true, lineShape: "markdown", on: DEFAULT_DETAILS },
+      { name: "Executive", star: false, lineShape: "plain", on: ["status", "assignee", "fixv"] },
+    ],
+    report: [
+      { name: "Executive", star: false, lineShape: "markdown", band1: "priority", band2: "team",
+        on: ["status", "assignee", "fixv"] },
+      { name: "Standard", star: true, lineShape: "markdown", band1: "priority", band2: "team",
+        on: DEFAULT_REPORT },
+      { name: "Single team", star: false, lineShape: "markdown", band1: "fixv", band2: "priority",
+        on: DEFAULT_REPORT },
+    ],
+  };
+
+  let seq = 0;
+  const seed = (which) => PRESET_SEEDS[which].map((one) => ({
+    id: "p" + (seq += 1),
+    name: one.name,
+    star: one.star,
+    lineShape: one.lineShape,
+    band1: one.band1,
+    band2: one.band2,
+    fields: defaultList(one.on),
+  }));
+
+  let presets = { details: seed("details"), report: seed("report") };
+
+  /* THE 🔗 LINKS TAB'S OWN SHAPE. Once a preset always names a shape, the shared
+     `Issue reference` row governs 🔗 Links alone -- so it moves into a tab of its
+     own rather than staying pinned above the bar, where the position itself used to
+     mean "this one is shared". */
+  let linksShape = "markdown";
+
+  /* WHICH PRESET THE TAB IS SHOWING IS IN MEMORY, and it starts at ★. Nothing is
+     stored, so nothing can point at a preset that no longer exists -- which is
+     §2.4's own reasoning: `collections` keeps no pointer to the active one either.
+     A delete resets it, and so does a fresh drawer. */
+  let selectedId = { details: null, report: null };
+  let newName = { details: "", report: "" };
+  let deleteArmed = { details: false, report: false };
+  let renamingList = null;
+
+  /* CREATING IS ITS OWN TWO-STEP, AND IT REPLACED `Save as new…` -- reversed on
+     2026-08-27, from use, on the first press of this page.
+
+     `Save as new…` copied the SELECTED preset, and editing writes straight into the
+     selected preset (decision 7), so the flow anybody actually uses -- change the
+     fields, then save the result under a new name -- MODIFIED THE OLD PRESET as well
+     as making the copy. The user reported it in those words: "the new preset is
+     properly created but the previous one is actually modified already. That's very
+     confusing."
+
+     The original reasoning was not wrong about anything except the ORDER. A new
+     preset usually is a variation of an existing one; what cannot happen is arriving
+     at it by editing the original first. So creating comes FIRST and the name is
+     committed before any field can be touched: press `+ Create preset`, type a name,
+     press `Create`, and the new preset exists, is selected, and everything you change
+     from then on lands on IT.
+
+     AND IT NEEDS NO DRAFT. The alternative -- a form holding unsaved work with a
+     Cancel -- was the user's own first description and was weighed against this: it
+     would be the only unsaved state in the Cart, and it would need a rule for closing
+     the drawer, switching tab, an add arriving from the page mid-form, and a reload.
+     This needs none, because there is nothing unsaved at any point. The cost is that
+     there is no Cancel: undoing a new preset is deleting it, which asks twice. */
+  let creating = { details: false, report: false };
+
+  /* WHICH PRESET THE ARROW IS POINTING AT, per button. `null` means ★ -- so the
+     default is not a second copy of an id that could fall out of step with the flag.
+     A pick naming a preset that has since been deleted is treated as `null`, which is
+     decision 17's fallback modelled rather than described. */
+  let pick = { links: null, details: null, report: null };
+
+  const byName = (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  const sortedPresets = (which) => presets[which].slice().sort(byName);
+  const starPreset = (which) => presets[which].find((one) => one.star) || sortedPresets(which)[0];
+  function selectedPreset(which) {
+    return presets[which].find((one) => one.id === selectedId[which]) || starPreset(which);
+  }
+
+  /* THE SCRIPT'S OWN NAMING RULE, and it must stay in step with `uniqueName` in
+     `src/jira-cart.user.js`: trimmed, a clash ignores case, ` 2` appended, and THE
+     SAME RULE ON CREATE AND ON RENAME. A collection genuinely called `Sprint 2`
+     duplicates to `Sprint 2 2`, because incrementing the trailing number would
+     silently name it after a different sprint -- that cost is accepted there and is
+     accepted here for the same reason. */
+  function uniquePresetName(name, list, exceptId) {
+    const taken = new Set(list.filter((one) => one.id !== exceptId).map((one) => one.name.trim().toLowerCase()));
+    const base = name.trim();
+    if (!taken.has(base.toLowerCase())) return base;
+    for (let n = 2; n <= taken.size + 2; n += 1) {
+      const candidate = base + " " + n;
+      if (!taken.has(candidate.toLowerCase())) return candidate;
+    }
+    return base;
+  }
+
+  const presetsOn = () => stage.v === "presets";
+
+  /* WHERE THE PANEL'S ROWS READ AND WRITE. In the three shipped variants that is the
+     one `state`. In the proposal it is the SELECTED PRESET of that list -- and it is
+     one pair of functions so that nothing below has to know which variant is on. */
+  const fieldsOf = (which) => (presetsOn() ? selectedPreset(which).fields : state[which]);
+  function setFields(which, next) {
+    if (presetsOn()) selectedPreset(which).fields = next;
+    else state[which] = next;
+  }
+  const bandOf = (n) => (presetsOn() ? selectedPreset("report")["band" + n] : state["band" + n]);
+  function setBand(n, value) {
+    if (presetsOn()) selectedPreset("report")["band" + n] = value;
+    else state["band" + n] = value;
+  }
 
   /* WHICH TAB YOU WERE LAST ON IS A STORED PREFERENCE, on §2.9's own precedent:
      whether the drawer is open was a variable in memory until use said otherwise,
@@ -2261,11 +2654,34 @@
         { id: "appearance", label: "⚙ Look", groups: ["appearance"] },
       ],
     },
+    /* THE PROPOSAL, AND IT BREAKS THE INVARIANT ABOVE ON PURPOSE. The three
+       variants above are built from the same four groups, so the only thing being
+       compared is the arrangement. This one adds CONTROLS THAT DO NOT EXIST IN THE
+       OTHERS -- the preset block, a per-preset `Issue reference`, and the foot's
+       three arrows -- because it is a proposal for new controls rather than a
+       rearrangement of the shipped ones. An invariant that quietly stops holding is
+       worse than one that never did, so it is said here rather than discovered.
+
+       FOUR TABS AT FULL LENGTH, DELIBERATELY. `tabs4` above shortened its labels to
+       `🔗 Line` and `⚙ Look`, which is evidence about the fit rather than a style
+       choice -- so this variant uses the decided labels unshortened and the two can
+       be switched between at 300px. If the bar wraps, that costs PANEL SCROLL and
+       not `MIN_BLOCK`: the panel replaces the drawer's body and foot, so while it is
+       up the only fixed part is the 35px head. */
+    presets: {
+      pinned: [],
+      tabs: [
+        { id: "appearance", label: "Appearance", groups: ["appearance"] },
+        { id: "reference", label: "🔗 Links", groups: ["reference"], exports: true },
+        { id: "details", label: "📋 Details", groups: ["details"], exports: true },
+        { id: "report", label: "📊 Report", groups: ["report"], exports: true },
+      ],
+    },
   };
 
   /* ------------------------------------------------------------- a field list */
   function fieldList(which) {
-    const list = state[which];
+    const list = fieldsOf(which);
     const wrap = document.createElement("div");
     wrap.className = "fields";
 
@@ -2296,7 +2712,7 @@
       /* A TICKED FIELD IS PRINTED, BAND OR NOT. The note is a statement and not a
          veto: the row can carry the field as well as the heading, which is what
          keeps a line readable after somebody drags it out of its band. */
-      const isBand = which === "report" && (state.band1 === entry.id || state.band2 === entry.id);
+      const isBand = which === "report" && (bandOf(1) === entry.id || bandOf(2) === entry.id);
       if (isBand || meta.note) {
         const note = document.createElement("span");
         note.className = "field-note";
@@ -2331,7 +2747,7 @@
         if (fromWhich !== which) return;
         const box2 = row.getBoundingClientRect();
         const after = e.clientY > box2.top + box2.height / 2;
-        state[which] = moveField(state[which], Number(fromIndex), index + (after ? 1 : 0));
+        setFields(which, moveField(fieldsOf(which), Number(fromIndex), index + (after ? 1 : 0)));
         renderAll();
       });
 
@@ -2359,6 +2775,192 @@
     const target = Number.isInteger(to) ? (to > from ? to - 1 : to) : next.length;
     next.splice(Math.max(0, Math.min(target, next.length)), 0, entry);
     return next;
+  }
+
+  /* -------------------------------------------------- the preset block. PROPOSED
+     One block, both export tabs, above the settings it governs. Five controls and a
+     note, in reading order.
+
+     THE ★ AND THE PICKER ARE DIFFERENT QUESTIONS, and that is limit 1 of the
+     record: the preset you are EDITING and the preset that PRINTS need not be the
+     same one, so you can edit `Executive` all afternoon and a plain press still
+     prints `Standard`. Nothing here solves that -- the ★ in the tab and the ★ in
+     the arrow's list are all there is. Whether that is enough to live with is one
+     of the four things this page exists to be asked. */
+  function presetBlock(which) {
+    const list = presets[which];
+    const chosen = selectedPreset(which);
+    const wrap = document.createElement("div");
+    wrap.className = "presets";
+
+    const row = document.createElement("div");
+    row.className = "preset-row";
+
+    if (renamingList === which) {
+      /* WHILE THE FIELD IS OPEN IT BELONGS TO THE KEYBOARD, and a render in the
+         middle of typing must not put the stored name back -- which is the comment
+         on the script's own `startRename`. An empty name is REFUSED and the old one
+         stands, because the safe default is what remains. */
+      const field = document.createElement("input");
+      field.type = "text";
+      field.value = chosen.name;
+      field.setAttribute("aria-label", "Rename this preset");
+      const commit = () => {
+        const typed = field.value.trim();
+        renamingList = null;
+        if (typed) chosen.name = uniquePresetName(typed, list, chosen.id);
+        renderAll();
+      };
+      field.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") { renamingList = null; renderAll(); }
+      });
+      field.addEventListener("blur", commit);
+      row.append(field);
+      wrap.append(row);
+      requestAnimationFrame(() => { field.focus(); field.select(); });
+      return wrap;
+    }
+
+    /* SORTED BY NAME, case-insensitively, and the stored order carries no meaning at
+       all -- so there is nothing to maintain and no reorder control to build. The
+       cost is that you cannot put your most-used preset first, and a rename moves
+       it. ★ goes in the OPTION TEXT because that is the one part of a native option
+       that is ours to write. */
+    const picker = document.createElement("select");
+    picker.setAttribute("aria-label", "Which preset this tab is editing");
+    picker.title = "Which preset the rows below edit. Changing this writes nothing.";
+    for (const one of sortedPresets(which)) {
+      const opt = document.createElement("option");
+      opt.value = one.id;
+      opt.textContent = (one.star ? "★ " : "") + one.name;
+      if (one.id === chosen.id) opt.selected = true;
+      picker.append(opt);
+    }
+    picker.addEventListener("change", () => {
+      selectedId[which] = picker.value;
+      deleteArmed[which] = false;
+      renderAll();
+    });
+
+    const star = document.createElement("button");
+    star.type = "button";
+    star.className = "preset-btn";
+    star.textContent = "★";
+    star.setAttribute("aria-pressed", String(chosen.star === true));
+    star.title = chosen.star
+      ? "A plain press of this button already uses " + chosen.name
+      : "Make " + chosen.name + " the preset a plain press of this button uses";
+    star.addEventListener("click", () => {
+      for (const one of list) one.star = one.id === chosen.id;
+      renderAll();
+    });
+
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "preset-btn";
+    rename.textContent = "✎";
+    rename.title = "Rename " + chosen.name;
+    rename.addEventListener("click", () => { renamingList = which; renderAll(); });
+
+    /* DELETE ARMS FIRST, and the two sentences are the collection chip's own. The
+       LAST preset cannot be deleted: a list with none has no answer to "what does
+       this button print", which is the invariant the whole feature rests on. */
+    const only = list.length === 1;
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "preset-btn";
+    del.textContent = "✕";
+    del.disabled = only;
+    del.dataset.armed = String(deleteArmed[which] === true && !only);
+    del.title = only
+      ? chosen.name + " is the only preset for this export, so it cannot be removed."
+      : deleteArmed[which]
+        ? "Click again to delete " + chosen.name + ". There is no undo."
+        : "Delete " + chosen.name;
+    del.addEventListener("click", () => {
+      if (only) return;
+      if (!deleteArmed[which]) { deleteArmed[which] = true; renderAll(); return; }
+      const at = list.findIndex((one) => one.id === chosen.id);
+      const wasStar = chosen.star;
+      list.splice(at, 1);
+      /* ★ IS A FLAG ON THE PRESET, so deleting it takes the flag with it and there
+         is no id left dangling. The first remaining BY NAME picks it up. */
+      if (wasStar) sortedPresets(which)[0].star = true;
+      selectedId[which] = null;
+      deleteArmed[which] = false;
+      renderAll();
+    });
+
+    row.append(picker, star, rename, del);
+
+    /* NAME FIRST, THEN EDIT. The name is committed before a field can be touched, so
+       there is nothing to accidentally modify and nothing unsaved at any point. */
+    const make = document.createElement("div");
+    make.className = "preset-row";
+    if (creating[which]) {
+      const field = document.createElement("input");
+      field.type = "text";
+      field.placeholder = "New preset name…";
+      field.value = newName[which];
+      field.setAttribute("aria-label", "Name for the new preset");
+      field.addEventListener("input", () => { newName[which] = field.value; });
+      const create = document.createElement("button");
+      create.type = "button";
+      create.className = "preset-btn";
+      create.textContent = "Create";
+      create.title = "Create this preset with the fields and headings the script ships with, and edit it below";
+      /* IT STARTS FROM THE SHIPPED DEFAULTS and never from a copy of the selected
+         preset, chosen 2026-08-27 against the recommendation. It is the version with
+         no relationship to any existing preset at all, which is the cleanest thing to
+         explain; the cost is that a small variation of an existing preset has to be
+         rebuilt by hand, and nothing says which ticks you missed. */
+      const commit = () => {
+        const typed = field.value.trim();
+        if (!typed) { field.focus(); return; }
+        const fresh = DEFAULTS();
+        const made = {
+          id: "p" + (seq += 1),
+          name: uniquePresetName(typed, list, null),
+          star: false,
+          lineShape: fresh.lineShape,
+          band1: which === "report" ? fresh.band1 : undefined,
+          band2: which === "report" ? fresh.band2 : undefined,
+          fields: fresh[which].map((one) => ({ id: one.id, on: one.on })),
+        };
+        list.push(made);
+        selectedId[which] = made.id;
+        creating[which] = false;
+        newName[which] = "";
+        renderAll();
+      };
+      create.addEventListener("click", commit);
+      field.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") commit();
+        /* ESCAPE BACKS OUT OF THE NAME, which is not a Cancel over unsaved work --
+           there is none. It only closes a text field nothing has been done with. */
+        if (e.key === "Escape") { creating[which] = false; newName[which] = ""; renderAll(); }
+      });
+      make.append(field, create);
+      requestAnimationFrame(() => { field.focus(); field.select(); });
+    } else {
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "preset-btn";
+      open.textContent = "+ Create preset";
+      open.title = "Make a new preset. It starts from the fields and headings the script ships with, and nothing about " + chosen.name + " is touched.";
+      open.addEventListener("click", () => { creating[which] = true; renderAll(); });
+      make.append(open);
+    }
+
+    const note = document.createElement("div");
+    note.className = "preset-note";
+    /* TWO SENTENCES BECAUSE THEY ARE TWO FACTS, and limit 1 is that they need not
+       agree: what a plain press prints, and what the rows below are editing. */
+    note.textContent = "★ " + starPreset(which).name + " — what a plain press of this button uses. Editing below changes " + chosen.name + ".";
+
+    wrap.append(row, make, note);
+    return wrap;
   }
 
   /* ------------------------------------------------------------- the controls */
@@ -2432,22 +3034,55 @@
       },
       {
         id: "reference",
-        title: "Every export",
+        /* IN THE THREE SHIPPED VARIANTS this row governs all three exports, which is
+           why the three-tab structure lifts it OUT of the tabs. IN THE PROPOSAL a
+           preset always names its own shape, so this row governs 🔗 Links alone --
+           and a row pinned above the bar because it was shared would then be telling
+           a lie about its scope, which is why it moves into a tab. */
+        title: presetsOn() ? "🔗 Links" : "Every export",
         nodes: [
-          selectRow(
-            "Issue reference",
-            SHAPE_OPTIONS,
-            state.lineShape,
-            (v) => { state.lineShape = v; },
-            "The head of every exported line. One setting, used by 🔗 Links, 📋 Details and 📊 Report, so the three cannot disagree about what a collected issue looks like.",
-          ),
+          presetsOn()
+            ? selectRow(
+                "Issue reference",
+                SHAPE_OPTIONS,
+                linksShape,
+                (v) => { linksShape = v; },
+                "The head of every line 🔗 Links copies. 📋 Details and 📊 Report take theirs from the preset they run, so this row governs one button — and its arrow offers the other four shapes for one export.",
+              )
+            : selectRow(
+                "Issue reference",
+                SHAPE_OPTIONS,
+                state.lineShape,
+                (v) => { state.lineShape = v; },
+                "The head of every exported line. One setting, used by 🔗 Links, 📋 Details and 📊 Report, so the three cannot disagree about what a collected issue looks like.",
+              ),
         ],
       },
-      { id: "details", title: "📋 Details fields", nodes: [fieldList("details")] },
+      {
+        id: "details",
+        title: "📋 Details fields",
+        nodes: presetsOn()
+          ? [
+              presetBlock("details"),
+              selectRow("Issue reference", SHAPE_OPTIONS, selectedPreset("details").lineShape,
+                (v) => { selectedPreset("details").lineShape = v; },
+                "This PRESET's head. A preset always names a shape — there is no 'follow the shared setting' state, which is decision 5 and its cost is that changing your shape everywhere means editing every preset."),
+              fieldList("details"),
+            ]
+          : [fieldList("details")],
+      },
       {
         id: "report",
         title: "📊 Report",
-        nodes: [
+        nodes: (presetsOn()
+          ? [
+              presetBlock("report"),
+              selectRow("Issue reference", SHAPE_OPTIONS, selectedPreset("report").lineShape,
+                (v) => { selectedPreset("report").lineShape = v; },
+                "This PRESET's head. See the same row on the 📋 Details tab."),
+            ]
+          : []
+        ).concat([
           /* A BAND GREYS OUT WHAT THE BANDS ABOVE IT HOLD, AND NEVER WHAT THE BANDS
              BELOW IT HOLD. That asymmetry is the whole design, so it is worth
              spelling out here as well as in §2.15: `Then by` cannot be set to
@@ -2456,20 +3091,20 @@
              `Then by` holds is how a report is reordered, and it takes ONE press.
              Greying both directions would have cost three, through an intermediate
              state that exists only to get around the rule. */
-          selectRow("Group by", bandOptions(null), state.band1,
-            (v) => { if (v === state.band2) state.band2 = state.band1; state.band1 = v; },
+          selectRow("Group by", bandOptions(null), bandOf(1),
+            (v) => { if (v === bandOf(2)) setBand(2, bandOf(1)); setBand(1, v); },
             "Band 1 must be a field: a report with no bands at all is 📋 Details."),
           selectRow("Then by", (() => {
-            const list = bandOptions([state.band1]);
+            const list = bandOptions([bandOf(1)]);
             /* `none` is never greyed: it is not a field, and it answers "and then?"
                rather than naming one. Only band 2 is offered it. */
             const withNone = [...list, ["none", "Nothing — one level only"]];
             withNone.disabled = list.disabled;
             return withNone;
-          })(), state.band2,
-            (v) => { if (v === state.band1) state.band1 = state.band2; state.band2 = v; }),
+          })(), bandOf(2),
+            (v) => { if (v === bandOf(1)) setBand(1, bandOf(2)); setBand(2, v); }),
           fieldList("report"),
-        ],
+        ]),
       },
     ];
   }
@@ -2480,10 +3115,29 @@
     restore.className = "restore";
     restore.dataset.armed = String(restoreArmed);
     restore.textContent = restoreArmed ? "↺ Restore?" : "↺ Restore export defaults";
-    restore.title = "Line shape, both field lists and both bands, back to what 1.1.0 emitted. The appearance switches are left alone.";
+    /* IN THE PROPOSAL IT REACHES THE SELECTED PRESET AND NOTHING ELSE. Its name and
+       its ★ are untouched, and no other preset moves -- so there is no single press
+       that gets you back to a clean slate, and unwanted presets go one at a time. */
+    restore.title = presetsOn()
+      ? "This preset's fields, order, headings and head, back to what shipped. Its name and its ★ are untouched, and your other presets are left alone."
+      : "Line shape, both field lists and both bands, back to what 1.1.0 emitted. The appearance switches are left alone.";
     restore.addEventListener("click", () => {
       if (!restoreArmed) { restoreArmed = true; renderAll(); return; }
       const fresh = DEFAULTS();
+      if (presetsOn()) {
+        const which = ui.tab === "report" ? "report" : "details";
+        if (ui.tab === "reference") {
+          linksShape = fresh.lineShape;
+        } else {
+          const one = selectedPreset(which);
+          one.lineShape = fresh.lineShape;
+          one.fields = fresh[which];
+          if (which === "report") { one.band1 = fresh.band1; one.band2 = fresh.band2; }
+        }
+        restoreArmed = false;
+        renderAll();
+        return;
+      }
       state.lineShape = fresh.lineShape;
       state.details = fresh.details;
       state.report = fresh.report;
@@ -2526,6 +3180,11 @@
       b.addEventListener("click", () => {
         ui.tab = tab.id;
         saveTab(tab.id);
+        /* AN ARMED DELETE AND AN OPEN RENAME BELONG TO THE TAB YOU WERE ON. Left
+           standing they would put a detached field on the keyboard and hand the next
+           press an already-armed ✕ on a preset you are no longer looking at. */
+        renamingList = null;
+        deleteArmed = { details: false, report: false };
         renderSettings();
         renderStage();
       });
@@ -2547,6 +3206,143 @@
        on a tab that holds export settings and nowhere else. On the appearance tab it
        would be an offer to reset something you are not looking at. */
     if (active.exports) host.append(restoreButton());
+  }
+
+  /* --------------------------------------------------- the foot's arrows. PROPOSED
+     THE ARROW DOES WHAT ITS BUTTON DOES, with the pick instead of the default. 🔗
+     Links copies at once; the two stepped buttons fetch, and the Copy press that
+     follows uses the pick. None of that behaviour is modelled here -- there is no
+     fetch on this page and no clipboard behind these six buttons. What IS modelled
+     is the only part a browser can answer: how much width three of them cost, and
+     whether the caret is noticed without hovering it. */
+  const SPLIT_IDS = ["splitLinks", "splitDetails", "splitReport"];
+
+  function renderFootArrows() {
+    const foot = document.getElementById("foot");
+    foot.dataset.arrowLook = stage.arrow;
+    const on = presetsOn();
+    for (const [id, kind] of [["splitLinks", "links"], ["splitDetails", "details"], ["splitReport", "report"]]) {
+      const split = document.getElementById(id);
+      split.dataset.arrow = on ? "on" : "off";
+      const sel = split.querySelector("select");
+      sel.textContent = "";
+      /* 🔗 LINKS' LIST IS THE FIVE SHAPES AND THE OTHER TWO ARE PRESETS, which is
+         the user's own reformulation of the question: the shape list is already a
+         fixed named list in the script, so 🔗 Links needs no preset list of its
+         own. ★ is in the option TEXT because a native option's text is the one part
+         of it that is ours. */
+      const entries = kind === "links"
+        ? SHAPE_OPTIONS
+        : sortedPresets(kind).map((one) => [one.id, (one.star ? "★ " : "") + one.name]);
+      /* `pick` WINS OVER THE DEFAULT, and a pick naming a preset that no longer
+         exists falls back to it -- which is decision 17 modelled: the pick names a
+         preset and is resolved at the press, so a delete between the two lands on ★.
+         The reachable path for that is one pair of hands: arm, open ⚙, delete, close
+         ⚙, copy. */
+      if (kind !== "links" && pick[kind] && !presets[kind].some((one) => one.id === pick[kind])) {
+        pick[kind] = null;
+      }
+      const current = kind === "links"
+        ? (pick.links || linksShape)
+        : (pick[kind] || starPreset(kind).id);
+      for (const [value, text] of entries) {
+        const opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = text;
+        if (value === current) opt.selected = true;
+        sel.append(opt);
+      }
+      sel.addEventListener("change", () => {
+        pick[kind] = sel.value;
+        renderFootLabels();
+        measureFoot();
+      });
+    }
+    renderFootLabels();
+  }
+
+  /* THE MARK APPEARS EXACTLY WHERE IT CAN VARY, which is the armed rung and nowhere
+     else. Asked on 2026-08-27: should the idle button read `📋 Details ★`? No. A pick
+     exists only while a fetch is held, and PICKING FROM THE ARROW IS THE FETCH -- so
+     an idle button can only ever mean ★, and a mark that cannot change is noise.
+     `📋 Fetching…` carries none either: you have just picked, and `Fetching… ★` would
+     overflow the 11ch box the two stepped buttons reserve.
+
+     A CONSEQUENCE WORTH HAVING ON PURPOSE: the idle foot is byte-identical to 1.6.0's,
+     so an install that never opens an arrow cannot tell the mark exists.
+
+     AND 🔗 Links carries no mark at all, which is not an inconsistency: it copies on
+     one press, so there is no pending moment for a mark to describe. */
+  function renderFootLabels() {
+    const armed = stage.labels === "armed";
+    for (const [id, kind, icon] of [["footDetails", "details", "📋"], ["footReport", "report", "📊"]]) {
+      const button = document.getElementById(id);
+      const name = kind === "details" ? "Details" : "Report";
+      if (!armed) { button.textContent = icon + " " + name; continue; }
+      const onStar = !presetsOn() || !pick[kind] || pick[kind] === starPreset(kind).id;
+      button.textContent = presetsOn()
+        ? icon + " Copy " + (onStar ? "★" : "▾")
+        : icon + " Copy";
+      button.title = presetsOn()
+        ? (onStar
+            ? "This copy will use ★ " + starPreset(kind).name
+            : "This copy will use " + (presets[kind].find((one) => one.id === pick[kind]) || starPreset(kind)).name +
+              ", picked from the arrow. ★ " + starPreset(kind).name + " is what a plain press uses")
+        : "Armed. The label is the state.";
+    }
+  }
+
+  /* THE NUMBER THIS PAGE OWES TICKET 04, and it is measured rather than computed.
+     `COLLECTION_FIXED_PX = 145` in the script derives the foot as ONE ROW at 38px
+     -- *"the section heading 32, one row of chips 29, the create field 35, the foot
+     38, and its own top border 1"* -- and `css-smoke` counts the `flex: none` list
+     because a fifth fixed part makes that number stale and the clipping comes back
+     silently.
+
+     `offsetHeight` AND `offsetTop`, NOT `getBoundingClientRect`. The stage's zoom is
+     a `zoom` on the cart element, so a rect would be scaled by it and every number
+     here would be a number about the bench. These two are layout pixels and are the
+     same at 1× and at 3×.
+
+     IT MEASURES BOTH STATES ON EVERY RENDER, by flipping the arrows off and back,
+     so the delta is the arrows' own cost rather than a comparison with a remembered
+     value from a different width. */
+  function measureFoot() {
+    const read = document.getElementById("footRead");
+    const foot = document.getElementById("foot");
+
+    if (foot.hidden) {
+      read.innerHTML = "<b>Nothing to measure while ⚙ is up.</b> The settings replace the " +
+        "drawer's whole body, the foot included, so there is no row here to count — " +
+        "press ⚙ in the drawer's head and the numbers appear.";
+      return;
+    }
+
+    const rowsOf = () => {
+      const tops = new Set();
+      for (const child of foot.children) tops.add(child.offsetTop);
+      return tops.size;
+    };
+    const flip = (value) => { for (const id of SPLIT_IDS) document.getElementById(id).dataset.arrow = value; };
+
+    const on = presetsOn();
+    flip("on");
+    const withA = { rows: rowsOf(), px: foot.offsetHeight };
+    flip("off");
+    const without = { rows: rowsOf(), px: foot.offsetHeight };
+    flip(on ? "on" : "off");
+
+    const delta = withA.px - without.px;
+    const implied = 215 + delta;
+    read.innerHTML =
+      "<b>Foot at " + stage.w + "px.</b> With three arrows: <b>" + withA.rows + " row" +
+      (withA.rows === 1 ? "" : "s") + ", " + withA.px + "px</b>. Without them: <b>" +
+      without.rows + " row" + (without.rows === 1 ? "" : "s") + ", " + without.px +
+      "px</b>. The arrows cost <b>" + delta + "px</b>, so the drawer's minimum height " +
+      (delta === 0
+        ? "does <b>not</b> move: <b>MIN_BLOCK stays 215</b>, and that is the finding."
+        : "goes from the script's <b>215</b> to <b>" + implied + "</b>.") +
+      " Layout pixels, unaffected by Zoom.";
   }
 
   /* ----------------------------------------------------------------- the stage */
@@ -2572,11 +3368,15 @@
       on ? "⚙ Settings" : "🛒 Sprint review 2608-01 7";
 
     for (const [id, key, prop] of [["widthSeg", "w", "w"], ["heightSeg", "h", "h"],
-                                   ["zoomSeg", "z", "z"], ["variantSeg", "v", "v"]]) {
+                                   ["zoomSeg", "z", "z"], ["variantSeg", "v", "v"],
+                                   ["arrowSeg", "arrow", "a"], ["labelSeg", "labels", "l"]]) {
       for (const b of document.getElementById(id).querySelectorAll("button")) {
         b.setAttribute("aria-pressed", String(String(stage[key]) === String(b.dataset[prop])));
       }
     }
+
+    renderFootArrows();
+    measureFoot();
 
     document.getElementById("stageState").innerHTML = on
       ? "<b>⚙ on</b> <span>The drawer's whole body is the settings. The two sections and the six-button foot are <em>not rendered</em> — press ⚙ again to bring them back.</span>"
@@ -2621,7 +3421,24 @@
   });
   document.getElementById("variantSeg").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-v]");
-    if (b) { stage.v = b.dataset.v; renderSettings(); renderStage(); }
+    if (!b) return;
+    stage.v = b.dataset.v;
+    /* AN ARMED DELETE AND AN OPEN RENAME BELONG TO A SCREEN THAT MAY NOT EXIST in
+       the variant being switched to, so they are cleared here rather than left to be
+       found later by a press that arrives armed. */
+    renamingList = null;
+    deleteArmed = { details: false, report: false };
+    restoreArmed = false;
+    renderSettings();
+    renderStage();
+  });
+  document.getElementById("labelSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-l]");
+    if (b) { stage.labels = b.dataset.l; renderStage(); }
+  });
+  document.getElementById("arrowSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-a]");
+    if (b) { stage.arrow = b.dataset.a; renderStage(); }
   });
   document.getElementById("gearBtn").addEventListener("click", () => {
     stage.mode = stage.mode === "settings" ? "sections" : "settings";
