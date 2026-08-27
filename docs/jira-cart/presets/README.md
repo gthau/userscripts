@@ -453,6 +453,27 @@ ruler, and the re-press will be close rather than exact.
 12px, which is the script's size — so it had the right ruler and may still be wrong.
 The re-press decides, and until it lands the floor is an open number.
 
+### AND A FIFTH DRIFT, structural, found by the user the same day
+
+**The `hidden` attribute did nothing on the bench**, so the ⚙ panel, the two standing
+sections and the foot were all laid out at once and the panel got about half the
+drawer. Reported as *"I can only see the buttons whenever I select Appearance tab,
+with the other tabs, the drawer gets cut vertical"* — and it read as a tab problem
+because the tabs are what change the content's height.
+
+The cause is one line of CSS theory the script already knows: **an author rule setting
+`display: flex` on a class beats the browser's `[hidden] { display: none }`.** The
+script carries seven paired `[hidden]` rules for exactly this and a comment saying
+why. The bench carried none.
+
+**It does not touch the shipped script and it does not touch any decision here.** What
+it costs is trust in one thing: any judgement made by looking at the *bench's* panel
+since 1.2.0 was made on a half-size panel. Judgements made in real Jira stand.
+
+**All three answers from the press survive**, and the reasons are in
+`test/jira-cart/README.md` rather than asserted here: the squeeze was vertical, and
+all three answers are about width.
+
 ### Why answer 1 survived the same reading
 
 **The tab bar was checked and is byte-identical**, which is why *"they fit"* stands

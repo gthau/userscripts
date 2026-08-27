@@ -662,6 +662,36 @@
     font-weight: 600;
   }
 
+  /* ==========================================================================
+     THE FIFTH DRIFT, AND THE FIRST STRUCTURAL ONE. Found 2026-08-27, by the user:
+     "I can only see the buttons whenever I select Appearance tab, with the other
+     tabs, the drawer gets cut vertical, even though I select 1x and 700px."
+
+     THE `hidden` ATTRIBUTE DID NOTHING HERE. `.cart-sections`, `.cart-foot` and
+     `.cart-settings` each set `display: flex`, and an AUTHOR rule on a class beats
+     the browser's own `[hidden] { display: none }` outright -- so `hidden = true`
+     set the attribute and changed no paint at all. All three were laid out at once:
+     the panel and the sections both asking for `flex: 1` and the foot taking its
+     66px, so the panel got about half the drawer minus the foot. Short content fit
+     and the field lists were cut, which is why it looked like a tab problem.
+
+     THE SCRIPT HAS THIS RIGHT AND SAYS WHY, in seven rules and one comment:
+     "The pair. Both selectors name the same two ids, so the one with the attribute
+     is strictly more specific and the area hides when it is told to."
+
+     So the rules below are the pair, class-plus-attribute at (0,2,0) against the
+     bare class at (0,1,0). THREE THINGS IT ALSO FIXES: the overflow readout was
+     measuring `clientHeight` on a squeezed panel and reporting the wrong numbers;
+     the ⚙-replaces-the-body claim this whole bench exists to demonstrate was not
+     actually being demonstrated; and every "does the panel scroll at 300x215"
+     question asked of this page since 1.2.0 was asked of a panel half its size.
+     ========================================================================== */
+  .cart-settings[hidden],
+  .cart-sections[hidden],
+  .cart-foot[hidden] {
+    display: none;
+  }
+
   /* THE ⚙ SCREEN. It is the drawer's one scroller while it is open, and the two
      standing sections are hidden behind it -- decided 2026-08-22, forced by the
      measurement this stage exists to show. */

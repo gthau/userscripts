@@ -199,6 +199,45 @@ collection rows and the inside of a chip are sketches — the script's chip is a
 holding two buttons with their own paddings and here it is one span. **Do not measure a
 floor off those three.**
 
+### THE FIFTH DRIFT, the same day, and this one was STRUCTURAL
+
+**The `hidden` attribute did nothing on this page.** Reported by the user: *"I can
+only see the buttons whenever I select Appearance tab, with the other tabs, the
+drawer gets cut vertical, even though I select 1x and 700px."*
+
+`.cart-settings`, `.cart-sections` and `.cart-foot` each set `display: flex`, and an
+**author rule on a class beats the browser's own `[hidden] { display: none }`** — so
+`hidden = true` set the attribute and changed no paint. All three were laid out at
+once: the panel and the sections both asking for `flex: 1`, the foot taking its 66px,
+and the panel left with about half the drawer. Short content fit; the field lists were
+cut. It read as a tab problem because the tabs are what change the content's height.
+
+**The script has this right and says why**, in seven rules and one comment: *"The
+pair. Both selectors name the same two ids, so the one with the attribute is strictly
+more specific and the area hides when it is told to."* This page had **none** of them.
+It now has the pair, class-plus-attribute at (0,2,0) against the bare class at (0,1,0).
+
+**Three things it also fixes, and the third is the one that matters:**
+
+- the overflow readout was measuring `clientHeight` on a squeezed panel, so its
+  numbers were wrong;
+- the ⚙-replaces-the-whole-body claim this bench exists to demonstrate was not
+  actually being demonstrated;
+- **every "does the panel scroll at 300×215 with every group in view" question asked
+  of THIS PAGE since 1.2.0 was asked of a panel about half its real size.** The
+  shipped script is not affected — it carries the seven rules — so anything verified
+  in real Jira stands. What is in doubt is only what was judged by looking at the
+  bench.
+
+**What survived the same reading, and why**, because a drift is not a reason to throw
+away every number near it:
+
+| Answer from the 2026-08-27 press | Standing |
+| --- | --- |
+| Four tab labels fit at 300px | **Stands.** The squeeze was vertical — `flex: 1` competition in a column. The bar's width comes from the cart's 300px and was never touched |
+| The foot is 2 rows / 66px, and three arrows cost 0px | **Stands.** `measureFoot` returns early on `foot.hidden`, which was true as a *property* whatever the CSS did, so the number was taken with ⚙ off. Row count and the foot's own height follow from the cart's WIDTH, and `flex: none` gives it its content height either way |
+| The armed label does not jump the row | **Stands.** Width again |
+
 ### Running the bench's script in node, which found two things
 
 **Nothing here reads an HTML file**, and the table above is what that costs: a
