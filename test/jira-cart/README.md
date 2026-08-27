@@ -258,6 +258,14 @@ than the control pressed, and the comment beside it says why.
 visible. Two copies of the foot is two things that can drift, and this page has now had
 five. One foot, and the switches take you to where it is.
 
+> **CONFIRMED AGAINST THE REAL CART the same day, by the user, in one sentence:**
+> *"it's different from before, now it matches the actual behaviour of the cart in
+> Jira."* That is the half no reading of the CSS could reach. The fifth drift was
+> found by reading the stylesheet and fixed on the strength of the script's own
+> comment; what this says is that the page now behaves like the thing it is a model
+> of, judged by somebody who uses it. **So the bench had been misrepresenting the
+> drawer for five versions, and it no longer is.**
+
 ### Running the bench's script in node, which found two things
 
 **Nothing here reads an HTML file**, and the table above is what that costs: a
