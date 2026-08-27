@@ -5,12 +5,13 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**1,375 checks across eight files. No framework, no `package.json`, no dependencies.**
+**1,404 checks across nine files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
 There is nothing to install because there is nothing to install *for*: the thing
-under test is one file that a browser runs, and these are eight scripts that read it.
+under test is one file that a browser runs, and these are nine scripts that read it —
+eight reading the script, and since 2026-08-27 one reading the two HTML rigs.
 That is deliberate and it is the same argument §2.13 of the ADR makes about the
 duplicated helpers — a build step is a thing that can break between you and the
 answer.
@@ -27,6 +28,7 @@ answer.
 | `boot-smoke.mjs` | 439 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued. **Since 1.4.0 it drives a DRAG** (§2.9.1), which this README said for two versions could not be done here: `dragstart` → `dragover` in a named half of a named row → `drop` → `dragend`, through the delegated listeners the script really registers, with a rect stubbed per row. It holds all four payload types and their bytes — including that the three external ones are the `🔗` button's, asserted against the same literals as its own press, so one issue cannot come to have two shapes; both halves of a row and the append below the last one; that a release with no drop writes nothing; that the list does **not** redraw while the pointer is down; and that a write landing mid-drag survives the drop, because `update` re-reads before it writes. **Since 1.6.0 it drives the other direction — a drop INTO the Cart** (§2.9.3), with a `dataTransfer` that can be **read**: `types` for the accept and `getData` for the drop. A `dragover` that does not call `preventDefault` *is* the refusal, so acceptance is asserted directly instead of inferred. It holds every live row draggable with its key opted out, the live drag's three types and `copy`, a chip taking a drop **without becoming active**, the move and the Ctrl copy and Ctrl released mid-drag changing the cursor back, the item carried **whole** — proved by making the stored summary differ from the page's — the duplicate reaching the same end state, the gap above and below and the append with no row under the pointer, and all four refusals: a collection, no url-list, a foreign origin, and a read-only store |
 | `css-smoke.mjs` | 86 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct. **Since 1.4.0 it holds the collection's draggable rows** (§2.9.1): the same specificity trap a FOURTH time, the transparent border both lists' rows reserve so nothing reflows under a pointer mid-drag, and the one word the grip decision comes down to — `visibility` and not `display`, so the glyph's width is held whether or not it is painted. **Since 1.6.0 it holds the live list's own drag and the two new drop indicators** (§2.9.3): the live rows' grab cursor and reserved grip, the chip's ring as an `outline` rather than a third meaning on a border that already carries two, and the dashed outline an EMPTY item list wears — the one gap a list with no rows still has |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
+| `rig-smoke.mjs` | 29 | **THE TWO COMMITTED HTML RIGS, and the first thing here ever to read one.** Added 2026-08-27 after the sixth drift in `paste-test.html`: a CSS comment that was never closed swallowed five rules whole, including all of `.cart`, so the drawer stopped clipping and stopped being a flex column. It holds three kinds of check. **The sheet parses:** every comment closed by walking the pairs rather than counting them, braces balanced, and no orphan declaration between one rule and the next. **The rules a rig's answers depend on exist:** `.cart` still carries `overflow: clip`, `display: flex` and `flex-direction: column`, `.b-stage` still carries its flex, and each of the three areas that get the `hidden` attribute has a paired `[hidden]` rule — because an author rule setting `display` on a class beats the browser's own. **And the drawer mock has not drifted:** the foot, the head, the chips row and the tab bar are compared **property by property against the script's own rules, sliced out of `src/`**, which is the check the fourth drift is the reason for. It also asserts every id the page's scripts fetch exists and every class they set is painted. It says nothing about layout — there is no browser here — so fit is still §7's browser step |
 
 ## Why they cannot drift from the code
 
@@ -268,9 +270,13 @@ five. One foot, and the switches take you to where it is.
 
 ### Running the bench's script in node, which found two things
 
-**Nothing here reads an HTML file**, and the table above is what that costs: a
-`renderStage` that threw on every call, a `render` in a temporal dead zone, and a
-shape table with four rows where the script has five. None of the three went red.
+**Nothing here read an HTML file until 2026-08-27**, and the table above is what that
+cost: a `renderStage` that threw on every call, a `render` in a temporal dead zone,
+and a shape table with four rows where the script has five. None of the three went
+red. `rig-smoke.mjs` now reads both rigs, but **it reads their CSS and their markup,
+not their behaviour** — a stylesheet that parses and a class that is painted are what
+it can see. Everything below is still the way the page's own JavaScript gets
+exercised.
 
 So the 2026-08-27 change was checked by **extracting the bench's script block and
 running it in node against a small DOM stub** — a throwaway, not committed and not in
@@ -299,13 +305,19 @@ whole reason the ticket ends in a browser.
 
 ### Verifying the chips, which is the rule this page lives under
 
-`run.mjs` cannot do it — nothing under `test/` reads an HTML file, and adding an
-eighth harness that did would give every other file a second seam to point at the
-code. So it is a **diff run by hand, and ticket 06 required it rather than assuming
-it**: emit one collection from the page's `buildChips` and from the script's
-`formatDetails`, on all five shapes in both flavours, and require every byte to
-match. Run it after touching either. **It was run at 1.2.0 and it is
+`run.mjs` still cannot do it, and the reason has changed. It used to be that nothing
+here read an HTML file at all; since 2026-08-27 `rig-smoke.mjs` does, but comparing
+**emitted bytes** would mean running the page's own `buildChips` against the script's
+`formatDetails`, which needs both of them executing rather than being read. So it
+remains a **diff run by hand, and ticket 06 required it rather than assuming it**:
+emit one collection from each, on all five shapes in both flavours, and require every
+byte to match. Run it after touching either. **It was run at 1.2.0 and it is
 byte-identical.**
+
+**What `rig-smoke` DOES cover of this page's fidelity** is the CSS half, which is the
+half that had drifted twice: the foot, the head, the chips row and the tab bar are
+compared property by property against the script's own rules, sliced out of `src/`.
+That is the fourth drift closed by a check rather than by a comment.
 
 The same session also booted the whole page against a fake DOM and pressed every
 instrument, which is what found the `grouped` fault above and proved the fix by

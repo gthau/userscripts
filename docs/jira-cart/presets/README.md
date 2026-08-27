@@ -474,6 +474,46 @@ since 1.2.0 was made on a half-size panel. Judgements made in real Jira stand.
 `test/jira-cart/README.md` rather than asserted here: the squeeze was vertical, and
 all three answers are about width.
 
+### AND A SIXTH DRIFT, which was underneath all of it
+
+**Reported by the user on 2026-08-27:** *"your layout is broken when height 215 or 340
+is selected, then div#cart overflows its parent div.b-stage element and the overflow is
+displayed behind the div.fence, but some elements like the dropdown arrows appear on
+top."*
+
+**A CSS comment in the rig was never closed.** It read *"The line under the drawer
+names what is rendered and what is not, because"* and stopped. It ran on for 47 lines
+and swallowed five rules whole — `.b-stage-state` and its two children, `.b-stage`, and
+**all of `.cart`** — ending at the closing marker *inside* `.cart`, which left that
+rule's `overflow: clip` and its closing brace as orphans.
+
+**So the drawer had no styles at all.** No `display: flex`, no `flex-direction:
+column`, no border, and no clip. Its children stacked at their natural height, the
+inline `block-size` the stage sets did nothing to contain them, later siblings painted
+over the overflow, and the `<select>` elements painted over those. Every symptom, from
+two missing characters.
+
+**IT EXPLAINS THE TWO REPORTS BEFORE IT.** The panel looking cut and the foot appearing
+on the settings screen were diagnosed as the missing `[hidden]` rules — which were
+genuinely missing, and the script genuinely carries seven — but with `.cart` not being a
+flex column those three areas were simply block divs stacking. Both fixes are right;
+this is the one that was underneath. **Fixing it reintroduced it within minutes**, by
+putting a closing marker inside the new comment, which is the same trap the script's own
+sheet carries a warning about for backticks.
+
+**WHAT IT COSTS THIS RECORD: the numbers below were taken from a drawer 300px wide
+where the real one is 298px inside its border, so all three are owed a re-press.** The
+`0px` and `MIN_BLOCK stays 215` finding in decision 23 is the one that matters, and it
+is now resting on a measurement taken from an unstyled drawer for the second time.
+
+**AND IT BOUGHT A HARNESS.** `test/jira-cart/rig-smoke.mjs`, 29 checks, is the first
+thing under `test/` ever to read an HTML rig — the sheet parses, the rules a rig's
+answers depend on exist, and the foot, head, chips row and tab bar are compared
+**property by property against the script's own rules, sliced out of `src/`**. Five
+mutations were confirmed able to fail. **The comment scan alone would NOT have caught
+this bug** — a later marker closes the comment, so nothing is unbalanced enough to
+notice — and that is why the rule-presence checks are there beside it.
+
 ### Why answer 1 survived the same reading
 
 **The tab bar was checked and is byte-identical**, which is why *"they fit"* stands

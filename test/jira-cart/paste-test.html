@@ -567,7 +567,56 @@
   .toolbar .switch-row { justify-content: flex-start; gap: .5rem; }
 
   /* ----------------------------------------------------------- drawer mock */
-  /* The line under the drawer names what is rendered and what is not, because
+  /* ==========================================================================
+     THE SIXTH DRIFT, AND EVERY OTHER ONE ON THIS PAGE IS SMALL BESIDE IT.
+     Found 2026-08-27 after the user reported: "your layout is broken when height
+     215 or 340 is selected, then div#cart overflows its parent div.b-stage element
+     and the overflow is displayed behind the div.fence, but some elements like the
+     dropdown arrows appear on top".
+
+     THE COMMENT THAT USED TO BE HERE WAS NEVER CLOSED. It read "The line under the
+     drawer names what is rendered and what is not, because" and then stopped, with
+     no closing marker -- so it ran on for 47 lines and swallowed FIVE RULES whole:
+     `.b-stage-state`, its `b` and its `span`, `.b-stage`, and `.cart`. It ended at
+     the CLOSING MARKER INSIDE `.cart` -- the one on its own `overflow: clip` note --
+     which left that declaration and the rule's closing brace as orphans outside any
+     rule at all.
+
+     SO THE DRAWER HAD NO STYLES. No `display: flex`, no `flex-direction: column`, no
+     border, no radius, no background, no shadow, no font-size -- AND NO
+     `overflow: clip`. Its children stacked at their natural height, the inline
+     `block-size` the stage sets did nothing to contain them, later siblings painted
+     over the overflow because they come later in the DOM, and the `<select>`
+     elements painted on top of those because a form control gets its own layer.
+     Every one of the reported symptoms, from one missing closing marker.
+
+     AND IT EXPLAINS THE TWO REPORTS BEFORE IT. The panel looking "cut" and the foot
+     appearing on the settings screen were read as the missing `[hidden]` rules --
+     which were genuinely missing, and the script genuinely carries seven of them --
+     but with `.cart` not being a flex column the three areas were simply block
+     divs stacking. Both fixes are right; this is the one that was underneath.
+
+     WHAT IT COSTS: the numbers taken from this page on 2026-08-27 were taken from a
+     drawer 300px wide where the real one is 298px inside its border, so they are
+     re-pressed rather than trusted. `rig-smoke.mjs` now reads this file so that an
+     unterminated comment cannot sit here again -- which is the first thing under
+     `test/` ever to read an HTML rig, and the reason is that five drifts and one
+     swallowed stylesheet is enough.
+
+     AND THE COMMENT BELOW MAY NOT CONTAIN A CLOSING MARKER OF ITS OWN, which is
+     how this fix broke the sheet a second time before it was noticed: writing the
+     two characters inline closed the comment early and turned everything after them
+     into garbage at rule level, which a CSS parser recovers from by eating the next
+     rule's block. The script's own sheet carries the same warning about backticks,
+     for the same reason and at the same cost.
+
+     The truncated sentence is completed below, because a comment that stops
+     mid-clause is what started this.
+     ==========================================================================
+
+     The line under the drawer names what is rendered and what is not, because ⚙
+     replaces the drawer's whole body and nothing else on screen says whether the two
+     sections are absent or merely empty. */
   .b-stage-state {
     display: flex;
     align-items: baseline;
@@ -1430,7 +1479,7 @@
 
     <p class="b-stage-state" id="stageState"></p>
 
-    <div class="b-stage">
+    <div class="b-stage" id="bStage">
       <div class="cart" id="cart">
         <div class="cart-head">
           <span class="cart-title" id="cartTitle">🛒 Sprint review 2608-01 7</span>
@@ -1505,6 +1554,12 @@
 
     <p class="overflow-warn" id="overflowWarn" hidden></p>
     <p class="foot-read" id="footRead"></p>
+    <!-- A DIAGNOSTIC, and it says so. Added 2026-08-27 because the drawer was
+         reported as overflowing `.b-stage` and painting behind the fence, and every
+         rule that should prevent that reads correctly. Guessing at a layout from a
+         stylesheet is what this page exists to stop, so it prints the values that
+         discriminate instead. -->
+    <p class="foot-read" id="boxRead"></p>
   </section>
 
   <!-- ================================ fence ================================= -->
@@ -3377,6 +3432,49 @@
       " Layout pixels, unaffected by Zoom.";
   }
 
+  /* ------------------------------------------------------------- the diagnostic
+     WHY IT EXISTS: the drawer was reported as overflowing its stage and painting
+     behind the fence, with the arrows on top. Every rule that should prevent that --
+     `block-size` inline, `overflow: clip` on the drawer, `flex: 1` plus
+     `min-block-size: 0` on the panel and the sections -- reads correctly in the
+     stylesheet. So this prints what the BROWSER did with them.
+
+     `overflow` IS THE FIRST THING TO LOOK AT. If it comes back `visible` rather than
+     `clip`, the declaration was not understood and the whole cascade of symptoms
+     follows: content escapes the fixed box, later siblings paint over it because they
+     come later in the DOM, and form controls paint on top of everything because they
+     get their own layer. `hidden` would be the fallback, at the cost ADR §2.11
+     records -- it is still programmatically scrollable, and `scrollIntoView` once
+     slid a heading out of sight. */
+  function renderDiagnostic() {
+    const out = document.getElementById("boxRead");
+    const cart = document.getElementById("cart");
+    /* BY ID, NEVER BY `parentElement` OR A CLASS QUERY. The node harness caught both:
+       its DOM stub has no `querySelector` on `document` and no `parentElement`, and a
+       diagnostic that throws is worse than none -- this page has had two functions that
+       threw on every call and nothing went red for either. */
+    const stageEl = document.getElementById("bStage");
+    const cs = (node) => getComputedStyle(node);
+
+    const part = (id) => {
+      const node = document.getElementById(id);
+      return id + "=" + (node.hidden ? "hidden/" : "shown/") + cs(node).display + "/" + node.offsetHeight + "px";
+    };
+    const split = document.getElementById("splitLinks");
+    const sel = split.querySelector("select");
+
+    out.innerHTML =
+      "<b>Diagnostic.</b> asked for <b>" + stage.w + "x" + stage.h + "</b> at zoom " + stage.z +
+      " · drawer <b>block-size</b> inline=" + (cart.style.blockSize || "(none)") +
+      " computed=" + cs(cart).blockSize +
+      " offset=" + cart.offsetHeight + "px scroll=" + cart.scrollHeight + "px" +
+      " · drawer <b>overflow=" + cs(cart).overflow + "</b>" +
+      " · stage offset=" + stageEl.offsetHeight + "px scroll=" + stageEl.scrollHeight + "px" +
+      " · " + part("settings") + " · " + part("sections") + " · " + part("foot") +
+      " · arrow=" + split.dataset.arrow +
+      (sel ? " select opacity=" + cs(sel).opacity + " position=" + cs(sel).position : " (no select)");
+  }
+
   /* ----------------------------------------------------------------- the stage */
   function renderStage() {
     const cart = document.getElementById("cart");
@@ -3409,6 +3507,7 @@
 
     renderFootArrows();
     measureFoot();
+    requestAnimationFrame(renderDiagnostic);
 
     document.getElementById("stageState").innerHTML = on
       ? "<b>⚙ on</b> <span>The drawer's whole body is the settings. The two sections and the six-button foot are <em>not rendered</em> — that is the shipped design, so <b>there are no foot buttons to see on this screen</b>. Press ⚙ in the drawer's head to bring them back; the <code>Arrow</code> and <code>Foot labels</code> switches do it for you.</span>"
