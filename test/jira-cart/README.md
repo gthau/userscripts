@@ -238,6 +238,26 @@ away every number near it:
 | The foot is 2 rows / 66px, and three arrows cost 0px | **Stands.** `measureFoot` returns early on `foot.hidden`, which was true as a *property* whatever the CSS did, so the number was taken with ⚙ off. Row count and the foot's own height follow from the cart's WIDTH, and `flex: none` gives it its content height either way |
 | The armed label does not jump the row | **Stands.** Width again |
 
+### And the fix made the bench unhelpful, which was fixed in turn
+
+**The same day, immediately after**: *"now the buttons don't appear at all, regardless
+of which settings tab is selected and regardless of the height selected."*
+
+**That is the fix working.** ⚙ replaces the drawer's whole body, the foot included — so
+on the settings screen there are no foot buttons to see, at any height. They had looked
+otherwise for as long as `hidden` was doing nothing here, and the foot was being painted
+underneath the panel.
+
+**But it left the bench worse for the thing being done with it:** the `Arrow` and
+`Foot labels` switches are both about the foot, and neither could be seen while the
+settings were up. So **both of those switches now close the settings**, and the stage
+line says they do. It is the one place on this page where a press moves something other
+than the control pressed, and the comment beside it says why.
+
+**The declined alternative was a second copy of the foot outside the drawer**, always
+visible. Two copies of the foot is two things that can drift, and this page has now had
+five. One foot, and the switches take you to where it is.
+
 ### Running the bench's script in node, which found two things
 
 **Nothing here reads an HTML file**, and the table above is what that costs: a

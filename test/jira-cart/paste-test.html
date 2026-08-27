@@ -1382,6 +1382,8 @@
              stepped buttons reserve `min-inline-size: 11ch` because a changing label
              used to rearrange this whole row, and a mark that overflows that box
              brings the defect back. -->
+        <!-- BOTH OF THE NEXT TWO CLOSE THE SETTINGS, because ⚙ replaces the foot
+             and a switch about the foot has nothing to change while it is up. -->
         <div class="switch-row">
           <span class="b-micro">Foot labels</span>
           <div class="b-seg" id="labelSeg">
@@ -3409,8 +3411,8 @@
     measureFoot();
 
     document.getElementById("stageState").innerHTML = on
-      ? "<b>⚙ on</b> <span>The drawer's whole body is the settings. The two sections and the six-button foot are <em>not rendered</em> — press ⚙ again to bring them back.</span>"
-      : "<b>⚙ off</b> <span>The two standing sections and the foot, as they ship. Press ⚙ in the drawer's head.</span>";
+      ? "<b>⚙ on</b> <span>The drawer's whole body is the settings. The two sections and the six-button foot are <em>not rendered</em> — that is the shipped design, so <b>there are no foot buttons to see on this screen</b>. Press ⚙ in the drawer's head to bring them back; the <code>Arrow</code> and <code>Foot labels</code> switches do it for you.</span>"
+      : "<b>⚙ off</b> <span>The two standing sections and the foot, as they ship — this is the screen the arrows live on. Press ⚙ in the drawer's head for the settings.</span>";
 
     /* THE MEASUREMENT THAT FORCED ⚙ ONTO ITS OWN SCREEN, shown rather than
        asserted: the panel is the drawer's one scroller, so growth SCROLLS. Every
@@ -3462,13 +3464,30 @@
     renderSettings();
     renderStage();
   });
+  /* THESE TWO SWITCHES CLOSE THE SETTINGS, and it is the one place on this page
+     where a press moves something other than the control pressed.
+
+     ⚙ REPLACES THE DRAWER'S WHOLE BODY, THE FOOT INCLUDED, which is the shipped
+     design and is what this bench exists to show. So a switch about the FOOT has
+     nothing to change while the settings are up. It looked otherwise until
+     2026-08-27 only because `hidden` was doing nothing here and the foot was being
+     painted underneath the panel -- and when that was fixed the user reported the
+     foot as having disappeared, which is the fix working and the bench being
+     unhelpful about it.
+
+     The alternative was a second copy of the foot outside the drawer, always
+     visible. It is refused: two copies of the foot is two things that can drift,
+     and this page has now had five drifts. One foot, and the switches take you to
+     where it is. */
+  const showTheFoot = () => { stage.mode = "sections"; };
+
   document.getElementById("labelSeg").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-l]");
-    if (b) { stage.labels = b.dataset.l; renderStage(); }
+    if (b) { stage.labels = b.dataset.l; showTheFoot(); renderStage(); }
   });
   document.getElementById("arrowSeg").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-a]");
-    if (b) { stage.arrow = b.dataset.a; renderStage(); }
+    if (b) { stage.arrow = b.dataset.a; showTheFoot(); renderStage(); }
   });
   document.getElementById("gearBtn").addEventListener("click", () => {
     stage.mode = stage.mode === "settings" ? "sections" : "settings";
