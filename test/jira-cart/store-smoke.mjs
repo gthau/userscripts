@@ -30,11 +30,29 @@ function slice(head, end) {
   if (at < 0) throw new Error(`no ${head}`);
   return src.slice(at, src.indexOf(end, at) + end.length);
 }
-const names = ["readRaw","defaultCollection","normaliseCollections","snapshot","load","activeCollection","save","update","writeFirstRun","loadPrefs","normalisePrefs","normaliseFieldList","defaultFieldList","readStoredBasis","readStoredSize","savePrefs","clamp"];
+const names = ["readRaw","defaultCollection","normaliseCollections","snapshot","load","activeCollection","save","update","writeFirstRun","loadPrefs","normalisePrefs","resolveBands","normaliseFieldList","defaultFieldList","readStoredBasis","readStoredSize","savePrefs","clamp",
+               // The fourth key, at 1.7.0. `uniqueName` comes with it and is NOT a
+               // copy: decision 13 is that presets reuse the collections' naming
+               // rule unchanged, so the harness has to run the same function the
+               // chips do or it would be asserting that a second rule agrees.
+               "uniqueName","legacyExportPrefs","byName","firstByName","normalisePreset","oneStar","firstRunPresetList","normalisePresets","loadPresets","savePresets"];
 const code = names.map(extract).join("\n");
 // Sliced in the file's own order, and `DEFAULT_PREFS` comes LAST: anything it is
 // built from has to be declared before it, here exactly as in the script.
 const constants = `
+  /* THE FOUR KEY NAMES, SLICED. They were copied into this file until 1.7.0, and a
+     copied key name is a worse version of the MIN_BLOCK defect above rather than a
+     milder one: the harness passed its own copies IN, so they SHADOWED the script's
+     constants entirely, and a key renamed in the script would have left every check
+     below green against an address the Cart no longer uses.
+
+     A key name is not an expectation. "Scratch" and v:1 below are stated on
+     purpose, as this file's own claim about what the script should do, and they
+     stay copies for that reason. An address is only ever the script's. */
+  ${slice("const STORE_KEY =", "\n")}
+  ${slice("const BACKUP_KEY =", "\n")}
+  ${slice("const PREFS_KEY =", "\n")}
+  ${slice("const PRESETS_KEY =", "\n")}
   ${slice("const MIN_INLINE =", "\n")}
   ${slice("const MIN_BLOCK =", "\n")}
   ${slice("const BASIS_MIN =", "\n")}
@@ -48,6 +66,8 @@ const constants = `
   ${slice("const SETTINGS_TAB_IDS =", "\n")}
   ${slice("const EXPORT_PREF_KEYS = [", "\n  ];")}
   ${slice("const DEFAULT_PREFS = {", "\n  };")}
+  ${slice("const DEFAULT_PRESET_NAME =", "\n")}
+  ${slice("const PRESET_LISTS =", "\n")}
 `;
 
 // The harness stands in for the parts of the script that are not the store.
@@ -55,6 +75,7 @@ const harness = `
   let lastRaw = null;
   let writeFailed = false;
   let firstRunDefault = null;
+  let firstRunPresets = null;
   let renders = 0;
   function scheduleRender() { renders += 1; }
   ${constants}
@@ -64,14 +85,13 @@ const harness = `
     DEFAULT_PREFS, LAYOUTS, MIN_INLINE, MIN_BLOCK, BASIS_MIN, BASIS_MAX,
     FIELD_CATALOGUE, LINE_SHAPE_IDS, BAND_IDS, NO_BAND,
     SETTINGS_TABS, SETTINGS_TAB_IDS, EXPORT_PREF_KEYS,
+    STORE_KEY, BACKUP_KEY, PREFS_KEY, PRESETS_KEY,
+    DEFAULT_PRESET_NAME, PRESET_LISTS,
     state: () => ({ lastRaw, writeFailed, renders }),
-    resetSession: () => { lastRaw = null; writeFailed = false; firstRunDefault = null; },
+    resetSession: () => { lastRaw = null; writeFailed = false; firstRunDefault = null; firstRunPresets = null; },
   };
 `;
 
-const STORE_KEY = "gt-jira-cart.collections";
-const BACKUP_KEY = "gt-jira-cart.collections.bak";
-const PREFS_KEY = "gt-jira-cart.prefs";
 const SCHEMA_VERSION = 1;
 const SAFE_KEY_RE = /^[A-Z][A-Z0-9]*-\d+$/;
 const DEFAULT_COLLECTION_NAME = "Scratch";
@@ -90,9 +110,12 @@ const GM_setValue = (key, value) => {
   store[key] = value;
 };
 
-const ARGS = ["STORE_KEY","BACKUP_KEY","PREFS_KEY","SCHEMA_VERSION","SAFE_KEY_RE","DEFAULT_COLLECTION_NAME","window","logger","crypto","GM_getValue","GM_setValue"];
+const ARGS = ["SCHEMA_VERSION","SAFE_KEY_RE","DEFAULT_COLLECTION_NAME","window","logger","crypto","GM_getValue","GM_setValue"];
 const build = new Function(...ARGS, harness);
-const load = () => build(STORE_KEY,BACKUP_KEY,PREFS_KEY,SCHEMA_VERSION,SAFE_KEY_RE,DEFAULT_COLLECTION_NAME,window,quiet,crypto,GM_getValue,GM_setValue);
+const load = () => build(SCHEMA_VERSION,SAFE_KEY_RE,DEFAULT_COLLECTION_NAME,window,quiet,crypto,GM_getValue,GM_setValue);
+// The addresses this file indexes its fake store by, taken from the script itself
+// through one throwaway build. Nothing is stored yet, so this costs a parse.
+const { STORE_KEY, BACKUP_KEY, PREFS_KEY, PRESETS_KEY } = load();
 
 let fails = 0;
 const is = (label, got, want) => {
@@ -466,6 +489,383 @@ is("and a write cannot store a shape the script does not know",
    JSON.parse(store[PREFS_KEY]).lineShape, "markdown");
 is("while none IS a band 2, on the write path too",
    JSON.parse(store[PREFS_KEY]).reportBand2, tab.NO_BAND);
+
+/* 18. THE FOURTH KEY, `gt-jira-cart.presets`, added at 1.7.0. EVERYTHING HERE IS THE
+   MIRROR OF SECTION 10, which is the point: a preference that will not parse falls
+   back to the shipped defaults, because a preference is regenerated by clicking a
+   switch. A PRESET IS NOT. It is the fields, their order, the shape and the two
+   headings that somebody built and named, so the list is REPAIRED PER ENTRY -- a
+   preset whose field list is rubbish gets that list repaired, a preset with no
+   usable name is dropped, and the rest survive (decision 20).
+
+   NOTHING IN THE SCRIPT READS THIS KEY YET. That is ticket 02's whole shape: the
+   store lands before the screens that use it, so this section is the only thing
+   exercising it and it has to be the thing that catches a broken rule. */
+tab = reset({});
+let presets = tab.loadPresets();
+prefs = tab.loadPrefs();
+
+// The lists are DERIVED from the tab table, the way `SETTINGS_TAB_IDS` is, so a
+// list this key holds cannot name a tab that does not edit it. The literal pair is
+// this file's own claim about which two those should be.
+const PRESET_IDS = tab.PRESET_LISTS.map((one) => one.id);
+is("the lists the key holds are exactly the tabs that edit a field list",
+   Object.keys(presets), PRESET_IDS);
+// AND THE LITERAL PAIR IS LOAD-BEARING, which is worth knowing because the check
+// above it cannot currently fail: every tab that carries `exports` also carries
+// `fields` today, so filtering on either gives the same two. They diverge the moment
+// ticket 03 adds the 🔗 Links tab -- `exports: true`, no field list, no presets
+// (decision 4) -- and THIS is the check that goes red if the filter is the wrong one.
+is("and that is 📋 Details and 📊 Report -- 🔗 Links has no presets (decision 4)",
+   PRESET_IDS, ["details", "report"]);
+
+// 18a. FIRST RUN, AND THE REQUIREMENT IS BYTE-FOR-BYTE SILENCE. An install that
+// never opens ⚙ must not be able to tell this shipped -- the same requirement
+// 1.2.0's defaults carried, and the one thing in this ticket that is not
+// negotiable (decision 21).
+is("an absent key builds one preset per list",
+   [presets.details.length, presets.report.length], [1, 1]);
+// `Standard` and NOT `Default`: "the default preset" and "the preset called
+// Default" would be two different things the moment ★ moved (decision 21).
+is("each is called Standard, and the name is sliced rather than invented here",
+   [presets.details[0].name, presets.report[0].name],
+   [tab.DEFAULT_PRESET_NAME, tab.DEFAULT_PRESET_NAME]);
+is("Standard, and not Default", tab.DEFAULT_PRESET_NAME, "Standard");
+is("and each carries the ★, so a plain press has exactly one answer",
+   [presets.details[0].star, presets.report[0].star], [true, true]);
+is("each gets an opaque id, so a rename is free (§2.4)",
+   presets.details.concat(presets.report)
+     .filter((one) => typeof one.id === "string" && one.id.length > 0).length, 2);
+is("and the two ids are not the same one",
+   presets.details[0].id === presets.report[0].id, false);
+// §2.4: nothing is rewritten because you looked at it. THE KEY EXISTING is what
+// says the build has happened -- no flag, no version, no second value that could
+// disagree -- so the build stays in memory until a real write.
+is("reading the key does not write it", store[PRESETS_KEY], undefined);
+is("and a preset read touches neither the collections nor the preferences",
+   [STORE_KEY in store, PREFS_KEY in store], [false, false]);
+
+// WHAT `Standard` CARRIES on a shipped install: exactly what the formatter would
+// have been handed from the preferences, which is what makes the output identical.
+is("the 📋 Details preset carries the shape and the field list 1.6.0 printed from",
+   [presets.details[0].lineShape, presets.details[0].fields],
+   [prefs.lineShape, prefs.detailsFields]);
+is("the 📊 Report preset carries its own field list AND the two bands",
+   [presets.report[0].lineShape, presets.report[0].fields,
+    presets.report[0].band1, presets.report[0].band2],
+   [prefs.lineShape, prefs.reportFields, prefs.reportBand1, prefs.reportBand2]);
+is("and those ARE the shipped values, so an install with neither key changes nothing",
+   [presets.details[0].fields, presets.report[0].band1, presets.report[0].band2],
+   [tab.DEFAULT_PREFS.detailsFields, tab.DEFAULT_PREFS.reportBand1, tab.DEFAULT_PREFS.reportBand2]);
+// A 📋 Details export has no headings, so a `band1` on its preset would be a key
+// that existed and was never read -- a promise the format does not keep.
+is("a 📋 Details preset carries NO bands at all",
+   ["band1" in presets.details[0], "band2" in presets.details[0]], [false, false]);
+
+/* 18b. AND AN INSTALL THAT HAS OPENED ⚙. The first run carries the preferences AS
+   THEY ARE STORED RIGHT NOW, not the shipped ones -- otherwise the one install that
+   configured its exports is the one whose output moves. `legacyExportPrefs` reads
+   the RAW preferences blob for this, so it outlives the four keys leaving
+   `DEFAULT_PREFS` in a later ticket. */
+tab = reset({ [PREFS_KEY]: JSON.stringify({
+  lineShape: "key-url",
+  detailsFields: [{ id: "status", on: true }],
+  reportFields: [{ id: "team", on: true }],
+  reportBand1: "fixv",
+  reportBand2: "assignee",
+}) });
+presets = tab.loadPresets();
+prefs = tab.loadPrefs();
+is("the first run carries the stored preferences, not the shipped ones",
+   [presets.details[0].lineShape, ticked(presets.details[0].fields),
+    ticked(presets.report[0].fields), presets.report[0].band1, presets.report[0].band2],
+   ["key-url", ["status"], ["team"], "fixv", "assignee"]);
+is("and what it carries is what loadPrefs would have handed the formatter",
+   [presets.details[0].fields, presets.report[0].fields,
+    presets.report[0].band1, presets.report[0].band2],
+   [prefs.detailsFields, prefs.reportFields, prefs.reportBand1, prefs.reportBand2]);
+// The raw blob is repaired by the SAME rules a stored preset gets, so there is one
+// repair path and not two.
+tab = reset({ [PREFS_KEY]: JSON.stringify({ lineShape: "haiku", reportBand1: "remaining" }) });
+presets = tab.loadPresets();
+is("a preferences blob holding rubbish cannot put rubbish in the new key",
+   [presets.details[0].lineShape, presets.report[0].band1], ["markdown", "priority"]);
+tab = reset({ [PREFS_KEY]: "}}not json{{" });
+presets = tab.loadPresets();
+is("and an unreadable preferences blob still builds a Standard from the shipped values",
+   [presets.details[0].name, presets.details[0].fields],
+   ["Standard", tab.DEFAULT_PREFS.detailsFields]);
+
+// 18c. THE ROOT. Not an object means there is no list in there to repair, so both
+// are built from scratch -- which is the ONE place this key behaves like the
+// preferences, and only because nothing survived to repair.
+const rootIs = (raw) => reset({ [PRESETS_KEY]: raw }).loadPresets();
+for (const junk of [null, 7, '"a string"', "[]", "}}not json{{"]) {
+  const both = rootIs(junk);
+  is(`a root that is not an object rebuilds both lists: ${junk}`,
+     [both.details.map((one) => one.name), both.report.map((one) => one.name)],
+     [["Standard"], ["Standard"]]);
+}
+
+// A preset the checks below reuse. `id` is a plain string on purpose: an opaque id
+// is whatever was stored, and this file never asserts the shape of one.
+const preset = (patch) => ({
+  id: "p-1", name: "Executive", star: true, lineShape: "markdown", fields: [], ...patch,
+});
+const storedPresets = (value) => reset({ [PRESETS_KEY]: JSON.stringify(value) }).loadPresets();
+const detailsOf = (...entries) => storedPresets({ details: entries }).details;
+
+// 18d. A LIST THAT IS NOT AN ARRAY. That list is rebuilt and THE OTHER ONE IS KEPT,
+// which is the per-entry principle applied one level up.
+presets = storedPresets({ details: "nonsense", report: [preset({ id: "r-1", name: "Exec", band1: "team", band2: "none" })] });
+is("a list that is not an array is rebuilt",
+   [presets.details.length, presets.details[0].name], [1, "Standard"]);
+is("and the other list survives intact, id and all",
+   [presets.report.length, presets.report[0].name, presets.report[0].id], [1, "Exec", "r-1"]);
+
+// 18e. THE NAME IS THE ONLY PART THAT CANNOT BE INVENTED, so it is the only drop.
+const survivor = preset({ id: "keep", name: "Kept" });
+for (const [label, bad] of [
+  ["no name", { id: "x" }],
+  ["an empty name", { id: "x", name: "" }],
+  ["a whitespace name", { id: "x", name: "   " }],
+  ["a name that is not a string", { id: "x", name: 7 }],
+  ["an entry that is not an object", "nonsense"],
+  ["a null entry", null],
+]) {
+  is(`an entry with ${label} is dropped, and the rest survive`,
+     detailsOf(survivor, bad).map((one) => one.name), ["Kept"]);
+}
+
+// 18f. EVERYTHING ELSE HAS A RIGHT ANSWER, so nothing else drops.
+const minted = detailsOf({ name: "  Trimmed  ", star: true, lineShape: "key-url", fields: [{ id: "team", on: true }] })[0];
+is("an entry with no id gets one minted", typeof minted.id === "string" && minted.id.length > 0, true);
+is("and everything else about it is kept, with the name trimmed",
+   [minted.name, minted.lineShape, ticked(minted.fields)], ["Trimmed", "key-url", ["team"]]);
+is("an id that is not a usable string is replaced rather than dropping the preset",
+   detailsOf(preset({ id: "" }), preset({ id: 7, name: "Second" }))
+     .filter((one) => typeof one.id === "string" && one.id.length > 0).length, 2);
+
+// 18g. NAMES THROUGH `uniqueName`, WITHIN THE LIST, so a hand-edited blob cannot
+// hold two presets called `Executive`. The same function the chips use and the same
+// rule create and rename will use (decision 13), and a clash ignores case.
+is("two presets with the same name are made unique inside the list",
+   detailsOf(preset({}), preset({ id: "p-2", name: "executive" })).map((one) => one.name),
+   ["Executive", "executive 2"]);
+presets = storedPresets({ details: [preset({})], report: [preset({})] });
+is("but the two lists are named independently, because they are different kinds of thing",
+   [presets.details[0].name, presets.report[0].name], ["Executive", "Executive"]);
+
+/* 18h. EXACTLY ONE ★ PER LIST. THIS IS THE INVARIANT EVERY SCREEN AFTER THIS ONE
+   RESTS ON -- a plain press asks for the ★ preset and has to get exactly one answer
+   -- so it is enforced on the way in rather than trusted, and repaired here rather
+   than handled at each of the places that ask.
+
+   ZERO, TWO AND A NON-BOOLEAN ALL LAND THE SAME WAY: the flag goes to the first
+   preset BY NAME. One sentence, one destination, and it is the rule decision 11
+   already gives the delete. */
+const star = (name, flag) => preset({ id: name, name, star: flag });
+const stars = (...entries) => detailsOf(...entries).map((one) => [one.name, one.star]);
+is("zero stars -> the first BY NAME gets it",
+   stars(star("Zebra", false), star("Apple", false)), [["Zebra", false], ["Apple", true]]);
+is("two stars -> the first by name keeps it and the other loses it",
+   stars(star("Zebra", true), star("Apple", true)), [["Zebra", false], ["Apple", true]]);
+is("three stars, same rule",
+   stars(star("Zebra", true), star("Mango", true), star("Apple", true)),
+   [["Zebra", false], ["Mango", false], ["Apple", true]]);
+is("a star that is not a boolean is not a star, so the flag moves",
+   stars(star("Zebra", "yes"), star("Apple", false)), [["Zebra", false], ["Apple", true]]);
+is("a missing star is not a star either",
+   stars({ id: "z", name: "Zebra", lineShape: "markdown", fields: [] }, star("Apple", false)),
+   [["Zebra", false], ["Apple", true]]);
+// AND EXACTLY ONE IS LEFT WHERE IT IS. The rule repairs a broken list; it does not
+// move a flag somebody put somewhere on purpose.
+is("exactly one star stays put, even when it is not the first by name",
+   stars(star("Zebra", true), star("Apple", false)), [["Zebra", true], ["Apple", false]]);
+// AND IT IS NAME ORDER, NOT CODE-UNIT ORDER. `<` would put every capital before
+// every lowercase letter, so `Zebra` would beat `apple` and the picker ticket 03
+// draws would look broken to the person reading it (decision 12).
+is("first by name orders by letter, not by capital-before-lowercase",
+   stars(star("Zebra", false), star("apple", false)), [["Zebra", false], ["apple", true]]);
+// THERE IS NO STORED ORDER. The picker sorts by name and ★ is a flag rather than a
+// position, so nothing downstream reads position and nothing here rearranges it.
+is("and the stored order is left alone, because it carries no meaning at all",
+   stars(star("Zebra", true), star("Apple", false)).map(([name]) => name), ["Zebra", "Apple"]);
+// The sweep: whatever went in, every list comes out with one ★.
+const ONE_STAR_BLOBS = [
+  {}, { details: [] }, { details: "x" }, { details: [preset({})] },
+  { details: [star("Zebra", true), star("Apple", true)] },
+  { details: [star("Zebra", false), star("Apple", false)] },
+  { details: [star("Zebra", "yes")] },
+  { details: [{ id: "x" }, star("Apple", false)] },
+  { details: [preset({}), preset({ id: "p-2", name: "executive" })] },
+];
+is("EXACTLY ONE ★ PER LIST, whatever went in",
+   ONE_STAR_BLOBS.map((blob) => {
+     const out = storedPresets(blob);
+     return PRESET_IDS.map((id) => out[id].filter((one) => one.star).length);
+   }),
+   ONE_STAR_BLOBS.map(() => PRESET_IDS.map(() => 1)));
+
+/* 18i. AN EMPTY LIST IS REBUILT, and this is the OPPOSITE of what an empty FIELD
+   list gets in section 15 -- the two are worth reading together. A stored `[]` of
+   fields is honoured, because zero ticked fields is a state somebody clicked their
+   way to. A stored `[]` of presets is not, because the last delete is refused
+   (decision 11) so no click produces it, and a list with no presets has no answer to
+   "what does this button print". */
+presets = storedPresets({ details: [], report: [] });
+is("an empty list is rebuilt with one Standard, in both lists",
+   [presets.details.map((one) => one.name), presets.report.map((one) => one.name)],
+   [["Standard"], ["Standard"]]);
+is("and a list whose every entry was dropped is empty, so it is rebuilt too",
+   detailsOf({ id: "x" }, { id: "y", name: "" }).map((one) => one.name), ["Standard"]);
+
+// 18j. THE SHAPE. Swept over the sliced vocabulary, so a shape added to the script
+// is covered the day it is added.
+const shapeOf = (value) => detailsOf(preset({ lineShape: value }))[0].lineShape;
+is("every line shape the script names is honoured on a preset",
+   tab.LINE_SHAPE_IDS.map(shapeOf), tab.LINE_SHAPE_IDS);
+is("an unknown shape falls back to that key's default", shapeOf("haiku"), "markdown");
+// A PRESET ALWAYS NAMES A SHAPE (decision 5, chosen against the recommendation).
+// There is no "follow the shared setting" state, so `null` is not a shape here --
+// it is a value to repair, exactly like any other one the vocabulary does not name.
+is("and null is not a 'follow the shared setting' state -- there is no such state",
+   [shapeOf(null), shapeOf(undefined)], ["markdown", "markdown"]);
+
+/* 18k. THE BANDS, AND THEY GO THROUGH THE PREFERENCE'S OWN FUNCTION. `resolveBands`
+   has two callers since 1.7.0 -- `normalisePrefs` and this -- so the pair rule
+   cannot hold on one path and not on the other. That is what these checks are
+   really asserting: not that the rule was reimplemented correctly, but that it was
+   not reimplemented. */
+const bandsOf = (b1, b2) => {
+  const one = storedPresets({ report: [preset({ band1: b1, band2: b2 })] }).report[0];
+  return [one.band1, one.band2];
+};
+// Band 1 gets its default back and band 2 is untouched, because there is nothing to
+// collide with -- the same answer the preference gives, cross-checked below.
+is("band 1 may not be none on a preset either, because a report with no bands is 📋 Details",
+   bandsOf(tab.NO_BAND, "team"), ["priority", "team"]);
+is("an unknown band falls back to that band's own default", bandsOf("haiku", "haiku"), ["priority", "team"]);
+is("band 2 may be none, and that is the single-level report", bandsOf("priority", tab.NO_BAND), ["priority", "none"]);
+is("a duplicate collapses BAND 2, never band 1", bandsOf("team", "team"), ["team", "none"]);
+is("and band 2's own default cannot put a duplicate back either", bandsOf("team", "haiku"), ["team", "none"]);
+is("every bandable field is honoured in band 1 of a preset",
+   tab.BAND_IDS.map((id) => bandsOf(id, id === "team" ? "priority" : "team")[0]), tab.BAND_IDS);
+is("and in band 2", tab.BAND_IDS.map((id) => bandsOf(id === "team" ? "priority" : "team", id)[1]), tab.BAND_IDS);
+// The same input, both paths, one answer. If someone copies the pair rule into the
+// presets reader instead of calling the shared one, this is what notices.
+const PAIRS = [["team", "team"], ["team", "haiku"], ["haiku", "haiku"], ["none", "team"], ["priority", "none"]];
+is("a preset's bands and a preference's bands resolve identically, from one function",
+   PAIRS.map(([b1, b2]) => bandsOf(b1, b2)),
+   PAIRS.map(([b1, b2]) => {
+     const p = storedAs({ reportBand1: b1, reportBand2: b2 });
+     return [p.reportBand1, p.reportBand2];
+   }));
+
+// 18l. AND A BAND ON A 📋 DETAILS PRESET IS DROPPED. That export has no headings,
+// so keeping the key would be storing a promise the format does not keep.
+const withBands = detailsOf(preset({ band1: "team", band2: "priority" }))[0];
+is("a band stored on a 📋 Details preset is dropped, not carried",
+   ["band1" in withBands, "band2" in withBands], [false, false]);
+
+/* 18m. THE FIELD LIST GOES THROUGH `normaliseFieldList` UNCHANGED -- all five of its
+   steps, including the one that completes the listing against the catalogue, because
+   ticket 03 draws the ⚙ rows from this list exactly as it draws them from the
+   preference today. Section 15 owns the five steps; these say the preset path is the
+   same path and not a second one. */
+const fieldsOf = (value, list = "details") =>
+  storedPresets({ [list]: [preset({ fields: value })] })[list][0].fields;
+for (const junk of [null, 7, "type,status", { type: true }, undefined]) {
+  is(`a fields value that is not a list falls back to that list's default: ${JSON.stringify(junk)}`,
+     fieldsOf(junk), tab.DEFAULT_PREFS.detailsFields);
+}
+is("and the fallback is THAT list's default, not the other list's",
+   fieldsOf(null, "report"), tab.DEFAULT_PREFS.reportFields);
+is("an id the catalogue does not name is dropped, and the rest keep their order",
+   fieldsOf([{ id: "parent", on: true }, { id: "epic", on: true }, { id: "type", on: true }]).map((f) => f.id),
+   ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]);
+is("a duplicate id collapses and the first wins",
+   fieldsOf([{ id: "type", on: true }, { id: "type", on: false }]),
+   [{ id: "type", on: true }, ...tail("type")]);
+is("on is true only when it is exactly true",
+   ticked(fieldsOf([{ id: "type", on: "yes" }, { id: "status", on: 1 }, { id: "priority" }, { id: "assignee", on: true }])),
+   ["assignee"]);
+is("a field the stored list never mentions is appended last, off",
+   fieldsOf([{ id: "type", on: true }]), [{ id: "type", on: true }, ...tail("type")]);
+// AND THE EMPTY SELECTION SURVIVES HERE TOO. Zero ticked fields is a real state --
+// the line is the head alone -- and it is the empty PRESET LIST that is refused, not
+// the empty field list inside one.
+is("an empty field list inside a preset keeps nothing ticked, and still names every field",
+   fieldsOf([]), ALL_OFF);
+
+// 18n. A blob edited through Tampermonkey's own storage view arrives as an object,
+// the way the collections' already does.
+is("an object in storage is read",
+   reset({ [PRESETS_KEY]: { details: [preset({ name: "Hand edited" })] } }).loadPresets().details[0].name,
+   "Hand edited");
+
+/* 18o. THE WRITE PATH. What is stored is the NORMALISED result, so the repair runs
+   on the way out as well as on the way in and no code in the script can put a state
+   in the key that a read would have to repair. `savePrefs` already works this way. */
+tab = reset({});
+tab.savePresets((all) => all.details.push({ name: "Executive", star: true, lineShape: "key-url", fields: [{ id: "team", on: true }] }));
+let written = JSON.parse(store[PRESETS_KEY]);
+is("a write creates the key, which is what says the first run has happened", typeof store[PRESETS_KEY], "string");
+is("and the first run's Standard was written with it",
+   written.details.map((one) => one.name), ["Standard", "Executive"]);
+// Both were flagged -- the first run's Standard and the pushed one -- so the write
+// path's one-star repair fires, and `Executive` sorts before `Standard`.
+is("the one-star rule runs on the WRITE path too", written.details.map((one) => one.star), [false, true]);
+is("an entry pushed without an id is given one on the way out",
+   typeof written.details[1].id === "string" && written.details[1].id.length > 0, true);
+is("and its field list was completed against the catalogue before it was stored",
+   written.details[1].fields.length, tab.FIELD_CATALOGUE.length);
+is("the other list was written untouched", written.report.map((one) => one.name), ["Standard"]);
+is("a preset write leaves the collections and the preferences alone",
+   [STORE_KEY in store, PREFS_KEY in store], [false, false]);
+const keptPresets = store[PRESETS_KEY];
+writesThrow = true;
+tab.savePresets((all) => all.details.pop());
+is("a failed preset write leaves the stored presets whole", store[PRESETS_KEY], keptPresets);
+// The flag and its sentence are the COLLECTIONS', the same line `savePrefs` draws.
+is("and it does not set the collections' warning", tab.state().writeFailed, false);
+writesThrow = false;
+
+/* 18p. A PRESET WRITE IS A READ-MODIFY-WRITE (§2.5), and this is the case that makes
+   it matter: a tab open since this morning must not write its stale list over a
+   preset created since. */
+tab = reset({});
+const morningPresets = load();
+tab.savePresets((all) => all.details.push(preset({ id: "p-2", name: "Executive", star: false })));
+morningPresets.savePresets((all) => { all.report[0].band2 = tab.NO_BAND; });
+presets = tab.loadPresets();
+is("a stale tab cannot write a stale list over a preset created since",
+   presets.details.map((one) => one.name), ["Standard", "Executive"]);
+is("and the change the stale tab did make landed", presets.report[0].band2, "none");
+
+/* 18q. THE FOUR EXPORT KEYS ARE STILL IN THE PREFERENCES, AND THIS IS A TRIPWIRE
+   RATHER THAN A CLAIM THAT THEY BELONG THERE. Decision 22 takes `detailsFields`,
+   `reportFields`, `reportBand1` and `reportBand2` out of `DEFAULT_PREFS`, leaving
+   `lineShape` as 🔗 Links' own setting (decision 4).
+
+   IT DID NOT HAPPEN IN THIS TICKET, and the reason is worth having written down: the
+   two things that read those keys -- `format` and the ⚙ panel -- still read them,
+   and nothing reads a preset yet. Dropping them here would have taken 📋 Details and
+   📊 Report out with them, which is the one thing this ticket promised not to do.
+   The drop belongs to whichever of ticket 03 or 04 lands first, because that is the
+   one that moves those readers onto the ★ preset.
+
+   WHEN THAT LANDS THESE THREE GO RED, and that is what they are for. */
+tab = reset({});
+tab.savePrefs({ corner: "bottom-left" });
+const writtenPrefs = JSON.parse(store[PREFS_KEY]);
+is("the four export keys are still written into the preferences after this ticket",
+   ["detailsFields", "reportFields", "reportBand1", "reportBand2"].filter((key) => key in writtenPrefs),
+   ["detailsFields", "reportFields", "reportBand1", "reportBand2"]);
+is("lineShape is there too, and it is the one that STAYS when they go",
+   "lineShape" in writtenPrefs, true);
+is("and Restore export defaults still reaches all five, shrinking to lineShape with them",
+   tab.EXPORT_PREF_KEYS.length, 5);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

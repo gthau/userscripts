@@ -5,7 +5,7 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**1,404 checks across nine files. No framework, no `package.json`, no dependencies.**
+**1,489 checks across nine files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
@@ -21,7 +21,7 @@ answer.
 | File | Checks | What it holds |
 | --- | --- | --- |
 | `smoke.mjs` | 64 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` — and since 1.4.0 **`moveInList`**, the array move BOTH drags go through. It was `moveField` and it lived in `format-smoke`; it never touched a field, and once the collection's item list moved through it too (ADR §2.9.1) a pure helper two features share belongs in the pure-helpers file. The field checks came with it, plus the two a list of issues adds: a list of one, and entries that are not `{id, on}`. **Since 1.6.0 it also holds `keysFromUriList`** (ADR §2.9.3) — the one parser all three of the drop feature's sources go through: CRLF and bare LF, RFC 2483 comment lines, a relative line, the same-origin rule that stops another instance's URL being retargeted at this one, deduplication, and the two things that must yield NOTHING — prose that spells a key, and our own `text/plain` line |
-| `store-smoke.mjs` | 127 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
+| `store-smoke.mjs` | 212 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches. **Since 1.7.0 it holds the fourth key, `gt-jira-cart.presets`** (ADR §2.4, amended 2026-08-28), and §18 is written as the MIRROR of §10: a preference that will not parse falls back to the shipped defaults, and a preset list is **repaired per entry** instead. The first-run build carrying the preferences as they are stored right now — which is what keeps 1.6.0's output byte-identical — a list that is not an array rebuilt **while the other one survives**, the four ways a name can be unusable and the drop that follows, `uniqueName` applied inside a list, the bands proved to go through the preference's OWN function rather than a copy of its rule, and the **one-★ invariant** every screen after this one rests on |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of eight of the nine views, and `groupFor`'s **two** answers — place beside the key, read from the widest. The ninth is `rovo-smoke` |
 | `rovo-smoke.mjs` | 51 | **The ninth view, Rovo search**, and the only harness here that builds a WHOLE TREE of elements rather than stubbing `closest` per call — because the defect that opened it was the **contract check firing**, and nothing but a real tree can answer whether a warning appears. It runs `scanPage`, `checkContract`, `readSummary`, `groupFor` and `originOf` unmodified against a page whose every testid and width was measured on the live page on 2026-08-25. It holds the two things that view taught: that **a row entry without a summary entry changes nothing** (tier 0 → tier 0 → tier 1, asserted in all three states), and that the regions are **layered** — with the row name rotted the check stays quiet, with its fallback gone too the table is reported at 20 keys, and with neither region named the warning is the one the user read off the page, **42 keys**, word for word |
 | `format-smoke.mjs` | 552 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It used to hold `moveField` directly; that function is `moveInList` now and its checks are in `smoke.mjs`. What replaced them here is **§18, a hand-made order**: that a reordered collection is what all six exports emit, and — the half that is not tautological — that a moved row keeps its new place **inside** a 📊 Report band, which is the one export whose grouping could plausibly have thrown the order away (§2.9.1) |
@@ -70,8 +70,9 @@ the vocabulary lacks is an unreachable shape, and an id with no table is a prefe
 that renders nothing.
 
 `store-smoke` does the same to the constants it asserts about — `MIN_INLINE`,
-`MIN_BLOCK`, `BASIS_MIN`, `BASIS_MAX`, `LAYOUTS`, `SETTINGS_TABS`, `EXPORT_PREF_KEYS`
-and `DEFAULT_PREFS` — and **it is
+`MIN_BLOCK`, `BASIS_MIN`, `BASIS_MAX`, `LAYOUTS`, `SETTINGS_TABS`, `EXPORT_PREF_KEYS`,
+`DEFAULT_PREFS` and, since 1.7.0, the four key NAMES, `DEFAULT_PRESET_NAME` and
+`PRESET_LISTS` — and **it is
 the file that proves why the rule matters**, because it had already drifted. It
 copied `MIN_BLOCK` as `160`; the script has said `215` since 1.0.0, when the floor
 was re-derived from the stylesheet. So *"a size below the minimum is clamped"* was
@@ -490,6 +491,48 @@ and each is a single edit to `src/jira-cart.user.js` in a scratch copy:
 | **the drag OUT (1.4.0)** | the drag carries nothing but the internal type; `effectAllowed` goes back to move-only; the text is a bare URL instead of the `Issue reference` shape; the rich flavour is dropped; the `text/uri-list` is dropped; the summary is left out of the payload; the freeze is never lifted after a release | `boot-smoke` — **run 2026-08-25, all seven caught.** The last one is worth knowing about: it goes red two sections later, at *letting go is what redraws it*, rather than where the defect is |
 | **05, the bands** | the two may not name one field; the swap moves the other dropdown to what this one held; the status categories come out in Atlassian's order and not alphabetically; the default pair is priority then team | `format-smoke` and `boot-smoke`, one also `tabs-smoke` |
 | **the stylesheet** | the ⚙'s state paint survives a hover | `boot-smoke`, `format-smoke` |
+
+### The 1.7.0 presets store, and the check that could not fail
+
+Ticket 02 asked for **at least one new rule proven able to fail**, and named the
+**one-★ invariant** as the one to prove, because every screen after it assumes a
+plain press has exactly one answer. **Eight mutations, run 2026-08-28, and 0
+survived**, each a single edit to a scratch copy of `src/jira-cart.user.js`:
+
+| The rule broken | Checks that went red |
+| --- | --- |
+| `oneStar` stops repairing at all | 8, including the write path's |
+| a truthy `star` counts as a star | 1 — *a star that is not a boolean is not a star* |
+| ★ falls to the first by POSITION rather than by name | 7 |
+| `byName` falls back to `<`, so capitals sort first | 1 |
+| a nameless preset is invented a name rather than dropped | 5 |
+| names are no longer made unique inside a list | 1 |
+| the presets path copies the band pair rule instead of calling `resolveBands` | 6 |
+| the writer stops re-reading before it writes | 1 — the stale tab |
+
+**A ninth mutation was run and did NOT go red, and it is recorded rather than
+quietly dropped.** `PRESET_LISTS` is `SETTINGS_TABS.filter((tab) => tab.fields)` —
+a tab has presets exactly when it has a field list. Changing that filter to
+`tab.exports` changed nothing, because **every tab carrying `exports` also carries
+`fields` today**, so the two predicates pick the same two tabs. They diverge the
+moment ticket 03 adds the 🔗 Links tab: `exports: true`, no field list, and no
+presets (decision 4). What catches it then is the neighbouring check, which pins the
+literal pair `["details", "report"]` — so the guard exists, it just cannot fire until
+that tab does. The comment in `store-smoke` §18 says so at the check.
+
+**And one mutation survived, which is the finding worth keeping.** The comparator was
+written `a.name.toLowerCase().localeCompare(b.name.toLowerCase())` and checked with
+*first by name is case-insensitive*. Making the comparator case-**sensitive** changed
+no answer and the harness stayed green — because `localeCompare` already orders by
+letter first and treats case as a tie-break, so the `toLowerCase` was dead code and
+the check was asserting a property that could not be false.
+
+This is `css-smoke`'s first backtick check again, and the fix was the same shape: find
+what the code actually decides. What `byName` really chooses is `localeCompare` over
+`<` — `<` compares code units, so `Zebra` would sort before `apple` and the picker
+would look broken. The `toLowerCase` is gone, the comment says why it went, and the
+check now names that. **It fails when the comparator does**, which the eighth mutation
+above confirms.
 
 **What it does not say, and this matters more than the number.** A mutation run proves
 that *something* goes red, not that the check you had in mind is the one that caught

@@ -429,17 +429,25 @@
 
   // ------------------------------------------------------------------- store
 
-  // One key holds one JSON blob (§2.4). The other two keys live in the same
+  // One key holds one JSON blob (§2.4). The other keys live in the same
   // store, decided on 2026-08-18: a backup in `localStorage` is destroyed by a
   // logout, which is the exact event the `@grant` exists to survive and the
   // event a bad migration is most likely to follow. One store also means one
   // failure mode in the load path, and the Cart never touches `localStorage` on
   // this origin, whose wrapper is the hazard §2.5 describes. The separation of
-  // the three keys is unchanged: a malformed preference cannot take a collection
-  // with it.
+  // the keys is unchanged: a malformed preference cannot take a collection
+  // with it -- and since 1.7.0 it cannot take a preset with it either.
   const STORE_KEY = "gt-jira-cart.collections";
   const BACKUP_KEY = "gt-jira-cart.collections.bak";
   const PREFS_KEY = "gt-jira-cart.prefs";
+  // THE FOURTH KEY, added at 1.7.0, and it is on the COLLECTIONS SIDE of the line
+  // the comment above draws. A preset is the whole export configuration under a
+  // name the user typed, so a blob that will not parse is REPAIRED PER ENTRY and
+  // never replaced wholesale: falling back to the shipped defaults the way the
+  // preferences do would be "you lost every preset you built", as a designed
+  // behaviour rather than an accident (§2.4, amended 2026-08-28). Its reader is its
+  // own and goes nowhere near `load`, which carries the four migration rows.
+  const PRESETS_KEY = "gt-jira-cart.presets";
 
   // `v` is at the root and nowhere else. It is bumped only when an existing
   // field changes shape or meaning. ADDING AN OPTIONAL FIELD NEVER BUMPS IT, or
@@ -1040,33 +1048,12 @@
   function normalisePrefs(stored) {
     const source = stored && typeof stored === "object" ? stored : {};
 
-    /* THE TWO BANDS ARE RESOLVED UP HERE, because they are the one pair of keys in
-       this function with a rule BETWEEN them and an object literal has no place to
-       put one. Each is checked against the vocabulary on its own first, exactly as
-       every key below is, and then the one cross-key rule is applied once.
-
-       THE TWO MAY NOT NAME THE SAME FIELD -- reversed on 2026-08-25, from use.
-       Ticket 05 shipped it allowed, on the reasoning that `Team` under `Team` is
-       useless, truthful and visible the moment it is pasted, so refusing it was more
-       machinery than the mistake was worth. THE USER PRESSED IT AND REPORTED IT AS A
-       DEFECT, which is what it is: a report whose every sub-heading repeats the
-       heading above it is not a configuration anybody chose, and "you can see that it
-       is wrong" is not the same as "you meant it" (§2.15).
-
-       BAND 2 IS THE ONE THAT GIVES WAY, always, and never band 1: band 1 is required
-       and band 2 is optional, so the optional one is the one that can yield without
-       producing a state no click can make. That includes the case where band 2's own
-       DEFAULT is what would duplicate -- a hand-edited blob naming `team` for band 1
-       and nonsense for band 2 must not have `team` put back underneath itself. */
-    const band1 = BAND_IDS.includes(source.reportBand1)
-      ? source.reportBand1
-      : DEFAULT_PREFS.reportBand1;
-    const band2 =
-      source.reportBand2 === NO_BAND
-        ? NO_BAND
-        : BAND_IDS.includes(source.reportBand2)
-          ? source.reportBand2
-          : DEFAULT_PREFS.reportBand2;
+    // THE TWO BANDS ARE RESOLVED UP HERE, because they are the one pair of keys in
+    // this function with a rule BETWEEN them and an object literal has no place to
+    // put one. The rule itself is `resolveBands` below, which is also what a 📊
+    // Report PRESET's two bands go through -- one copy of it, so the pair rule
+    // cannot hold on one path and not on the other.
+    const bands = resolveBands(source.reportBand1, source.reportBand2);
 
     // The order matches DEFAULT_PREFS above, so the two read as one list.
     return {
@@ -1113,16 +1100,55 @@
       // NEVER `none`. A report with no bands at all is 📋 Details, so a blob asking
       // for one gets the default band back rather than a second copy of another
       // export.
-      reportBand1: band1,
+      reportBand1: bands.band1,
       // `none` IS honoured here, and it is the single-level report -- and it is also
-      // where a duplicate lands, for the reason written above the two.
-      reportBand2: band2 === band1 ? NO_BAND : band2,
+      // where a duplicate lands, for the reason `resolveBands` gives.
+      reportBand2: bands.band2,
       // The first tab, never blank: an id that is not a tab any more must not leave
       // the panel with nothing on it.
       settingsTab: SETTINGS_TAB_IDS.includes(source.settingsTab)
         ? source.settingsTab
         : SETTINGS_TAB_IDS[0],
     };
+  }
+
+  /* THE TWO BANDS, AND THE ONE RULE BETWEEN THEM. One function, because since
+     1.7.0 there are TWO callers -- the preference pair above, and the two bands a
+     📊 Report preset carries (§2.4, amended 2026-08-28). Each band is checked
+     against the vocabulary on its own first, exactly as every preference key is,
+     and then the cross-key rule is applied once.
+
+     THE TWO MAY NOT NAME THE SAME FIELD -- reversed on 2026-08-25, from use.
+     Ticket 05 shipped it allowed, on the reasoning that `Team` under `Team` is
+     useless, truthful and visible the moment it is pasted, so refusing it was more
+     machinery than the mistake was worth. THE USER PRESSED IT AND REPORTED IT AS A
+     DEFECT, which is what it is: a report whose every sub-heading repeats the
+     heading above it is not a configuration anybody chose, and "you can see that it
+     is wrong" is not the same as "you meant it" (§2.15).
+
+     BAND 2 IS THE ONE THAT GIVES WAY, always, and never band 1: band 1 is required
+     and band 2 is optional, so the optional one is the one that can yield without
+     producing a state no click can make. That includes the case where band 2's own
+     DEFAULT is what would duplicate -- a hand-edited blob naming `team` for band 1
+     and nonsense for band 2 must not have `team` put back underneath itself.
+
+     BAND 1 MAY NOT BE `none`, because a report with no bands at all is 📋 Details,
+     and neither a preference nor a preset may turn one export into another.
+
+     THE DEFAULTS ARE STILL `DEFAULT_PREFS`', and that is the ONE LINE TO FOLLOW when
+     `reportBand1` and `reportBand2` leave that object for the presets key. They are
+     the shipped bands either way; only their home moves. */
+  function resolveBands(rawBand1, rawBand2) {
+    const band1 = BAND_IDS.includes(rawBand1)
+      ? rawBand1
+      : DEFAULT_PREFS.reportBand1;
+    const band2 =
+      rawBand2 === NO_BAND
+        ? NO_BAND
+        : BAND_IDS.includes(rawBand2)
+          ? rawBand2
+          : DEFAULT_PREFS.reportBand2;
+    return { band1, band2: band2 === band1 ? NO_BAND : band2 };
   }
 
   /* ONE FUNCTION, BOTH FIELD LISTS. A list is stored as an ORDERED array of
@@ -1284,6 +1310,284 @@
       GM_setValue(PREFS_KEY, JSON.stringify(next));
     } catch (e) {
       logger.error("could not write the preferences", e);
+    }
+    scheduleRender();
+  }
+
+  // ----------------------------------------------------------------- presets
+
+  /* THE EXPORT CONFIGURATION, UNDER NAMES THE USER TYPED. Added at 1.7.0, in its
+     own key, and EVERYTHING ABOUT THIS PATH IS THE OPPOSITE OF THE PREFERENCES
+     PATH ABOVE -- which is the same sentence the preferences block writes about
+     the collections, pointing the other way.
+
+     A preference that does not parse falls back to the shipped defaults, because a
+     preference is regenerated by clicking a switch. A PRESET IS NOT. It is the
+     fields, their order, the line shape and the two headings that somebody built
+     and named, so a blob that will not parse is REPAIRED PER ENTRY and never
+     replaced wholesale: a preset whose field list is rubbish gets that list
+     repaired, a preset with no usable name is dropped, and the rest survive. The
+     whole-blob fallback would read as "you lost every preset you built", and it
+     would be a designed behaviour rather than an accident (decision 20).
+
+     NONE OF THIS GOES NEAR `load`. That function is the collections path and
+     carries four migration rows; this is a fourth key with its own reader (§2.4). */
+
+  // `Standard` and NOT `Default` (decision 21): "the default preset" and "the
+  // preset called Default" would be two different things the moment ★ moved, and
+  // the list would read wrong from then on.
+  const DEFAULT_PRESET_NAME = "Standard";
+
+  /* WHICH LISTS EXIST, DERIVED, for the same reason `SETTINGS_TAB_IDS` is: the
+     structure is written down in `SETTINGS_TABS` and nowhere else, so a list this
+     key holds cannot name a tab that does not edit it.
+
+     A TAB HAS PRESETS EXACTLY WHEN IT HAS A FIELD LIST, and that is the whole test.
+     🔗 Links has no presets (decision 4) because its only configurable property is
+     the line shape, which is already a fixed named list in the script -- the shape
+     list IS its preset list -- and it carries no `fields`. `tab.bands` is the same
+     seam one step further in: the 📊 Report preset carries two band ids because its
+     tab names two band keys, and the 📋 Details preset carries none because its tab
+     names none. A key that existed and was never read would be a promise the format
+     does not keep. */
+  const PRESET_LISTS = SETTINGS_TABS.filter((tab) => tab.fields);
+
+  /* THE ONE MIGRATION, AND IT IS THE FIRST RUN. Reads the RAW preferences blob
+     rather than `loadPrefs`, deliberately, because it has to OUTLIVE the four
+     export keys leaving `DEFAULT_PREFS` -- `detailsFields`, `reportFields`,
+     `reportBand1` and `reportBand2` become a preset's business and `lineShape`
+     stays as 🔗 Links' own setting (decision 22). Once they are gone `loadPrefs`
+     will not carry them and this function still will.
+
+     It does no range-checking of its own. What it returns is fed to
+     `normalisePreset`, which repairs it with the same rules a stored preset gets,
+     so there is one repair path and not two. A blob with none of the four -- an
+     install that never opened ⚙ -- therefore yields the shipped defaults, which is
+     exactly what that install was printing.
+
+     DELETE IT when no install can still be on 1.6.0. */
+  function legacyExportPrefs() {
+    try {
+      const raw = GM_getValue(PREFS_KEY, null);
+      const stored = (typeof raw === "string" ? JSON.parse(raw) : raw) ?? {};
+      return stored && typeof stored === "object" ? stored : {};
+    } catch (e) {
+      logger.warn("could not read the stored export preferences", e);
+      return {};
+    }
+  }
+
+  // Minted once per session and not once per read, for `defaultCollection`'s
+  // reason exactly: the id of the preset the first run creates must not change
+  // under the ⚙ picker while the first write is still pending.
+  let firstRunPresets = null;
+
+  /* WHAT THE FIRST RUN BUILDS: one preset per list, called `Standard`, carrying the
+     preferences as they are stored RIGHT NOW. THE REQUIREMENT IS BYTE-FOR-BYTE
+     SILENCE -- an install that never opens ⚙ must not be able to tell this shipped,
+     which is the same requirement 1.2.0's defaults carried and the one thing here
+     that is not negotiable (decision 21).
+
+     THE KEY EXISTING IS WHAT SAYS THE BUILD HAS HAPPENED. No flag, no version, no
+     second value that could disagree -- the same shape of choice as §2.4's "there is
+     no active pointer". */
+  function firstRunPresetList(tab) {
+    firstRunPresets ??= {};
+    firstRunPresets[tab.id] ??= {
+      // Opaque, generated once, never derived from the name, so a rename is free.
+      // Exactly §2.4's reasoning for a collection's id.
+      id: crypto.randomUUID(),
+      name: DEFAULT_PRESET_NAME,
+      star: true,
+    };
+    const source = legacyExportPrefs();
+    const built = {
+      ...firstRunPresets[tab.id],
+      lineShape: source.lineShape,
+      fields: source[tab.fields],
+    };
+    if (tab.bands) {
+      built.band1 = source[tab.bands[0]];
+      built.band2 = source[tab.bands[1]];
+    }
+    // Through the same repair every stored preset gets, so a preferences blob
+    // holding rubbish cannot put rubbish in the new key.
+    return [normalisePreset(built, tab, [])];
+  }
+
+  /* ONE COMPARATOR. Presets are displayed sorted by name (decision 12), and ★ falls
+     to "the first by name" wherever it has to move -- on a repair here, and on the
+     delete that ticket 03 builds (decision 11). Two orderings would be two answers
+     to the same question.
+
+     `localeCompare` AND NOT `<`, which is the whole content of this function. `<`
+     compares code units, so every capital letter sorts before every lowercase one
+     and `Zebra` would come before `apple`: a picker ordered that way looks broken to
+     the person reading it. `localeCompare` orders by letter first and treats case as
+     a tie-break, which is decision 12's "case-insensitively" -- so there is no
+     `toLowerCase` here. It was tried and it was dead code: lowercasing both sides
+     changes no answer this comparator can give, and a check written against it could
+     not fail. */
+  function byName(a, b) {
+    return a.name.localeCompare(b.name);
+  }
+
+  function firstByName(list) {
+    let first = null;
+    for (const one of list) if (!first || byName(one, first) < 0) first = one;
+    return first;
+  }
+
+  /* ONE STORED PRESET, REPAIRED. Returns `null` for an entry that cannot be one,
+     which is the DROP -- and it is the only drop, because a name is the only part
+     of a preset that cannot be invented. Everything else has a right answer: an id
+     can be minted, a shape and a band have a default, and a field list has
+     `normaliseFieldList`.
+
+     `accepted` is the presets already kept from this list, and it is what
+     `uniqueName` measures against, so a hand-edited blob cannot hold two presets
+     called `Executive`. The same rule as create and rename (decision 13), and the
+     same function, unchanged. */
+  function normalisePreset(stored, tab, accepted) {
+    if (!stored || typeof stored !== "object") return null;
+    const name = typeof stored.name === "string" ? stored.name.trim() : "";
+    // A preset with no usable name is DROPPED. There is nothing to call it in the
+    // picker and nothing to name in the arrow, so it is not a preset.
+    if (!name) return null;
+
+    const preset = {
+      id:
+        typeof stored.id === "string" && stored.id
+          ? stored.id
+          : crypto.randomUUID(),
+      name: uniqueName(name, accepted),
+      // Made exact below, in `oneStar`. Read as `=== true` here for the reason
+      // every boolean in `normalisePrefs` is: a hand-edited `"yes"` is not a state
+      // any click makes.
+      star: stored.star === true,
+      // A PRESET ALWAYS NAMES A SHAPE (decision 5). There is no "follow the shared
+      // setting" state, so there is no `null` to honour here.
+      lineShape: LINE_SHAPE_IDS.includes(stored.lineShape)
+        ? stored.lineShape
+        : DEFAULT_PREFS.lineShape,
+      // `normaliseFieldList` UNCHANGED, all five of its steps, including the one
+      // that completes the listing against the catalogue -- because ticket 03 draws
+      // the ⚙ rows from this list exactly as it draws them from the preference
+      // today. The fallback is still `DEFAULT_PREFS`', and this is the second of
+      // the two lines to follow when the four keys move (see `resolveBands`).
+      fields: normaliseFieldList(stored.fields, DEFAULT_PREFS[tab.fields]),
+    };
+
+    // THE BANDS BELONG TO 📊 REPORT AND TO NOTHING ELSE. Not copied onto a 📋
+    // Details preset even when a hand-edited blob carries them: that export has no
+    // headings, so a stored `band1` there is dropped rather than kept as a key
+    // nothing will ever read.
+    if (tab.bands) {
+      const bands = resolveBands(stored.band1, stored.band2);
+      preset.band1 = bands.band1;
+      preset.band2 = bands.band2;
+    }
+    return preset;
+  }
+
+  /* EXACTLY ONE ★ PER LIST, ENFORCED ON THE WAY IN rather than trusted. Every
+     screen after this one assumes it -- a plain press asks for the ★ preset and has
+     to get exactly one answer -- so it is repaired here, where a hand-edited blob
+     arrives, and not handled at each of the places that ask.
+
+     ZERO, TWO, OR A NON-BOOLEAN ALL LAND THE SAME WAY: the flag goes to the first
+     preset BY NAME and comes off every other. One sentence and one destination,
+     which is what makes it rememberable. The alternative considered was "keep the
+     first STARRED one by name", which preserves a little more of a two-star blob's
+     intent -- but zero stars has to fall to the first by name regardless, so that
+     alternative buys a second rule for the half of the cases it covers. It is also
+     the rule decision 11 already gives the delete: ★ passes to the first remaining
+     preset by name. */
+  function oneStar(list) {
+    if (list.filter((one) => one.star).length === 1) return list;
+    const first = firstByName(list);
+    for (const one of list) one.star = one === first;
+    return list;
+  }
+
+  /* THE READER. Per list, in this order:
+
+       1. not an object (a `null`, a number, a string, an array) -> both lists are
+          built from scratch, because there is no list in there to repair
+       2. not an array for a list -> THAT list is rebuilt AND THE OTHER ONE IS KEPT,
+          which is the per-entry principle applied one level up
+       3. per entry: name, id, shape, fields, and -- 📊 Report only -- the two bands
+       4. names through `uniqueName`, within the list
+       5. exactly one ★
+       6. an EMPTY list -> rebuilt with one `Standard`
+
+     STEP 6 IS THE OPPOSITE OF WHAT AN EMPTY FIELD LIST GETS, and the two are worth
+     reading together. A stored `[]` of FIELDS is honoured, because zero ticked
+     fields is a state somebody clicked their way to (§2.4's empty-selection
+     paragraph). A stored `[]` of PRESETS is not, because the last delete is refused
+     (decision 11) so no click produces it -- and a list with no presets has no
+     answer to "what does this button print".
+
+     THERE IS NO STORED ORDER. The array's order carries nothing: the picker sorts
+     by name (decision 12) and ★ is a flag rather than a position (decision 10), so
+     nothing downstream reads position and nothing here has to preserve it. Said out
+     loud because otherwise a later session will preserve it carefully for no
+     reason. */
+  function normalisePresets(stored) {
+    const source =
+      stored && typeof stored === "object" && !Array.isArray(stored)
+        ? stored
+        : {};
+
+    const presets = {};
+    for (const tab of PRESET_LISTS) {
+      const value = source[tab.id];
+      const list = [];
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          const preset = normalisePreset(entry, tab, list);
+          if (preset) list.push(preset);
+        }
+      }
+      presets[tab.id] = list.length ? oneStar(list) : firstRunPresetList(tab);
+    }
+    return presets;
+  }
+
+  function loadPresets() {
+    let stored = {};
+    try {
+      const raw = GM_getValue(PRESETS_KEY, null);
+      stored = (typeof raw === "string" ? JSON.parse(raw) : raw) ?? {};
+    } catch (e) {
+      // NOT the preferences' "using defaults". The lists are repaired per entry
+      // below, and an unparseable blob is the one case where there is nothing to
+      // repair -- so this sentence says what happened and `normalisePresets` says
+      // what replaces it.
+      logger.warn("could not read the stored presets", e);
+      stored = {};
+    }
+    return normalisePresets(stored);
+  }
+
+  /* A READ-MODIFY-WRITE, like the store's and the preferences', and for the same
+     reason (§2.5): a tab that has been open since this morning must not write a
+     stale list over a preset created since. The mutation is applied to a FRESH
+     read, never to a list the caller has been holding.
+
+     What is written is the NORMALISED result, so the repair is on the write path as
+     well as the read path and no code in this script can put a state in the key
+     that a read would have to repair. `savePrefs` already works this way. */
+  function savePresets(mutate) {
+    const next = loadPresets();
+    mutate(next);
+    try {
+      GM_setValue(PRESETS_KEY, JSON.stringify(normalisePresets(next)));
+    } catch (e) {
+      // A FAILED PRESET WRITE DOES NOT SET `writeFailed`, which is the collections'
+      // flag and whose sentence is about the collections -- the same line
+      // `savePrefs` draws.
+      logger.error("could not write the presets", e);
     }
     scheduleRender();
   }

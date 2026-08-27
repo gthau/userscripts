@@ -187,6 +187,20 @@ written, and no user-written string reaches the clipboard.
 22. **The four ex-export keys leave the prefs blob. `lineShape` stays**, as 🔗 Links'
     own setting. `normalisePrefs` keeps only known keys, so dropping them from
     `DEFAULT_PREFS` drops them on the next write with nothing to migrate.
+
+    > **DEFERRED on 2026-08-28, by the user, when ticket 02 was built. The decision is
+    > unchanged; only which ticket does it moved.** Ticket 02 told itself to drop the
+    > four AND to change nothing visible, and the two cannot both happen: `format` and
+    > the ⚙ panel still read those keys, and nothing reads a preset — 02's own title
+    > is *the fourth key exists before anything reads it*. Dropping them there would
+    > have taken 📋 Details and 📊 Report out with them.
+    >
+    > **They leave with whichever of 03 or 04 lands first**, because that is the one
+    > that moves those readers onto the ★ preset — which 03's opening sentence already
+    > says. The cost is that the export configuration is written in two places for a
+    > ticket or two and the two can drift; **it reaches no user**, because the whole
+    > effort ships once as 1.7.0 (decision 24). `store-smoke` §18q is the tripwire: it
+    > asserts the four are still there, so it goes red the day they go.
 23. ~~**The foot may gain a row, and the floor is re-derived from a MEASUREMENT.** By
     arithmetic the six buttons already come to roughly 452px of content against ~275px
     usable at the 300px floor, so the foot is already two rows; three arrows add ~60px
@@ -347,7 +361,7 @@ written, and no user-written string reaches the clipboard.
 | # | Ticket | What it lands | Landed |
 | --- | --- | --- | --- |
 | [01](01-the-prototype.md) | The rig grows a presets variant, and four numbers come back | No script change at all | **BUILT AND PRESSED 2026-08-27.** It reversed decision 8, added 26, closed limit 2, and found the rig's fourth drift. **Two numbers owed on a re-press** |
-| [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | |
+| [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | **BUILT 2026-08-28.** `store-smoke` 127 → 212, suite 1,489, `format-smoke` untouched. **It deferred half of decision 22** — see below — and it extracted the band pair rule instead of copying it |
 | [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `Save as new…`, the per-tab restore | |
 | [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | |
 | [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | |

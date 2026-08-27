@@ -113,20 +113,53 @@ called Default* would be two different things the moment ★ moved.
 **The key existing is what says the build has happened.** No flag, no version, no
 second value that could disagree.
 
-### And the prefs blob loses four keys
+### ~~And the prefs blob loses four keys~~ — DEFERRED, 2026-08-28
 
-`detailsFields`, `reportFields`, `reportBand1`, `reportBand2` come out of
-`DEFAULT_PREFS`. **`lineShape` stays** — it is 🔗 Links' own setting from now on
-(decision 4). `normalisePrefs` keeps only known keys, so the four stop being carried
-on the next write with nothing to migrate.
+> ~~`detailsFields`, `reportFields`, `reportBand1`, `reportBand2` come out of
+> `DEFAULT_PREFS`. **`lineShape` stays** — it is 🔗 Links' own setting from now on
+> (decision 4). `normalisePrefs` keeps only known keys, so the four stop being carried
+> on the next write with nothing to migrate.~~
+>
+> ~~`EXPORT_PREF_KEYS` — what `Restore export defaults` reaches — shrinks to
+> `lineShape`. Ticket 03 gives it the rest of its new meaning.~~
 
-**Read the old values before you drop them.** The first-run build above needs them,
-so the reader for the four has to outlive their removal from `DEFAULT_PREFS` — a
-small function that reads the raw prefs blob directly, used once, with a comment
-saying it exists for that and can be deleted when no install can still be on 1.6.0.
+**IT DID NOT HAPPEN HERE, AND THE TICKET CONTRADICTED ITSELF.** Kept word for word
+because the amendment has to answer it, and because **it is not wrong about
+anything except the ticket it belongs to**.
 
-`EXPORT_PREF_KEYS` — what `Restore export defaults` reaches — shrinks to
-`lineShape`. Ticket 03 gives it the rest of its new meaning.
+The four keys are read in two places: `format` builds every 📋 Details and 📊 Report
+copy from them, and the ⚙ panel draws its tick boxes and its two dropdowns from them.
+Nothing reads a preset — that is this ticket's own title. So dropping the four here
+would have taken both exports and half the ⚙ screen out with them, against the same
+ticket's *no UI change, no format change, **no output byte change***, and against
+*`format-smoke` is untouched and green* — that harness asserts
+`DEFAULT_PREFS.detailsFields` directly.
+
+**They leave with whichever of 03 or 04 lands first**, because that is the ticket that
+moves those two readers onto the ★ preset. 03 already says so in its own opening
+sentence: *at the end of this ticket a plain press already reads the ★ preset*.
+
+**The cost, accepted with the decision:** for a ticket or two the export
+configuration is written down in two places and the two can drift — a field ticked in
+⚙ after this lands writes the preference, and the ★ preset built at first run will not
+have seen it. **It reaches no user**, because the whole effort ships once as 1.7.0
+(decision 24); only a dev install can be caught between the two tickets.
+
+**What DID land, because it has to outlive the removal:** the reader for the four.
+`legacyExportPrefs` reads the **raw** preferences blob rather than going through
+`loadPrefs`, exactly as this ticket asked, so it still works once `loadPrefs` stops
+carrying them. It range-checks nothing of its own — what it returns goes through
+`normalisePreset`, so there is one repair path and not two. Its comment says it can be
+deleted when no install can still be on 1.6.0.
+
+**And a tripwire**, `store-smoke` §18q: the four keys are asserted to be **still
+there** after a `savePrefs`, and `lineShape` with them. When the move lands those go
+red, which is what says the other half is due.
+
+**Two lines in the source are the whole of what has to follow the keys**, and both
+say so where they are: the band defaults in `resolveBands`, and the field-list
+fallback in `normalisePreset`. They are the shipped values either way — only their
+home moves.
 
 ---
 
@@ -154,8 +187,10 @@ measuring the harness's own constant.
   no headings
 - a `fields` value that is not an array, holds an unknown id, holds a duplicate, or
   carries `on: 1` → `normaliseFieldList`'s existing five steps, unchanged
-- **the four keys are gone from the prefs blob after a `savePrefs`, and `lineShape`
-  is still there**
+- ~~**the four keys are gone from the prefs blob after a `savePrefs`, and `lineShape`
+  is still there**~~ — **INVERTED, see the deferral above.** §18q asserts the four are
+  **still** there and `lineShape` with them, as the tripwire that goes red when 03 or
+  04 takes them out
 - `savePrefs` and the presets writer are still read-modify-write, so a tab open since
   this morning cannot write a stale list over a preset created since (§2.5)
 
@@ -174,3 +209,66 @@ measuring the harness's own constant.
 - §2.4 gains a paragraph naming the fourth key, dated, with the one rule that is new
   in kind: **this key is repaired per entry, where the prefs key is replaced
   wholesale, and the reason is which side of §2.4's line the data is on.**
+
+---
+
+## BUILT on 2026-08-28
+
+`node test/jira-cart/run.mjs` green. **`store-smoke` 127 → 212 checks**, recounted
+from the run rather than estimated; the suite is 1,404 → **1,489**. `format-smoke` is
+untouched and still 552, which is what says no byte moved.
+
+**What is in the script**, all of it after `savePrefs` and none of it near `load`:
+`PRESETS_KEY`, `DEFAULT_PRESET_NAME`, `PRESET_LISTS`,
+`legacyExportPrefs`, `firstRunPresetList`, `byName`, `firstByName`,
+`normalisePreset`, `oneStar`, `normalisePresets`, `loadPresets`, `savePresets`.
+
+**Three things came out differently from the ticket, each recorded where it happened:**
+
+1. **The four prefs keys stayed.** The deferral above, and its tripwire.
+2. **`PRESET_LISTS` is DERIVED from `SETTINGS_TABS`**, rather than a literal pair of
+   list ids. A tab has presets exactly when it has a `fields` key, which is already
+   why 🔗 Links has none (decision 4), and `tab.bands` is the same seam one step
+   further in — 📊 Report's preset carries two band ids because its tab names two
+   band keys. So the structure stays written down in one place, the way
+   `SETTINGS_TAB_IDS` already is.
+3. **The band pair rule was EXTRACTED rather than copied.** It was ten lines inline in
+   `normalisePrefs`; a preset needs the same rule, and a second copy is the drift
+   these harnesses exist to catch. It is `resolveBands` now, with two callers and one
+   copy of *band 2 is the one that gives way*. `store-smoke` runs the same five hostile
+   pairs down both paths and asserts one answer, so a later session that reimplements
+   it gets six red checks.
+
+### The mutation run, and the check that could not fail
+
+**Eight mutations, 0 survived** — the table is in
+[`test/jira-cart/README.md`](../../../test/jira-cart/README.md). Breaking `oneStar`
+so it stops repairing turns 8 checks red, including the write path's, which is the
+proof this ticket asked for by name.
+
+**And one mutation survived first time round, which is worth more than the eight.**
+`byName` was `a.name.toLowerCase().localeCompare(b.name.toLowerCase())` and the check
+read *first by name is case-insensitive*. Making the comparator case-**sensitive**
+changed no answer: `localeCompare` already orders by letter first and treats case as a
+tie-break, so the `toLowerCase` was dead code and the check was asserting something
+that could not be false. **`css-smoke`'s first backtick check, exactly.** What the
+comparator actually decides is `localeCompare` over `<` — `<` compares code units, so
+`Zebra` would sort before `apple` and the picker ticket 03 draws would look broken.
+The `toLowerCase` is gone, the comment says why, and the check now names the real
+choice and goes red when it is broken.
+
+### Two lines follow the keys when they move
+
+Named here so 03 or 04 does not have to find them: the band defaults in
+`resolveBands`, and the field-list fallback in `normalisePreset`. Both read
+`DEFAULT_PREFS` today and both say so in their own comment. They are the shipped
+values either way — only their home moves.
+
+### Still owed by 05
+
+§2.4 has its dated amendment. §6 and §7 are ticket 05's, and this key adds one step
+worth writing there: **damage `gt-jira-cart.presets` by hand in a live Tampermonkey
+store and confirm the repair is per entry** — one preset survives, one is dropped, the
+★ ends up somewhere sensible — because §2.4's own damaged-store paragraph is the
+precedent for not trusting that until it has been run for real.
+
