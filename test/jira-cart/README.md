@@ -268,6 +268,14 @@ five. One foot, and the switches take you to where it is.
 > of, judged by somebody who uses it. **So the bench had been misrepresenting the
 > drawer for five versions, and it no longer is.**
 
+> **CONFIRMED FIXED the same day, by the user: "ok, it's working as expected now."**
+> Recorded at the precision it has. What that closes is the **layout**: the drawer
+> clips, it is a flex column again, and it looks like the card it is meant to be at
+> every height. What it does **not** close is the three numbers the same page produced
+> earlier that day — they were read off a drawer 300px wide where the real one is 298px
+> inside its border, and *it looks right* is not *the number was read again*. Those are
+> still owed, and `docs/jira-cart/presets/README.md` says so beside decision 23.
+
 ### Running the bench's script in node, which found two things
 
 **Nothing here read an HTML file until 2026-08-27**, and the table above is what that
