@@ -6,6 +6,25 @@ re-derived minimum height.
 
 **Needs 02.** Independent of 03 — this one reads presets where 03 edits them.
 
+> **03 LANDED FIRST, ON 2026-09-06, AND IT DID TWO THINGS THIS TICKET NO LONGER HAS
+> TO.** Read them before the section *Where it hangs off the dispatch table* below,
+> which was written as though `format` still read the preferences.
+>
+> **The four export keys are already out of the preferences** (decision 22, whose
+> deferral said *whichever of 03 or 04 lands first*). Their shipped values are in
+> `PRESET_DEFAULTS`. `store-smoke` §18q is inverted and green.
+>
+> **And `format` already reads the ★ preset**, for both exports and both bands: it
+> finds the tab whose `fields` key matches the entry's — the seam `format-smoke`
+> already holds — and takes that list's ★ preset. So the paragraph below is DONE, and
+> what is left for this ticket is the **pick**: the same read, resolved at the press,
+> against a preset the arrow named instead of the flagged one. `presetBands` is where
+> the two band vocabularies meet, and `starPreset` is the one place *what does a plain
+> press print* is answered.
+>
+> **What 03 did NOT touch, so nothing here is second-guessed:** no arrow, no foot
+> change, no `COLLECTION_FIXED_PX` and no `MIN_BLOCK`, and no version bump.
+
 **Read first:** ADR **§2.8** (the dispatch table and its two amendments), **§2.14**
 (the two presses, what throws the held fetch away, and *the label IS the state*),
 **§2.15**'s *THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS*, and **§2.11** plus

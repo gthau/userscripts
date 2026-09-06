@@ -877,23 +877,45 @@
      A NEW TAB THEREFORE ARRIVES VISIBLE WHERE A NEW FIELD ARRIVES OFF, and the
      asymmetry is deliberate -- see `normaliseFieldList`.
 
-     Three, because `Issue reference` governs all three exports: a tab that owned it
-     would tell a small lie about its scope, so it is pinned above the bar and each
-     export tab stays at about eight rows, which is the only structure that fits the
-     drawer's 215px floor without scrolling. The cost, stated rather than hidden:
-     `appearance` sits as a peer of two export tabs, which is not a clean taxonomy.
-     Changing the structure is changing this list and nothing else.
+     FOUR SINCE 1.7.0, AND THE FOURTH IS `🔗 Links`. It was three until then,
+     because `Issue reference` governed all three exports: a tab that owned it would
+     have told a small lie about its scope, so it was PINNED above the bar and the
+     position itself carried the word "shared". THAT STOPPED BEING TRUE THE MOMENT A
+     PRESET ALWAYS NAMES ITS OWN SHAPE (presets decision 5). 📋 Details and 📊 Report
+     take their head from the preset they run, so the row governs 🔗 Links alone --
+     and a row pinned above the bar because it was shared would now be the lie. It
+     moves into a tab of its own and `pinned` stops existing.
+
+     §6 ITEM 17 PREDICTED THIS PRESSURE AND ITS PREDICTION WAS HALF RIGHT, which is
+     worth recording where the structure is rather than only in the ADR. It said:
+     *"the moment a second kind of setting arrives -- something that is neither
+     appearance nor one export -- `Appearance` stops being the odd one out and the bar
+     has two groups in it, which is when a two-level structure starts paying for
+     itself inside 300px."* What arrived is NOT a second kind of setting. It is a
+     fourth BUTTON tab, so `Appearance` is more of an outlier than it was, not less --
+     three tabs named after buttons in the foot and one named after a kind of setting.
+     The two-level structure is therefore NOT bought, and item 17 stays open with one
+     more tab against it. WHAT IT COST WAS MEASURED RATHER THAN ARGUED: four full
+     labels fit at the 300px floor without wrapping (ticket 01, 2026-08-27), so the
+     bar did not have to shorten a label the way the rig's own `tabs4` variant did --
+     and A.9's finding that a word survives where a dim pictograph does not never had
+     to be spent.
 
      `exports` says whether the tab holds anything `Restore export defaults` reaches,
      and it is what decides where that button shows. On the appearance tab it would
-     be an offer to reset something you are not looking at (decision 22).
+     be an offer to reset something you are not looking at (decision 22). All three
+     export tabs carry an `Issue reference` row; WHERE THAT ROW WRITES is derived from
+     `fields` below rather than from a flag of its own.
 
-     `fields` NAMES THE PREFERENCE THE TAB'S FIELD LIST EDITS, so the panel builds
-     both lists from this table and there is no second place that says which tab owns
-     which key. It is NOT the same thing as `exports` and the two are deliberately
-     not one flag: `exports` asks whether `Restore` should show, and the pinned
-     `Issue reference` row is an export setting on no tab at all -- so a tab could
-     hold an export setting and no field list.
+     `fields` NAMES THE TAB'S FIELD LIST, and since 1.7.0 it names two things at once:
+     the shipped default in `PRESET_DEFAULTS`, and -- because a tab has presets
+     exactly when it has a field list -- WHETHER THIS TAB EDITS A PRESET AT ALL. That
+     is what `PRESET_LISTS` filters on, and it is why 🔗 Links has no presets: its
+     only configurable property is the line shape, which is already a fixed named list
+     in the script, so the shape list IS its preset list (decision 4). It is NOT the
+     same thing as `exports` and the two are deliberately not one flag: `exports` asks
+     whether `Restore` should show, and 🔗 Links holds an export setting and no field
+     list.
 
      `bands` NAMES THE PREFERENCES WHOSE VALUES PUT A FIELD IN A HEADING, and it is
      what lets the panel mark a row `also a heading` without a literal `"report"`
@@ -903,6 +925,9 @@
      puts its two dropdowns on that tab; this list is the seam it needs. */
   const SETTINGS_TABS = [
     { id: "appearance", label: "Appearance", exports: false },
+    // No `fields`, so no presets and no preset block -- and its `Issue reference`
+    // row is the one that still writes the preference (decision 4).
+    { id: "links", label: "🔗 Links", exports: true },
     { id: "details", label: "📋 Details", exports: true, fields: "detailsFields" },
     {
       id: "report",
@@ -948,17 +973,51 @@
     size: null,
     basisStacked: null,
     basisSplit: null,
-    // Six keys for the configurable exports, added in 1.2.0. `v` IS NOT BUMPED and
-    // there is no migration: preferences are not versioned, and nothing about a
-    // stored item changed shape (§2.4).
-    //
-    // EVERY DEFAULT HERE REPRODUCES 1.1.0'S OUTPUT BYTE FOR BYTE. That is the whole
-    // requirement of the defaults: an install that never opens ⚙ must not be able to
-    // tell that any of this exists.
-    //
-    // The literal `markdown` and not `LINE_SHAPE_IDS[0]`: this is the shape 1.1.0
-    // shipped, which is a fact about the output rather than about a list's order.
+    /* SIX EXPORT KEYS AT 1.2.0. ONE AT 1.7.0, AND THE OTHER FOUR ARE IN
+       `PRESET_DEFAULTS` BELOW (presets decision 22, moved 2026-09-06).
+
+       `lineShape` stays because it is 🔗 Links' own setting from now on -- that
+       button has no presets, since its only configurable property is a shape and the
+       shape list is already a fixed named list in the script (decision 4). 📋 Details
+       and 📊 Report each take their head from the preset they run, so the four keys
+       that said what those two exports look like are a PRESET's business now and a
+       key here that nothing read would be a promise this blob does not keep.
+
+       `normalisePrefs` keeps only known keys, so the four stop being carried on the
+       next write and there is nothing to migrate. What reads them one last time is
+       `legacyExportPrefs`, which reads the RAW blob so that it still works after this
+       -- see `firstRunPresetList`.
+
+       EVERY DEFAULT HERE STILL REPRODUCES 1.1.0'S OUTPUT BYTE FOR BYTE, and that
+       requirement did not move with the keys: the first run copies the stored values
+       into a `Standard` preset, so an install that never opens ⚙ cannot tell any of
+       this exists.
+
+       The literal `markdown` and not `LINE_SHAPE_IDS[0]`: this is the shape 1.1.0
+       shipped, which is a fact about the output rather than about a list's order. */
     lineShape: "markdown",
+    // Whichever tab is first. A default that named a tab would be a second place the
+    // structure is decided.
+    settingsTab: SETTINGS_TAB_IDS[0],
+  };
+
+  /* THE SHIPPED EXPORT CONFIGURATION, WHICH IS NO LONGER A PREFERENCE. These four
+     were in `DEFAULT_PREFS` from 1.2.0 to 1.6.0 and moved here at 1.7.0, when a
+     preset became the only place an export's fields, their order and its headings
+     live (presets decisions 1 and 22).
+
+     THE VALUES ARE UNCHANGED AND THE KEY NAMES ARE UNCHANGED. Only their home moved,
+     and the names are kept because `SETTINGS_TABS` and `EXPORTS` both NAME them --
+     `tab.fields`, `tab.bands`, `entry.fields`, `entry.bands` -- and `format-smoke`
+     asserts those two tables agree. Renaming them here would have been a third place
+     the structure is written down, for no gain.
+
+     WHAT READS THIS OBJECT, and it is only ever the shipped fallback: the field-list
+     fallback in `normalisePreset`, the band defaults in `resolveBands`, `+ Create
+     preset`, and the ↺ restore. Ticket 02 named the first two as "the two lines to
+     follow when the four keys move"; they are followed, and this is where they
+     landed. */
+  const PRESET_DEFAULTS = {
     detailsFields: defaultFieldList([
       "type",
       "status",
@@ -980,16 +1039,24 @@
     ]),
     reportBand1: "priority",
     reportBand2: "team",
-    // Whichever tab is first. A default that named a tab would be a second place the
-    // structure is decided.
-    settingsTab: SETTINGS_TAB_IDS[0],
   };
 
   const LAYOUTS = ["auto", "stacked", "split"];
 
-  /* WHAT `Restore export defaults` REACHES, and it is a list rather than five
-     literals in the handler so that a seventh export preference is one entry here
-     and nothing to remember (decision 22).
+  /* WHAT THE PREFERENCE HALF OF `Restore export defaults` REACHES. It was five keys
+     until 1.7.0 and it is one now, because the other four became a preset's (presets
+     decision 22) -- and THE PRESET HALF IS NOT A KEY LIST AT ALL, which is the thing
+     to read before deleting this.
+
+     KEPT AS A LIST FOR THE ONE KEY, deliberately. Its original ground was *"so that a
+     seventh export preference is one entry here and nothing to remember"*, and that
+     ground is unchanged: a second setting belonging to 🔗 Links -- the tab this list
+     now serves alone -- is one entry here and nothing else to find. The other half of
+     the restore rewrites the SELECTED PRESET's own record from `PRESET_DEFAULTS`,
+     which is a different shape of thing: it is not a patch over a blob of independent
+     keys, it is one named object being put back, and it must not touch that object's
+     name or its ★. `restoreExportDefaults` is where the two halves meet, and it
+     chooses between them by which tab you are on.
 
      What it deliberately leaves alone, each for its own reason. The FOUR APPEARANCE
      switches -- three until 1.3.0 added the copy button's -- because the drawer's
@@ -999,13 +1066,7 @@
      surprise. And `settingsTab`, because which tab you are on is not an export
      setting: throwing you to another tab because you reset a field list would be a
      second change you did not ask for. */
-  const EXPORT_PREF_KEYS = [
-    "lineShape",
-    "detailsFields",
-    "reportFields",
-    "reportBand1",
-    "reportBand2",
-  ];
+  const EXPORT_PREF_KEYS = ["lineShape"];
 
   /* WHETHER THE DRAWER IS OPEN IS A STORED PREFERENCE. Reversed on 2026-08-18, at
      the user's request, after using 0.4.0.
@@ -1048,13 +1109,6 @@
   function normalisePrefs(stored) {
     const source = stored && typeof stored === "object" ? stored : {};
 
-    // THE TWO BANDS ARE RESOLVED UP HERE, because they are the one pair of keys in
-    // this function with a rule BETWEEN them and an object literal has no place to
-    // put one. The rule itself is `resolveBands` below, which is also what a 📊
-    // Report PRESET's two bands go through -- one copy of it, so the pair rule
-    // cannot hold on one path and not on the other.
-    const bands = resolveBands(source.reportBand1, source.reportBand2);
-
     // The order matches DEFAULT_PREFS above, so the two read as one list.
     return {
       // The drawer starts closed on a fresh install and is remembered after that.
@@ -1082,28 +1136,19 @@
       size: readStoredSize(source.size),
       basisStacked: readStoredBasis(source.basisStacked),
       basisSplit: readStoredBasis(source.basisSplit),
-      // The six export keys. Each is checked against the vocabulary above, and an id
-      // this build does not know falls back to that key's default -- the same
-      // treatment `layout` and `corner` get, and the OPPOSITE of what a collection
-      // gets, which is the whole reason the two live in different keys.
+      /* THE ONE EXPORT KEY LEFT, checked against the vocabulary above, so an id this
+         build does not know falls back to the default -- the same treatment `layout`
+         and `corner` get, and the OPPOSITE of what a collection gets, which is the
+         whole reason the two live in different keys.
+
+         THE OTHER FOUR ARE GONE FROM HERE AND THAT IS THE WHOLE MIGRATION. This
+         function keeps only known keys, so a blob still carrying `detailsFields`,
+         `reportFields`, `reportBand1` or `reportBand2` drops them on its next write
+         with nothing to convert -- and `legacyExportPrefs` has already read them off
+         the RAW blob by then, which is why that function does not go through here. */
       lineShape: LINE_SHAPE_IDS.includes(source.lineShape)
         ? source.lineShape
         : DEFAULT_PREFS.lineShape,
-      detailsFields: normaliseFieldList(
-        source.detailsFields,
-        DEFAULT_PREFS.detailsFields,
-      ),
-      reportFields: normaliseFieldList(
-        source.reportFields,
-        DEFAULT_PREFS.reportFields,
-      ),
-      // NEVER `none`. A report with no bands at all is 📋 Details, so a blob asking
-      // for one gets the default band back rather than a second copy of another
-      // export.
-      reportBand1: bands.band1,
-      // `none` IS honoured here, and it is the single-level report -- and it is also
-      // where a duplicate lands, for the reason `resolveBands` gives.
-      reportBand2: bands.band2,
       // The first tab, never blank: an id that is not a tab any more must not leave
       // the panel with nothing on it.
       settingsTab: SETTINGS_TAB_IDS.includes(source.settingsTab)
@@ -1135,19 +1180,27 @@
      BAND 1 MAY NOT BE `none`, because a report with no bands at all is 📋 Details,
      and neither a preference nor a preset may turn one export into another.
 
-     THE DEFAULTS ARE STILL `DEFAULT_PREFS`', and that is the ONE LINE TO FOLLOW when
-     `reportBand1` and `reportBand2` leave that object for the presets key. They are
-     the shipped bands either way; only their home moves. */
+     THE DEFAULTS MOVED WITH THE KEYS, on 2026-09-06. They were `DEFAULT_PREFS`' and
+     this comment named itself as the ONE LINE TO FOLLOW when `reportBand1` and
+     `reportBand2` left that object; they left, and it is `PRESET_DEFAULTS` now. They
+     are the shipped bands either way -- only their home moved -- and this function is
+     otherwise unchanged.
+
+     AND IT HAS ONE CALLER FEWER. `normalisePrefs` no longer resolves a band pair,
+     because the preferences no longer hold one; `normalisePreset` is the only caller
+     left. The function stays a function rather than being inlined there, because the
+     rule is what `store-smoke` runs its five hostile pairs against -- and because the
+     day a second export grows headings it needs two callers again. */
   function resolveBands(rawBand1, rawBand2) {
     const band1 = BAND_IDS.includes(rawBand1)
       ? rawBand1
-      : DEFAULT_PREFS.reportBand1;
+      : PRESET_DEFAULTS.reportBand1;
     const band2 =
       rawBand2 === NO_BAND
         ? NO_BAND
         : BAND_IDS.includes(rawBand2)
           ? rawBand2
-          : DEFAULT_PREFS.reportBand2;
+          : PRESET_DEFAULTS.reportBand2;
     return { band1, band2: band2 === band1 ? NO_BAND : band2 };
   }
 
@@ -1438,6 +1491,58 @@
     return first;
   }
 
+  /* SORTED BY NAME, AND A COPY. The stored array's order carries nothing -- the
+     picker sorts, ★ is a flag rather than a position -- but sorting the stored array
+     in place would still be a write, and this is called from `render`. `slice`
+     first, always. */
+  function sortedPresets(list) {
+    return list.slice().sort(byName);
+  }
+
+  /* WHAT A PLAIN PRESS PRINTS, ANSWERED IN ONE PLACE. `format` asks it per copy and
+     the ⚙ panel asks it to draw the ★ note, so a disagreement between the two would
+     be a screen that names a preset the button does not use.
+
+     THE `??` CAN ONLY FIRE ON A LIST THAT NEVER CAME THROUGH `normalisePresets`,
+     which enforces exactly one ★ on the way in AND on the way out (`oneStar`). It is
+     kept because the alternative is `undefined` reaching `shapeFor` and
+     `enabledFields` -- a copy built from nothing -- and because the fallback is the
+     same sentence the repair uses, so the two cannot give different answers: the
+     first preset by name. */
+  function starPreset(list) {
+    return list.find((one) => one.star) ?? firstByName(list);
+  }
+
+  /* WHERE THE TWO BAND VOCABULARIES MEET, AND IT IS THE ONLY PLACE THEY DO.
+
+     `SETTINGS_TABS` and `EXPORTS` name the bands `reportBand1` and `reportBand2` --
+     the preference keys they were until 1.7.0 -- and `format-smoke` holds those two
+     tables to naming the same pair. A STORED PRESET NAMES THEM `band1` AND `band2`,
+     because a 📋 Details preset carries no bands at all and a key called
+     `reportBand1` on a preset would be a promise the format does not keep (§2.4's
+     fourth key, 2026-08-28).
+
+     POSITION IS THE MEANING IN BOTH, which is what makes the translation total and
+     one line long: `tab.bands` is ordered, so the first entry is the band and every
+     later one is a sub-band, and `band1` / `band2` say the same thing by number.
+     Neither `bandPatch` nor `renderBands` has to know which vocabulary it is in --
+     they work in the tab's, and these two convert. */
+  const presetBandKey = (at) => `band${at + 1}`;
+
+  function presetBands(tab, preset) {
+    return Object.fromEntries(
+      tab.bands.map((key, at) => [key, preset[presetBandKey(at)]]),
+    );
+  }
+
+  // The other direction, and it writes only the keys the patch names -- `bandPatch`
+  // returns one key or two, and a key it left out is a band this press did not move.
+  function applyBandPatch(tab, preset, patch) {
+    tab.bands.forEach((key, at) => {
+      if (key in patch) preset[presetBandKey(at)] = patch[key];
+    });
+  }
+
   /* ONE STORED PRESET, REPAIRED. Returns `null` for an entry that cannot be one,
      which is the DROP -- and it is the only drop, because a name is the only part
      of a preset that cannot be invented. Everything else has a right answer: an id
@@ -1471,11 +1576,12 @@
         ? stored.lineShape
         : DEFAULT_PREFS.lineShape,
       // `normaliseFieldList` UNCHANGED, all five of its steps, including the one
-      // that completes the listing against the catalogue -- because ticket 03 draws
-      // the ⚙ rows from this list exactly as it draws them from the preference
-      // today. The fallback is still `DEFAULT_PREFS`', and this is the second of
-      // the two lines to follow when the four keys move (see `resolveBands`).
-      fields: normaliseFieldList(stored.fields, DEFAULT_PREFS[tab.fields]),
+      // that completes the listing against the catalogue -- because the ⚙ rows are
+      // drawn from this list exactly as they were drawn from the preference. THE
+      // FALLBACK MOVED WITH THE KEYS on 2026-09-06: it was `DEFAULT_PREFS`' and this
+      // was the second of the two lines ticket 02 said to follow (see
+      // `resolveBands`). It is `PRESET_DEFAULTS`' now, same values, new home.
+      fields: normaliseFieldList(stored.fields, PRESET_DEFAULTS[tab.fields]),
     };
 
     // THE BANDS BELONG TO 📊 REPORT AND TO NOTHING ELSE. Not copied onto a 📋
@@ -1590,6 +1696,43 @@
       logger.error("could not write the presets", e);
     }
     scheduleRender();
+  }
+
+  /* THE PRESETS' FIRST RUN IS WRITTEN AT BOOT, beside the collections'. ADDED
+     2026-09-06 BY TICKET 03, AND IT IS A CORRECTION OF TICKET 02'S LAZY BUILD RATHER
+     THAN A NEW FEATURE.
+
+     TICKET 02 BUILT THE FIRST RUN IN MEMORY AND WROTE NOTHING, on §2.4's own rule
+     that nothing is rewritten because you looked at it. That was right while nothing
+     read a preset. It stopped being right the moment `format` did, and the failure is
+     narrow and real: the build reads `lineShape` off the RAW preferences blob
+     (`legacyExportPrefs`), so while the key is absent the 📋 Details and 📊 Report
+     presets FOLLOW 🔗 Links' shape -- change that dropdown and the other two buttons
+     move with it, which is precisely the "silently follows" state decision 5 exists to
+     refuse. `boot-smoke` found it by pressing 🔗 Links' dropdown and reading the other
+     two.
+
+     A LAZY BUILD CANNOT FIX THIS AND NO TEST ON THE BLOB CAN EITHER. The question the
+     build has to answer is *was this shape chosen before or after 1.7.0*, and a blob
+     holding `lineShape` and none of the four export keys looks identical either way.
+     Only a WRITE can record which side of the upgrade a value came from, which is why
+     the collections have `writeFirstRun` and why this is its twin.
+
+     WHAT IT COSTS, AND IT IS THE THING TICKET 02 WAS PROTECTING: an install now grows
+     a fourth key on its first boot after upgrading, having clicked nothing. That is
+     the same cost `writeFirstRun` has paid since 0.1.0 -- a fresh install writes
+     `Scratch` before anybody presses anything -- and the reason is the same: the store
+     is where "this has happened" is recorded, and a value nobody wrote is a value
+     nothing can date.
+
+     `loadPresets` IS STILL A PURE READ. This is a separate function, called once from
+     the boot path, and `store-smoke` holds both halves: reading writes nothing, and
+     this writes exactly once. */
+  function writeFirstRunPresets() {
+    const raw = GM_getValue(PRESETS_KEY, null);
+    if (raw !== null && raw !== undefined) return;
+    logger.log("first run: building the Standard preset for each export");
+    savePresets(() => {});
   }
 
   // ------------------------------------------------------------------- mount
@@ -3717,18 +3860,33 @@ ${selectors.join(",\n")} {
    * paragraph above still holds: there is no template, `detailChip` is still the
    * one place styling is written, and nothing a user can click reaches it.
    *
-   * THE PREFERENCES ARE READ HERE, ONCE PER COPY, AND NOWHERE ELSE. Three exports
-   * build their head from the one line shape, so §2.14's promise that 📋 Details'
-   * head is 🔗 Links' line cannot be broken by one of them reading a different value
-   * -- there is only one read. They are read at the press rather than held in a
-   * variable, for the reason `drawerIsOpen` is a function: a copy beside the stored
-   * value is two values that can disagree, and this one would disagree silently, in
-   * bytes already on somebody's clipboard (principle 1, §2.8).
+   * THE CONFIGURATION IS READ HERE, ONCE PER COPY, AND NOWHERE ELSE. It is read at
+   * the press rather than held in a variable, for the reason `drawerIsOpen` is a
+   * function: a copy beside the stored value is two values that can disagree, and
+   * this one would disagree silently, in bytes already on somebody's clipboard
+   * (principle 1, §2.8). The bands are read in the same breath, so a report is
+   * grouped by whatever was stored at the moment of the press and no renderer below
+   * this line asks storage anything (§2.15).
    *
-   * THE BANDS ARE READ IN THE SAME BREATH, for the same reason and with the same
-   * consequence: a report is grouped by whatever the two dropdowns said at the
-   * moment of the press, and no renderer below this line asks storage anything
-   * (§2.15).
+   * SINCE 1.7.0 IT COMES FROM A PRESET, AND THIS IS THE LINE WHERE THAT HAPPENS
+   * (presets decisions 1 and 3). 📋 Details and 📊 Report each read the ★ preset of
+   * their own list -- its shape, its ordered field list, and for 📊 Report its two
+   * bands. There is no unnamed copy of that state left to read.
+   *
+   * WHICH LIST BELONGS TO WHICH EXPORT IS ASKED OF `entry.fields`, not of the kind.
+   * `EXPORTS` and `SETTINGS_TABS` already name the same field keys and `format-smoke`
+   * asserts it, so that key is a seam this repository maintains -- where matching
+   * `entry.kind` against a tab id would be a NEW correspondence, true today by
+   * coincidence and checked by nothing.
+   *
+   * §2.14'S PROMISE IS NARROWED HERE AND THE NARROWING IS THE DESIGN. It used to be
+   * that all three exports built their head from ONE line shape, so they could not
+   * disagree about what a collected issue looks like. A preset always names its own
+   * shape (decision 5), so they now CAN disagree -- deliberately, because a preset is
+   * something the user built and named rather than a key touched on their behalf.
+   * The cost is stated limit 3: changing your shape everywhere means editing every
+   * preset, and nothing reports which one you missed. 🔗 Links keeps the preference,
+   * which is why `prefs.lineShape` is still read below.
    *
    * THE FIELD SELECTION IS APPLIED AT RENDER AND NEVER AT FETCH, and the opposite is
    * the obvious-looking optimisation. Narrowing `DETAIL_FIELDS` to the ticked fields
@@ -3750,21 +3908,37 @@ ${selectors.join(",\n")} {
     // claiming success. The precondition for any copy is at least one item (§2.8).
     if (!items.length) return null;
     if (entry.scopes && !entry.scopes.includes(scope)) return null;
-    const prefs = loadPrefs();
+    // The tab whose field list this export reads, which is also the presets list it
+    // runs. `undefined` for the four exports that carry no field tail -- 🔗 Links,
+    // 📃 Names, 🔑 Keys and 🔍 Search -- and those four take the preference.
+    const tab = entry.fields
+      ? PRESET_LISTS.find((one) => one.fields === entry.fields)
+      : undefined;
+    const preset = tab ? starPreset(loadPresets()[tab.id]) : null;
     return entry.build(
       items,
       scope,
-      shapeFor(prefs.lineShape),
-      // `undefined` for the four exports that carry no field tail, which is what
-      // they already ignored. `normalisePrefs` has completed the list against the
-      // catalogue on the way out, so a stored blob missing a field, naming one this
-      // build does not have, or holding none at all cannot reach a renderer.
-      entry.fields ? enabledFields(prefs[entry.fields]) : undefined,
-      // And the bands, for the one export that has any. Read HERE, in the same one
-      // read as the shape and the field list, so `formatReport` stays a pure
-      // function of its arguments and a copy cannot be built from two different
-      // versions of the preferences (§2.15).
-      entry.bands ? entry.bands.map((key) => prefs[key]) : undefined,
+      // The preset's own shape where there is one, and 🔗 Links' preference where
+      // there is not. ONE READ EITHER WAY: `loadPrefs` is not called at all on the
+      // preset path, so there is no second value in play that could have been used
+      // by mistake.
+      shapeFor(preset ? preset.lineShape : loadPrefs().lineShape),
+      // `normalisePresets` has completed the list against the catalogue on the way
+      // out -- the same `normaliseFieldList` the preference went through -- so a
+      // stored preset missing a field, naming one this build does not have, or
+      // holding none at all cannot reach a renderer.
+      preset ? enabledFields(preset.fields) : undefined,
+      /* AND THE BANDS, for the one export that has any. Taken off the preset in the
+         same one read as its shape and its field list, so `formatReport` stays a pure
+         function of its arguments and a copy cannot be built from two different
+         versions of the configuration (§2.15).
+
+         THE ORDER COMES FROM `entry.bands` AND THE VALUES FROM THE PRESET, through
+         `presetBands`, which is the one place the two vocabularies meet and says why
+         there are two. */
+      entry.bands && preset
+        ? entry.bands.map((key) => presetBands(tab, preset)[key])
+        : undefined,
     );
   }
 
@@ -4717,7 +4891,6 @@ ${selectors.join(",\n")} {
   const PREF_COPY_ID = "gt-cart-pref-copy";
   const PREF_LAYOUT_ID = "gt-cart-pref-layout";
   const PREF_CORNER_ID = "gt-cart-pref-corner";
-  const PREF_SHAPE_ID = "gt-cart-pref-shape";
   /* THE ONE NAME FOR "THE SETTINGS ARE OPEN", and it is a constant because it is
      used TWICE: `render` writes it on the ⚙, and the stylesheet's selector paints
      the button from it. Two literals would be two values that can disagree, and the
@@ -4742,6 +4915,55 @@ ${selectors.join(",\n")} {
   const tabButtonId = (id) => `gt-cart-tab-${id}`;
   const tabPanelId = (id) => `gt-cart-tabpanel-${id}`;
   const fieldListId = (id) => `gt-cart-fields-${id}`;
+  /* THE `Issue reference` DROPDOWN IS PER TAB SINCE 1.7.0, so its id is derived like
+     every other per-tab id here. It was one pinned control with the flat id
+     `gt-cart-pref-shape` until then, and the rename is what says the control changed
+     meaning rather than moved: 🔗 Links' one writes the preference, and 📋 Details'
+     and 📊 Report's each write the shape of the preset that tab has selected
+     (presets decision 5). Three controls, one builder, and which one writes what is
+     `tab.fields` and never a literal. */
+  const shapeSelectId = (id) => `gt-cart-pref-shape-${id}`;
+
+  /* THE PRESET BLOCK'S IDS, one per export tab that has presets. `render` finds them
+     by id; what a press DOES is carried by the dataset attribute below, which is the
+     same split the field rows and the band dropdowns already use.
+
+     THE PICKER IS THE ONE CONTROL ON THIS SCREEN WHOSE OPTIONS ARE REPLACED, and it
+     has to be: a preset list is data that grows and shrinks, where the bands' seven
+     options and the shapes' five are vocabulary. `renderPresetPicker` therefore
+     compares the options it wants against the ones on screen and writes only on a
+     difference -- the rule `renderFieldList` already follows for the rows' order, and
+     for the same reason: a rebuild on every render would close the dropdown under the
+     pointer that opened it. */
+  const presetPickerId = (id) => `gt-cart-preset-${id}`;
+  const presetStarId = (id) => `gt-cart-preset-star-${id}`;
+  const presetEditId = (id) => `gt-cart-preset-edit-${id}`;
+  const presetDeleteId = (id) => `gt-cart-preset-delete-${id}`;
+  const presetRenameId = (id) => `gt-cart-preset-rename-${id}`;
+  const presetCreateOpenId = (id) => `gt-cart-preset-new-${id}`;
+  const presetNameId = (id) => `gt-cart-preset-name-${id}`;
+  const presetCreateId = (id) => `gt-cart-preset-create-${id}`;
+  const presetNoteId = (id) => `gt-cart-preset-note-${id}`;
+  /* WHAT `armed` HOLDS WHILE A ✕ IS ARMED, AND IT NAMES THE PRESET AND NOT THE
+     LIST. A key naming only the tab would stay armed across a change of picker, so
+     the second press would delete a preset the first press never asked about -- and
+     that is reachable with one pair of hands, which is the standard §2.9.1 set for
+     this kind of guard. Including the id makes the arm invalidate itself: `render`
+     compares against the preset now selected, so a picker change disarms by
+     construction rather than by a handler remembering to. */
+  const presetArmKey = (tabId, presetId) => `preset:${tabId}:${presetId}`;
+  /* WHICH LIST A PRESET CONTROL BELONGS TO, and it holds the TAB ID where a field
+     row's `gt-list` holds a preference key. The difference is not an inconsistency:
+     a field row writes a key, so it carries the key's name; a preset control acts on
+     a LIST, and `PRESET_LISTS` is keyed by tab id because it is derived from
+     `SETTINGS_TABS`. */
+  const PRESET_LIST_ATTR = "gtPresetList";
+  /* WHICH TAB AN `Issue reference` DROPDOWN BELONGS TO. There are three of them
+     since 1.7.0 and they are found by id but WRITE by this attribute, for the reason
+     the band dropdowns carry theirs: what a change does is decided by the tab, not
+     parsed back out of the id. Where the value lands -- the preference or the
+     selected preset -- is `tab.fields`, so this attribute never has to say it. */
+  const SHAPE_TAB_ATTR = "gtShape";
   /* THE BAND DROPDOWNS' IDS, DERIVED FROM THE PREFERENCE KEY THEY WRITE, so a third
      band would be one more entry in `SETTINGS_TABS` and nothing to name here. The
      lowercase is only house style -- every other id in this file is lowercase -- and
@@ -4763,8 +4985,12 @@ ${selectors.join(",\n")} {
      input and the delegated drag listeners are handed the row, and neither should
      have to walk the other's way up or down the tree to find out which list it is in.
 
-     `gt-list` HOLDS THE PREFERENCE KEY, not the tab id. What a click or a drop does
-     is write a preference, so the thing it carries is the name of the key it writes. */
+     `gt-list` HOLDS THE TAB ID, AND IT HELD THE PREFERENCE KEY UNTIL 1.7.0. The old
+     comment's reasoning was right and its premise expired: *"what a click or a drop
+     does is write a preference, so the thing it carries is the name of the key it
+     writes."* A click or a drop writes A PRESET now -- the selected preset of this
+     tab's list -- so the thing it carries is the tab, which is what `PRESET_LISTS`
+     and `selectedPreset` are keyed by and what `fieldListId` already used. */
   const FIELD_LIST_ATTR = "gtList";
   const FIELD_ID_ATTR = "gtField";
   /* The two transient ones, written by a drag and painted by the stylesheet: which
@@ -4953,6 +5179,32 @@ ${selectors.join(",\n")} {
   let renaming = null;
   let dragging = null;
 
+  /* WHICH PRESET EACH TAB IS SHOWING, IN MEMORY, AND IT STARTS AT ★ (presets
+     decision 9). One entry per list, keyed by tab id, holding an id or nothing.
+
+     NOTHING IS STORED, WHICH IS WHY NOTHING CAN DANGLE. A stored id would need a
+     rule for the preset being deleted in another tab, another for it being deleted
+     here, and a third for a blob hand-edited between sittings -- three rules to buy
+     back a selection you can restore with one press of the picker. `settingsTab`'s
+     precedent was weighed and NOT followed: that one is about the drawer reopening
+     mid-sitting, and being thrown to the first tab every time you come back is a
+     complaint somebody made. Being shown the ★ preset when you open ⚙ is not the
+     same thing -- it is the preset the buttons actually use.
+
+     AN UNKNOWN ID HERE IS NOT AN ERROR, it is just a miss: `selectedPreset` falls to
+     ★, which is where a fresh sitting starts anyway. So a delete in another tab
+     needs no rule at all, and the reset on delete below is a convenience rather than
+     a guard.
+
+     `presetCreating` AND `presetRenaming` ARE THE SAME KIND OF STATE, and they are
+     the whole of what "no draft" costs: a name being typed, and nothing else. There
+     is no unsaved field list, no unsaved band and no Cancel -- creating COMMITS THE
+     NAME FIRST and every edit after that lands on a preset that already exists
+     (decision 8, reversed from use on 2026-08-27). */
+  let presetSelection = {};
+  let presetCreating = {};
+  let presetRenaming = null;
+
   /* THE TWO DESTRUCTIVE CONTROLS ARE ARMED BEFORE THEY FIRE. Added on 2026-08-18,
      at the user's request: emptying a collection meant clicking ✕ on every row,
      and deleting one was not possible at all -- §2.4 designed the delete and §2.9
@@ -4970,9 +5222,11 @@ ${selectors.join(",\n")} {
      It was a boolean beside a nullable id, kept exclusive by `arm` -- which worked,
      and which principle 1 says not to write: two values that must agree. The third
      armed control (`↺ Restore export defaults`, §2.9) is what made the pair a
-     triple and paid for the change. It holds `null`, `"empty"`, `"restore"`, or a
-     collection's id, and a collection id is a `crypto.randomUUID()`, so neither
-     word can ever collide with one. */
+     triple and paid for the change. It holds `null`, `"empty"`, `"restore"`, a
+     collection's id, or -- since 1.7.0 -- a `presetArmKey`, which is a fourth armed
+     control and still one variable. A collection id is a `crypto.randomUUID()` and a
+     preset key is prefixed `preset:`, so nothing here can ever collide with anything
+     else here. */
   let armed = null;
   let armTimer = null;
 
@@ -4982,6 +5236,7 @@ ${selectors.join(",\n")} {
     "empty-collection",
     "delete-collection",
     "restore-exports",
+    "preset-delete",
   ]);
 
   // Long enough to read the question, short enough that a forgotten armed button
@@ -5010,6 +5265,265 @@ ${selectors.join(",\n")} {
   // page on every render rather than remembered, so it is not a buffer that can
   // disagree with the page (§2.3).
   let liveAnchors = new Map();
+
+  /* WHICH PRESET THE ROWS BELOW EDIT, ANSWERED IN ONE PLACE. It is the picker's
+     value if that names a preset that still exists, and ★ otherwise.
+
+     THE `??` IS THE WHOLE OF THE DANGLING RULE, and it is why nothing is stored: an
+     id that names nothing is not an error state to repair, it is a miss that falls
+     to the preset a plain press already uses. So a delete in another tab, a
+     hand-edited blob, and a fresh sitting all land in the same place, and none of
+     them needs a line of its own.
+
+     THE PRESETS ARE PASSED IN rather than read here, so a render performs ONE
+     `loadPresets` and every control on the screen is drawn from the same read. Two
+     reads a frame apart is the sort of pair that disagrees exactly once, in the
+     frame where somebody deleted something. */
+  function selectedPreset(tab, presets) {
+    const list = presets[tab.id];
+    return (
+      list.find((one) => one.id === presetSelection[tab.id]) ?? starPreset(list)
+    );
+  }
+
+  /* EVERY EDIT ON AN EXPORT TAB GOES THROUGH HERE: a tick, a drag, a band, a shape,
+     and the restore. There is NO SAVE BUTTON AND NO DRAFT (presets decision 7) --
+     every control in the drawer already writes on change, and a draft would be the
+     only one in the script, needing a rule for closing the drawer, switching tab, an
+     add arriving from the page and another tab writing, plus an unsaved marker on a
+     screen with no room for one.
+
+     THE PRESET IS RESOLVED BY ID AND THEN FOUND AGAIN INSIDE THE WRITE, which reads
+     like a redundant step and is not. `savePresets` performs a FRESH read and applies
+     the mutation to that (§2.5), so the object `selectedPreset` returned belongs to a
+     list that is already out of date by the time the mutation runs. Re-finding by id
+     is what makes the write land on the right preset -- and by ID AND NEVER BY INDEX,
+     which is configurability decision 37 applied one level up: the list sorts by name
+     in the picker, so a rename in another tab moves a position and moves no id.
+
+     A PRESET DELETED IN ANOTHER TAB SINCE THE READ IS A NO-OP, not a throw and not a
+     resurrection. Nothing is written, the render `savePresets` schedules redraws the
+     panel from what survived, and the picker falls to ★. */
+  function editSelectedPreset(tab, mutate) {
+    const chosen = selectedPreset(tab, loadPresets());
+    savePresets((next) => {
+      const target = next[tab.id].find((one) => one.id === chosen.id);
+      if (target) mutate(target);
+    });
+  }
+
+  /* ONE TAB'S `Issue reference` ROW. Three tabs have one since 1.7.0 and they are
+     built by this one function, because they differ in exactly one thing: where the
+     value goes.
+
+     🔗 LINKS' WRITES THE PREFERENCE. 📋 DETAILS' AND 📊 REPORT'S WRITE THE SELECTED
+     PRESET'S OWN SHAPE. Which it is comes off `tab.fields` -- a tab has presets
+     exactly when it has a field list -- so there is no fourth flag in `SETTINGS_TABS`
+     and no literal `"links"` in here.
+
+     THE OPTIONS ARE BUILT FROM `SHAPES`, so a shape added or dropped there moves all
+     three dropdowns with it and there is no second list of names to keep in step --
+     the same reason the tab bar is built from `SETTINGS_TABS`.
+
+     WHAT THIS ROW USED TO BE, because the change is a decision and not a move. Until
+     1.7.0 it was ONE control pinned above the tab bar, and §2.14's promise was that
+     all three exports built their head from it, so the three could not disagree about
+     what a collected issue looks like. A preset always names its own shape (presets
+     decision 5), so they now can -- deliberately, and against the recommendation,
+     which was §6 item 16's nullable "follow the shared setting". What makes it not
+     item 16's silently-stops-following bug is that a preset is a thing the user built
+     and named. The cost is stated limit 3 and it is real: changing your shape
+     everywhere means editing every preset, and nothing tells you which one you
+     missed. */
+  function shapeControl(tab) {
+    const row = el("label", "gt-cart-pref");
+    row.title = tab.fields
+      ? "How THIS PRESET writes the issue at the head of a line. Every preset names its own shape, so changing it here changes one preset and nothing else. The markdown shapes arrive as live links where markdown is rendered and as their own source code where it is not; the shapes that show a URL arrive readable and clickable in both."
+      : "How 🔗 Links writes the issue at the head of a line. 📋 Details and 📊 Report take theirs from the preset they run, so this row governs one button. The markdown shapes arrive as live links where markdown is rendered and as their own source code where it is not; the shapes that show a URL arrive readable and clickable in both.";
+    row.append(el("span", "gt-cart-pref-label", "Issue reference"));
+    const node = select(
+      shapeSelectId(tab.id),
+      tab.fields
+        ? "How this preset writes an issue at the head of a line"
+        : "How an issue is written at the head of a line, in 🔗 Links",
+      SHAPES.map((one) => [one.id, one.label]),
+    );
+    // The tab, not the target. What this control writes is derived from the tab in
+    // `onPrefsChange`, so the attribute says WHICH ROW THIS IS and the rule about
+    // where it lands stays in one place.
+    node.dataset[SHAPE_TAB_ATTR] = tab.id;
+    row.append(node);
+    return row;
+  }
+
+  /* ONE TAB'S PRESET BLOCK, BUILT ONCE AND NEVER REBUILT. Five controls, a name
+     field, a rename field and a note, at the top of the tab, above the settings it
+     governs.
+
+     WHAT IS AND IS NOT SOLVED HERE, said once. The preset you are EDITING and the
+     preset that PRINTS need not be the same one: you can edit `Executive` all
+     afternoon and a plain press still prints `Standard`. That is stated limit 1 and
+     it is ACCEPTED rather than solved -- it follows from presets being the export
+     configuration (decision 1) plus the selection being in memory (decision 9). What
+     narrows it is the note at the foot of this block, which says both facts as two
+     sentences because they are two facts, and -- from ticket 04 -- the armed button
+     carrying ★ or ▾.
+
+     EVERYTHING HERE IS BUILT AND THEN HIDDEN OR SHOWN, never created on demand. The
+     panel's build-once rule (decision 25) is the reason: an add arriving from the
+     page while ⚙ is up re-renders the drawer, and a block that rebuilt itself would
+     take the focus off the name you are typing. */
+  function presetBlock(tab) {
+    const wrap = el("div", "gt-cart-presets");
+
+    const row = el("div", "gt-cart-preset-row");
+
+    /* SORTED BY NAME, case-insensitively, and ★ goes in the OPTION TEXT because that
+       is the one part of a native option that is ours to write (decision 12). The
+       stored order carries no meaning at all, so there is nothing to maintain and no
+       reorder control to build; the cost is that you cannot put your most-used preset
+       first, and a rename moves one.
+
+       CHANGING IT WRITES NOTHING. It changes what the rows below edit and that is
+       all -- which is why the selection is in memory and the picker is the only
+       control in this drawer whose `change` does not reach storage. */
+    const picker = select(
+      presetPickerId(tab.id),
+      `Which ${tab.label} preset the settings below edit`,
+      [],
+    );
+    picker.title =
+      "Which preset the settings below edit. Changing this writes nothing.";
+    /* THE PICKER IS THE ONLY CONTROL IN THIS BLOCK THAT CARRIES THIS ATTRIBUTE ON A
+       `change` PATH, AND THAT IS THE WHOLE GUARD. `change` BUBBLES from every form
+       control, INCLUDING A TEXT INPUT ON BLUR, and the panel has one delegated
+       `change` listener -- so a rename field carrying this attribute would fire on
+       blur, reach the picker's branch in `onPrefsChange`, and set the selection to
+       the NAME somebody had just typed. The two text fields below are therefore left
+       without it, and they need it for nothing: each is found by id and each knows
+       its own list from the closure it was built in.
+
+       IT WAS BRIEFLY GUARDED TWICE, and the second guard was deleted rather than
+       kept. `onPrefsChange` also tested `input.id === presetPickerId(...)`, and the
+       mutation run showed that EITHER measure alone prevents the bug -- so neither
+       could be proved able to fail, which is this repository's own definition of a
+       check that is worse than none. The attribute is the one that survives, because
+       every other branch in that handler dispatches on an attribute alone and an id
+       test in one of them would be the odd rule out. `boot-smoke` dispatches a
+       `change` at the rename field directly, which is the regression this leaves
+       covered.
+
+       FOUND BY READING THE DELEGATED LISTENER, not by a press: the stub's blur
+       synthesises no `change` and a browser's does. */
+    picker.dataset[PRESET_LIST_ATTR] = tab.id;
+
+    /* WHILE THE RENAME FIELD IS OPEN IT BELONGS TO THE KEYBOARD, which is the
+       comment on the collection's own `startRename` and the whole of why the value is
+       set there rather than in `render`: a render in the middle of typing must not put
+       the stored name back. Enter or blur commits, Escape cancels, an empty name is
+       refused with nothing written and the old name standing -- `commitRename`'s own
+       four rules, reused rather than restated. */
+    const rename = textField(
+      presetRenameId(tab.id),
+      "",
+      `Rename this ${tab.label} preset`,
+    );
+    rename.hidden = true;
+    rename.addEventListener("keydown", (event) =>
+      guard(() => {
+        if (event.key === "Enter") commitPresetRename();
+        else if (event.key === "Escape") cancelPresetRename();
+      }),
+    );
+    // Blur commits. Escape has already cleared `presetRenaming` by the time hiding
+    // the field produces a blur, so a cancel cannot be undone by it -- exactly as
+    // the collection's rename field works.
+    rename.addEventListener("blur", () => guard(commitPresetRename));
+
+    // ★ IS A STATE BUTTON, on `aria-pressed`, wearing the same pair the gear and the
+    // active collection chip already wear: this is the Cart's one word for "this is
+    // the one that is on". Its label and its title are `render`'s.
+    const star = actionButton("gt-cart-preset-btn", "preset-star");
+    star.id = presetStarId(tab.id);
+    star.textContent = "★";
+    star.dataset[PRESET_LIST_ATTR] = tab.id;
+
+    const edit = actionButton("gt-cart-preset-btn", "preset-rename");
+    edit.id = presetEditId(tab.id);
+    edit.textContent = "✎";
+    edit.dataset[PRESET_LIST_ATTR] = tab.id;
+
+    // ✕ ARMS ON THE FIRST PRESS and refuses on a list of one, which is the collection
+    // chip's ✕ at a different scope -- the two sentences are that control's own, and
+    // `render` writes them.
+    const remove = actionButton("gt-cart-preset-btn", "preset-delete");
+    remove.id = presetDeleteId(tab.id);
+    remove.textContent = "✕";
+    remove.dataset[PRESET_LIST_ATTR] = tab.id;
+
+    row.append(picker, rename, star, edit, remove);
+
+    /* NAME FIRST, THEN EDIT, AND `Save as new...` IS GONE. Reversed on 2026-08-27, on
+       the first press of the prototype, and the reason is decision 7 one line above:
+       editing writes straight into the selected preset, so the flow anybody actually
+       uses -- change the fields, then save the result under a new name -- MODIFIED
+       THE OLD PRESET as well as making the copy.
+
+       THE FIX IS AN ORDER AND NOT A MODE. `Create` commits the name first: the preset
+       exists, is selected, and every edit from then on lands on it. There is nothing
+       to accidentally modify, because creating comes before any editing.
+
+       AND IT NEEDS NO DRAFT, which is what makes it cheap. A form holding unsaved work
+       with a Cancel would be the only unsaved state in the Cart and would need a rule
+       for closing the drawer, switching tab, an add arriving from the page mid-form,
+       and a reload -- four rules where this needs none. The cost is that there is no
+       Cancel: undoing a new preset is DELETING it, which asks twice. Escape closes the
+       name field, which is not a cancel over unsaved work because there is none. */
+    const make = el("div", "gt-cart-preset-row");
+
+    const open = actionButton("gt-cart-preset-btn", "preset-create-open");
+    open.id = presetCreateOpenId(tab.id);
+    open.textContent = "+ Create preset";
+    open.dataset[PRESET_LIST_ATTR] = tab.id;
+
+    const name = textField(
+      presetNameId(tab.id),
+      "new preset…",
+      `Name for a new ${tab.label} preset`,
+    );
+    name.hidden = true;
+    name.addEventListener("keydown", (event) =>
+      guard(() => {
+        if (event.key === "Enter") createPreset(tab.id);
+        else if (event.key === "Escape") closePresetName(tab.id);
+      }),
+    );
+
+    const create = actionButton(
+      "gt-cart-preset-btn",
+      "preset-create",
+      // IT STARTS FROM THE SHIPPED DEFAULTS and never from a copy of the selected
+      // preset -- chosen against the recommendation, on being the version with no
+      // relationship to any existing preset at all (decision 8). The cost is limit 9:
+      // a small variation of an existing preset is rebuilt by hand.
+      "Create this preset with the fields, order and headings the script ships with, and edit it below",
+    );
+    create.id = presetCreateId(tab.id);
+    create.hidden = true;
+    create.textContent = "Create";
+    create.dataset[PRESET_LIST_ATTR] = tab.id;
+
+    make.append(open, name, create);
+
+    // TWO SENTENCES BECAUSE THEY ARE TWO FACTS, and limit 1 is that they need not
+    // agree: what a plain press of this button prints, and what the rows below are
+    // editing. Empty until `render` fills it.
+    const note = el("p", "gt-cart-preset-note");
+    note.id = presetNoteId(tab.id);
+
+    wrap.append(row, make, note);
+    return wrap;
+  }
 
   /* ONE TAB'S BAND DROPDOWNS, BUILT ONCE AND NEVER REBUILT, like everything else on
      this screen: `render` sets a value and a note, and replaces nothing (decision
@@ -5122,7 +5636,7 @@ ${selectors.join(",\n")} {
       // own. There is no keyboard path, deliberately -- the block above
       // `onFieldDragStart` says why, and §6 item 4 is the limit it rests on.
       row.setAttribute("draggable", "true");
-      row.dataset[FIELD_LIST_ATTR] = tab.fields;
+      row.dataset[FIELD_LIST_ATTR] = tab.id;
       row.dataset[FIELD_ID_ATTR] = field.id;
 
       const grip = el("span", "gt-cart-grip", "⠿");
@@ -5133,7 +5647,7 @@ ${selectors.join(",\n")} {
       const name = el("label", "gt-cart-field-name");
       const box = el("input");
       box.type = "checkbox";
-      box.dataset[FIELD_LIST_ATTR] = tab.fields;
+      box.dataset[FIELD_LIST_ATTR] = tab.id;
       box.dataset[FIELD_ID_ATTR] = field.id;
       // The label comes from `FIELD_CATALOGUE`, which is the one place a field is
       // named. A string here would be a second name that can disagree with the id
@@ -5310,35 +5824,14 @@ ${selectors.join(",\n")} {
        `render` does instead is SET: an attribute per tab, `hidden` per panel, and a
        value per control. Nothing in here is replaced.
 
-       PINNED ABOVE THE BAR: `Issue reference` governs all three exports, so a tab
-       that owned it would tell a small lie about its scope (decision 29). */
-    const pinned = el("div", "gt-cart-group");
-    pinned.append(el("div", "gt-cart-group-head", "Every export"));
-
-    /* ONE SETTING, THREE CONSUMERS. 🔗 Links' whole line, and the head of every
-       line in 📋 Details and 📊 Report, all come from this one control, which is
-       what keeps §2.14's promise that the three agree about what a collected issue
-       looks like (decision 5). A per-export override is left in §6.
-
-       The options are BUILT FROM `SHAPES`, so a shape added or dropped there moves
-       this dropdown with it and there is no second list of names to keep in step --
-       the same reason the tab bar is built from `SETTINGS_TABS`.
-
-       Same markup as `Sections` and `Corner` above, so it costs no new CSS and sits
-       on the same grid. */
-    const shape = el("label", "gt-cart-pref");
-    shape.title =
-      "How every export writes the issue at the head of a line. 🔗 Links, 📋 Details and 📊 Report all use it, so the three agree about what a collected issue looks like. The markdown shapes arrive as live links where markdown is rendered and as their own source code where it is not; the shapes that show a URL arrive readable and clickable in both.";
-    shape.append(el("span", "gt-cart-pref-label", "Issue reference"));
-    shape.append(
-      select(
-        PREF_SHAPE_ID,
-        "How an issue is written at the head of a line, in every export",
-        SHAPES.map((one) => [one.id, one.label]),
-      ),
-    );
-    pinned.append(shape);
-    prefs.append(pinned);
+       `pinned` STOPPED EXISTING AT 1.7.0. There was a group above the bar holding
+       `Issue reference`, because that one control governed all three exports and a
+       tab that owned it would have told a small lie about its scope (decision 29).
+       Once a preset always names its own shape (presets decision 5) the row governs
+       🔗 Links alone, so the pinned position would have been the lie -- and the row
+       moved into a tab of its own, which is the fourth. `gt-cart-group` and its
+       heading rule are kept: nothing uses them today, and the rule that a heading
+       appears only where a tab holds more than one group is what they are for. */
 
     // The bar shows EVERY tab whether it has ever been pressed or not, so there is
     // no open/closed set to store and a tab added later is visible the moment it
@@ -5359,9 +5852,11 @@ ${selectors.join(",\n")} {
     }
     prefs.append(bar);
 
-    // A GROUP HEADING ONLY WHERE A TAB HOLDS MORE THAN ONE GROUP. All three hold
-    // exactly one today, so a heading would repeat the tab label immediately below
-    // it. The pinned group above keeps its heading because it is NOT under a tab.
+    // A GROUP HEADING ONLY WHERE A TAB HOLDS MORE THAN ONE GROUP. Since 1.7.0 an
+    // export tab holds three or four -- the preset block, the shape, the bands and
+    // the list -- and it still carries no headings, because they read as one thing:
+    // WHICH PRESET, then what that preset is. The rule has not changed; what it is
+    // measuring has. The pinned group that did carry one is gone with `pinned`.
     for (const tab of SETTINGS_TABS) {
       const panel = el("div", "gt-cart-tabpanel");
       panel.id = tabPanelId(tab.id);
@@ -5371,11 +5866,18 @@ ${selectors.join(",\n")} {
       if (tab.id === "appearance") {
         panel.append(copyPref, rightClick, layout, corner);
       }
-      // THE BANDS GO ABOVE THE LIST, because a band is what takes a field into a
-      // heading and the list is what says what is left on the row -- so the panel
-      // reads in the order the document is built. Both are driven off
-      // `SETTINGS_TABS`, so a tab with bands and no field list, or the reverse,
-      // costs nothing here.
+      /* THE PRESET BLOCK GOES FIRST, above the settings it governs, because it says
+         WHICH preset everything under it edits -- and a control that scopes the rows
+         below it has to be read before them. It exists exactly where `PRESET_LISTS`
+         says a list does, which is where the tab has a field list (decision 4).
+
+         THEN THE SHAPE, THEN THE BANDS, THEN THE LIST. The shape is a property of the
+         whole line and the bands take a field off the row, so the panel reads
+         outside-in: what the head looks like, what becomes a heading, what is left on
+         the row. All four are driven off `SETTINGS_TABS`, so a tab with bands and no
+         field list, or the reverse, costs nothing here. */
+      if (tab.fields) panel.append(presetBlock(tab));
+      if (tab.exports) panel.append(shapeControl(tab));
       if (tab.bands) panel.append(bandControls(tab));
       if (tab.fields) panel.append(fieldList(tab));
       prefs.append(panel);
@@ -5583,9 +6085,9 @@ ${selectors.join(",\n")} {
         const action = target?.disabled ? null : target?.dataset.gtAction;
         // Disarmed HERE rather than inside `onDrawerAction`, so that a click on a
         // heading, on a row's dead space, or on a disabled control counts as
-        // walking away as well. Only the three arming controls survive it, and they
+        // walking away as well. Only the four arming controls survive it, and they
         // are a named set rather than a chain of `!==` because the third one is
-        // what made the chain worth reading twice.
+        // what made the chain worth reading twice, and the fourth is a preset's ✕.
         if (!ARMING_ACTIONS.has(action)) disarm();
         if (!action) return;
         onDrawerAction(action, target);
@@ -5598,6 +6100,16 @@ ${selectors.join(",\n")} {
     liveSignature = null;
     itemSignature = null;
     chipSignature = null;
+
+    /* AND A FRESH DRAWER STARTS AT ★, with no name field open and nothing being
+       renamed (presets decision 9). This is the whole of "it resets when the drawer
+       is built": three assignments, because none of it is stored. A half-typed name
+       surviving into a drawer that was rebuilt under it -- by a React remount, by the
+       drawer being closed and reopened -- would be the only piece of unsaved work in
+       the Cart, which is the state decision 8 exists to avoid having. */
+    presetSelection = {};
+    presetCreating = {};
+    presetRenaming = null;
 
     mount.append(drawer);
     logger.debug("drawer built");
@@ -5645,6 +6157,25 @@ ${selectors.join(",\n")} {
           arm("restore");
         }
         return;
+      // -- the preset block (presets ticket 03). Every one of these carries the LIST
+      // it acts on rather than the preset: which preset is a question with one
+      // answer, `selectedPreset`, and a control holding a second copy of that answer
+      // would be a value that can disagree with the picker beside it.
+      case "preset-star":
+        pressPresetStar(node.dataset[PRESET_LIST_ATTR]);
+        return;
+      case "preset-rename":
+        startPresetRename(node.dataset[PRESET_LIST_ATTR]);
+        return;
+      case "preset-delete":
+        armPresetDelete(node.dataset[PRESET_LIST_ATTR]);
+        return;
+      case "preset-create-open":
+        openPresetName(node.dataset[PRESET_LIST_ATTR]);
+        return;
+      case "preset-create":
+        createPreset(node.dataset[PRESET_LIST_ATTR]);
+        return;
       case "toggle-item":
         toggleKey(node.dataset.gtKey);
         return;
@@ -5678,21 +6209,65 @@ ${selectors.join(",\n")} {
   }
 
   /**
-   * `Restore export defaults`, committed. It reaches EXACTLY the keys
-   * `EXPORT_PREF_KEYS` names -- the line shape, both field lists and both bands --
-   * and the list is there so that this function does not have to be the place a
-   * seventh export preference is remembered.
+   * `Restore export defaults`, committed, AND IT IS TWO HALVES SINCE 1.7.0 because
+   * the export configuration is in two places (presets decision 14).
    *
-   * One `savePrefs`, so one read-modify-write and one value-change event: a tab
-   * that has been open since this morning cannot write a stale appearance switch
-   * over one changed since (§2.5). And `settingsTab` is not in the patch, so the
-   * panel does not move out from under the press that restored.
+   * IT REACHES THE TAB YOU ARE ON AND NOTHING ELSE, which is what it always did --
+   * the control already showed only on tabs carrying export settings, off the
+   * `exports` flag, so its placement did not change. What changed is that there are
+   * now three such tabs and two kinds of restore.
+   *
+   * ON 🔗 LINKS it is `EXPORT_PREF_KEYS` over the preferences: one `savePrefs`, so
+   * one read-modify-write and one value-change event, and a tab that has been open
+   * since this morning cannot write a stale appearance switch over one changed since
+   * (§2.5). `settingsTab` is not in the patch, so the panel does not move out from
+   * under the press that restored.
+   *
+   * ON 📋 DETAILS AND 📊 REPORT it is THE SELECTED PRESET, rewritten from
+   * `PRESET_DEFAULTS`: its fields, their order, its headings and its head go back to
+   * what the script ships with. ITS NAME AND ITS ★ ARE UNTOUCHED, AND NO OTHER PRESET
+   * MOVES -- which is why this half is not a key patch. Restoring a preset by
+   * overwriting the whole object would take the name and the flag with it, and those
+   * two are the only parts of a preset that are not shipped values.
+   *
+   * SO THERE IS NO ONE PRESS THAT GETS YOU BACK TO A CLEAN SLATE, and that is stated
+   * rather than hidden: unwanted presets go one at a time, through ✕.
    */
   function restoreExportDefaults() {
-    savePrefs(
-      Object.fromEntries(EXPORT_PREF_KEYS.map((key) => [key, DEFAULT_PREFS[key]])),
-    );
-    logger.log("the export settings are back at their defaults");
+    const tab = SETTINGS_TABS.find((one) => one.id === loadPrefs().settingsTab);
+    if (!tab?.exports) return;
+
+    if (!tab.fields) {
+      savePrefs(
+        Object.fromEntries(
+          EXPORT_PREF_KEYS.map((key) => [key, DEFAULT_PREFS[key]]),
+        ),
+      );
+      logger.log("🔗 Links' issue reference is back at its default");
+      return;
+    }
+
+    const named = selectedPreset(tab, loadPresets()).name;
+    editSelectedPreset(tab, (preset) => {
+      preset.lineShape = DEFAULT_PREFS.lineShape;
+      // Copied for `createPreset`'s reason: `PRESET_DEFAULTS` is one object for the
+      // life of the page, and handing a reference into it to a preset would be every
+      // restored preset sharing one list.
+      preset.fields = PRESET_DEFAULTS[tab.fields].map((one) => ({
+        id: one.id,
+        on: one.on,
+      }));
+      if (tab.bands) {
+        applyBandPatch(
+          tab,
+          preset,
+          Object.fromEntries(
+            tab.bands.map((key) => [key, PRESET_DEFAULTS[key]]),
+          ),
+        );
+      }
+    });
+    logger.log(`the preset ${named} is back at the shipped defaults`);
   }
 
   function setDrawerOpen(open) {
@@ -5964,6 +6539,268 @@ ${selectors.join(",\n")} {
     render();
   }
 
+  /* -- the preset block's five presses (presets ticket 03, §2.9).
+   *
+   * EVERY ONE OF THEM RESOLVES THE PRESET THE SAME WAY, through `selectedPreset`
+   * over a FRESH `loadPresets`, and then writes through `savePresets`, which reads
+   * again and normalises on the way out (§2.5). So a preset deleted in another tab
+   * between the read and the write is a no-op rather than a throw, and no press here
+   * can put a state in the key that a read would have to repair.
+   *
+   * THE LIST ID IS RANGE-CHECKED AGAINST `PRESET_LISTS` at the top of each, and not
+   * because a dataset attribute this script wrote can be wrong. It is because
+   * `PRESET_LISTS` is DERIVED from `SETTINGS_TABS`, so this is the same check
+   * `normalisePrefs` gives `settingsTab`: the vocabulary a control names cannot
+   * outlive the table that draws it.
+   */
+  function presetTab(tabId) {
+    return PRESET_LISTS.find((one) => one.id === tabId) ?? null;
+  }
+
+  /* ★ MOVES THE FLAG, AND THE FLAG IS ALL IT MOVES. It does not change which preset
+     the rows below edit -- those are two questions, which is stated limit 1 -- so a
+     press of ★ leaves the picker exactly where it was.
+     
+     EXACTLY ONE ★ IS WRITTEN HERE, not left to the repair. `oneStar` would fix a list
+     with two, but a write that depended on being repaired is a write whose meaning
+     lives somewhere else (§2.4). */
+  function pressPresetStar(tabId) {
+    const tab = presetTab(tabId);
+    if (!tab) return;
+    const chosen = selectedPreset(tab, loadPresets());
+    // Already the one. Nothing to write, and writing anyway would put a value-change
+    // event on the wire for a state nothing changed.
+    if (chosen.star) return;
+    savePresets((next) => {
+      const list = next[tabId];
+      if (!list.some((one) => one.id === chosen.id)) return;
+      for (const one of list) one.star = one.id === chosen.id;
+    });
+    logger.log(`a plain press of ${tab.label} now uses the preset ${chosen.name}`);
+  }
+
+  /* RENAME REUSES THE COLLECTION'S PATH, and the part that matters is the comment on
+     `startRename`: while the field is open IT BELONGS TO THE KEYBOARD, so the value
+     is set here and never by `render` -- a render in the middle of typing must not
+     put the stored name back (§2.10). */
+  function startPresetRename(tabId) {
+    const tab = presetTab(tabId);
+    if (!tab) return;
+    const chosen = selectedPreset(tab, loadPresets());
+    presetRenaming = { list: tabId, id: chosen.id };
+    // Rendered synchronously, because the field has to exist before it can be
+    // focused.
+    render();
+    const input = document.getElementById(presetRenameId(tabId));
+    if (!input) return;
+    input.value = chosen.name;
+    input.focus();
+    input.select();
+  }
+
+  /* COMMITTED THROUGH `uniqueName`, unchanged, which is decision 13: trimmed, a clash
+     ignores case, ` 2` appended, and THE SAME RULE ON CREATE AND ON RENAME.
+
+     AN EMPTY NAME IS REFUSED with nothing written and the old name standing, exactly
+     as `commitRename` does -- the safe default is what remains (principle 4). A
+     preset with no name could not be drawn in the picker or named in ticket 04's
+     arrow, which is also why `normalisePreset` DROPS one.
+
+     CALLED FROM ENTER AND FROM BLUR, and it is safe twice: clearing `presetRenaming`
+     first means the blur that hiding the field produces returns at the top. */
+  function commitPresetRename() {
+    const open = presetRenaming;
+    if (!open) return;
+    const input = document.getElementById(presetRenameId(open.list));
+    if (!input) return;
+    presetRenaming = null;
+
+    const typed = input.value.trim();
+    if (!typed) {
+      render();
+      return;
+    }
+    savePresets((next) => {
+      const target = next[open.list].find((one) => one.id === open.id);
+      if (!target) return;
+      target.name = uniqueName(typed, next[open.list], open.id);
+    });
+    render();
+  }
+
+  function cancelPresetRename() {
+    if (presetRenaming === null) return;
+    presetRenaming = null;
+    render();
+  }
+
+  /* ✕ ARMS ON THE FIRST PRESS, and the key names the PRESET as well as the list, so
+     changing the picker while it is armed disarms it by construction rather than by a
+     handler remembering to (see `presetArmKey`).
+
+     A LIST OF ONE REFUSES AND DOES NOT ARM. `render` disables the button, so this
+     path is not reachable with a pointer -- it is here because the rule belongs to
+     the press and not to the paint, which is the same reason `bandPatch` guards band
+     1 against `none` that no dropdown offers. */
+  function armPresetDelete(tabId) {
+    const tab = presetTab(tabId);
+    if (!tab) return;
+    const presets = loadPresets();
+    const chosen = selectedPreset(tab, presets);
+    if (presets[tabId].length === 1) {
+      deletePreset(tabId);
+      return;
+    }
+    const key = presetArmKey(tabId, chosen.id);
+    if (armed === key) {
+      disarm();
+      deletePreset(tabId);
+    } else {
+      arm(key);
+    }
+  }
+
+  /* DELETING THE ★ PRESET PASSES ★ TO THE FIRST REMAINING BY NAME (decision 11), AND
+     THIS FUNCTION DOES NOT SAY SO, BECAUSE SAYING IT HERE IS DEAD CODE.
+
+     Ticket 03 asked for it to be enforced here on write as well as in `oneStar` on
+     read, "so the two agree and neither is the only guard". IT WAS WRITTEN THAT WAY
+     AND THE MUTATION RUN FOUND IT UNOBSERVABLE: `savePresets` writes what
+     `normalisePresets` returns, so every delete goes through `oneStar` on its way
+     out, and a list left starless by the splice comes back with the flag on the first
+     preset BY NAME -- the same answer, from the same `firstByName`, for the same
+     reason. Breaking the line here changed no check because it could not change one.
+
+     SO IT IS GONE, and this comment is what replaces it. That is this repository's own
+     standing rule about a line whose removal changes no answer -- `byName`'s dead
+     `toLowerCase` and `css-smoke`'s first backtick check are the two precedents, and
+     both say a check written against such a line is worse than no check.
+
+     THE LAST PRESET CANNOT BE DELETED. A list with none has no answer to *what does
+     this button print*, and the ★ would have nowhere to go. Its refusal is the shape
+     of `deleteCollection`'s own -- "it is the only collection, so it was not removed"
+     -- down to the log line. THAT one is not redundant: `normalisePresets` rebuilds an
+     empty list with a fresh `Standard`, so a delete that emptied the list would not
+     throw -- it would silently replace the preset you deleted with a new one carrying
+     the shipped defaults, which is a worse outcome than a refusal and a stranger one
+     to diagnose.
+
+     THE SELECTION IS NOT RESET HERE, AND IT USED TO BE. The line was written as "a
+     convenience and not a guard", which was true and is the reason it is gone: an id
+     naming a preset that no longer exists already falls to ★ in `selectedPreset`, so
+     clearing it changes no answer this screen can give. The mutation run confirmed it
+     -- taking the reset out turned nothing red, because there was nothing for it to
+     turn. Same rule as the ★ transfer above, and the same two precedents. */
+  function deletePreset(tabId) {
+    const tab = presetTab(tabId);
+    if (!tab) return;
+    const chosen = selectedPreset(tab, loadPresets());
+    let removed = false;
+    savePresets((next) => {
+      const list = next[tabId];
+      const at = list.findIndex((one) => one.id === chosen.id);
+      if (at < 0 || list.length === 1) return;
+      list.splice(at, 1);
+      removed = true;
+    });
+    if (!removed) {
+      logger.log(
+        `${chosen.name} is the only preset for ${tab.label}, so it was not removed`,
+      );
+      return;
+    }
+    logger.log(`deleted the ${tab.label} preset ${chosen.name}`);
+  }
+
+  // OPENING THE NAME FIELD WRITES NOTHING and is not a draft: there is nothing in it
+  // to lose. `Escape` closes it, which is why that is not a Cancel (decision 8).
+  function openPresetName(tabId) {
+    if (!presetTab(tabId)) return;
+    presetCreating[tabId] = true;
+    // Synchronous, for `startPresetRename`'s reason: the field has to exist before it
+    // can be focused.
+    render();
+    const input = document.getElementById(presetNameId(tabId));
+    if (!input) return;
+    input.value = "";
+    input.focus();
+  }
+
+  function closePresetName(tabId) {
+    if (!presetCreating[tabId]) return;
+    presetCreating[tabId] = false;
+    render();
+  }
+
+  /* CREATE COMMITS THE NAME FIRST. The preset exists, is selected, and every edit
+     from then on lands on it -- so there is nothing to accidentally modify, which is
+     the defect the first press of the prototype found and the whole reason
+     `Save as new...` is gone (decision 8, reversed 2026-08-27).
+
+     IT STARTS FROM THE SHIPPED DEFAULTS and never from a copy of the selected preset,
+     chosen against the recommendation on being the version with no relationship to
+     any existing preset at all. The cost is stated limit 9: a small variation of an
+     existing preset is rebuilt by hand, and nothing reports which ticks were missed.
+
+     IT DOES NOT TOUCH THE PRESET THAT WAS OPEN, and that is this ticket's own claim
+     rather than a side effect: the mutation only pushes. `boot-smoke` reads the
+     selection and its contents back before and after.
+
+     AN EMPTY NAME IS REFUSED and the field keeps the focus, exactly as
+     `createCollection` does -- the placeholder already says what belongs there.
+
+     THE ID IS MINTED OUTSIDE THE MUTATION because `savePresets` may run it once and
+     the selection has to name the same preset the write made. A `crypto.randomUUID()`
+     inside would be a second id on a retry. */
+  function createPreset(tabId) {
+    const tab = presetTab(tabId);
+    const input = document.getElementById(presetNameId(tabId));
+    if (!tab || !input) return;
+    const typed = input.value.trim();
+    if (!typed) {
+      input.focus();
+      return;
+    }
+    const id = crypto.randomUUID();
+    let named = typed;
+    savePresets((next) => {
+      const built = {
+        id,
+        name: uniqueName(typed, next[tabId]),
+        // NEVER STARRED. Creating a preset must not change what a plain press
+        // prints: that is what ★ is for, and it takes its own press.
+        star: false,
+        lineShape: DEFAULT_PREFS.lineShape,
+        // Copied, not shared: `PRESET_DEFAULTS` is one object for the life of the
+        // page, and a preset holding a reference into it would be every new preset
+        // editing the same list. `normalisePreset` rebuilds it again on the way out,
+        // which makes this belt and braces -- and the braces are the ones that would
+        // be missed if the normalisation ever stopped copying.
+        fields: PRESET_DEFAULTS[tab.fields].map((one) => ({
+          id: one.id,
+          on: one.on,
+        })),
+      };
+      if (tab.bands) {
+        applyBandPatch(
+          tab,
+          built,
+          Object.fromEntries(
+            tab.bands.map((key) => [key, PRESET_DEFAULTS[key]]),
+          ),
+        );
+      }
+      next[tabId].push(built);
+      named = built.name;
+    });
+    // SELECTED, so every edit from here lands on it. Written after the mutation, so
+    // a write that did not happen cannot leave the picker pointing at nothing.
+    presetSelection[tabId] = id;
+    presetCreating[tabId] = false;
+    logger.log(`created the ${tab.label} preset ${named}`);
+    render();
+  }
+
   function onPrefsChange(input) {
     if (!input) return;
     if (input.id === PREF_RIGHT_CLICK_ID) {
@@ -5987,55 +6824,95 @@ ${selectors.join(",\n")} {
       savePrefs({ corner: input.value });
       return;
     }
-    // Not range-checked here. `savePrefs` normalises on the way in and `loadPrefs`
-    // again on the way out, so a value this build does not know falls back to
-    // `markdown` rather than reaching a formatter (§2.4, ticket 01).
-    if (input.id === PREF_SHAPE_ID) {
-      savePrefs({ lineShape: input.value });
+    /* THE PRESET PICKER, AND IT IS THE ONE CONTROL IN THIS DRAWER WHOSE CHANGE
+       WRITES NOTHING. It changes which preset the rows below edit and that is all
+       (presets decision 9). The selection is in memory, so there is no `savePresets`
+       here and no value-change event on the wire -- a scheduled render is the whole
+       of what a pick costs.
+
+       AND IT DISARMS. A ✕ armed against the preset you were on must not survive a
+       change of picker; `presetArmKey` names the preset, so `render` would drop the
+       armed paint anyway, and this makes the state agree with the paint rather than
+       relying on the paint to hide it. */
+    const picked = input.dataset[PRESET_LIST_ATTR];
+    if (picked && presetTab(picked)) {
+      presetSelection[picked] = input.value;
+      disarm();
+      scheduleRender();
       return;
     }
-    /* A BAND. The dropdown carries the preference key it writes, so one branch
-       serves both of them and a third band would need no line here -- the same
-       reason the field checkboxes carry theirs.
+    /* AN `Issue reference` DROPDOWN, AND WHERE IT LANDS IS THE TAB'S BUSINESS. 🔗
+       Links' writes the preference; 📋 Details' and 📊 Report's write the shape of the
+       preset that tab has selected. `tab.fields` decides, because a tab has presets
+       exactly when it has a field list -- so there is no literal `"links"` here and a
+       fifth tab would need no line.
 
-       NOT RANGE-CHECKED HERE, for the reason the line shape is not: `savePrefs`
-       normalises on the way in and `loadPrefs` again on the way out, so a value this
-       build does not know falls back to the default rather than reaching a renderer.
-       Band 1 has no `None` in its options, and `normalisePrefs` is what makes that a
-       rule rather than a fact about a dropdown (§2.4, ticket 01).
+       NOT RANGE-CHECKED HERE, on either path. `savePrefs` normalises on the way in
+       and `loadPrefs` again on the way out; `savePresets` does the same through
+       `normalisePresets`. So a value this build does not know falls back to `markdown`
+       rather than reaching a formatter (§2.4, ticket 01). */
+    const shapeTabId = input.dataset[SHAPE_TAB_ATTR];
+    if (shapeTabId) {
+      const tab = SETTINGS_TABS.find((one) => one.id === shapeTabId);
+      if (!tab) return;
+      if (tab.fields) {
+        editSelectedPreset(tab, (preset) => {
+          preset.lineShape = input.value;
+        });
+      } else {
+        savePrefs({ lineShape: input.value });
+      }
+      return;
+    }
+    /* A BAND, AND SINCE 1.7.0 IT WRITES A PRESET. The dropdown carries the
+       preference key it writes, so one branch serves both of them and a third band
+       would need no line here -- the same reason the field checkboxes carry theirs.
+
+       `bandPatch` IS UNCHANGED AND STILL WORKS IN THE PREFERENCE VOCABULARY. It is a
+       pure function over `reportBand1` / `reportBand2` and `format-smoke` holds it
+       there; `presetBands` and `applyBandPatch` translate at this one seam, which is
+       why the rule -- ONE PRESS, SOMETIMES TWO KEYS, and band 2 is the one that gives
+       way -- has exactly one copy.
+
+       READ-MODIFY-WRITE OVER THE STORED PAIR rather than over what is on screen, for
+       the reason the field ticks are: another tab may have moved a band since this
+       panel was drawn (§2.5). `editSelectedPreset` reads again inside the write.
 
        BEFORE THE FIELD TICK BELOW, because both are dataset-driven and this one is
        the narrower test. */
     const band = input.dataset[BAND_KEY_ATTR];
     if (band) {
-      // ONE PRESS, SOMETIMES TWO KEYS -- `bandPatch` owns the rule and says why.
-      // Read-modify-write over the STORED pair rather than over what is on screen,
-      // for the reason the field ticks are: another tab may have moved a band since
-      // this panel was drawn (§2.5).
-      savePrefs(bandPatch(band, input.value, loadPrefs()));
+      const tab = PRESET_LISTS.find((one) => one.bands?.includes(band));
+      if (!tab) return;
+      editSelectedPreset(tab, (preset) => {
+        applyBandPatch(
+          tab,
+          preset,
+          bandPatch(band, input.value, presetBands(tab, preset)),
+        );
+      });
       return;
     }
-    /* A FIELD'S TICK. The checkbox carries the key it writes and the id it is, so
-       one branch serves both lists and a third list would need no line here.
+    /* A FIELD'S TICK, AND SINCE 1.7.0 IT WRITES A PRESET TOO. The checkbox carries
+       the tab whose list it is in and the id it is, so one branch serves both lists
+       and a third list would need no line here.
 
        READ-MODIFY-WRITE OVER THE STORED LIST, never over a copy held since the panel
        was built: another tab may have reordered this list since, and rebuilding it
-       from what is on screen would write that reorder away. `savePrefs` reads
-       storage again on top of this, so the window is the same microseconds every
-       other write in this file lives with (§2.5).
+       from what is on screen would write that reorder away.
 
        A TICK IS NOT A REORDER. The entry keeps its place, which is the whole reason
        the list stores `{ id, on }` in order rather than an array of enabled ids:
        unticking a field would otherwise lose its position and re-ticking it would
        send it to the end, so somebody toggling one field to compare two outputs
        would find their order quietly rearranged (see `normaliseFieldList`). */
-    const key = input.dataset[FIELD_LIST_ATTR];
+    const tab = presetTab(input.dataset[FIELD_LIST_ATTR]);
     const id = input.dataset[FIELD_ID_ATTR];
-    if (key && id && Array.isArray(loadPrefs()[key])) {
-      savePrefs({
-        [key]: loadPrefs()[key].map((field) =>
+    if (tab && id) {
+      editSelectedPreset(tab, (preset) => {
+        preset.fields = preset.fields.map((field) =>
           field.id === id ? { id: field.id, on: input.checked === true } : field,
-        ),
+        );
       });
     }
   }
@@ -6170,8 +7047,22 @@ ${selectors.join(",\n")} {
     if (!row || !fieldDrag || row.dataset[FIELD_LIST_ATTR] !== fieldDrag.list) return;
     event.preventDefault();
 
-    const key = fieldDrag.list;
-    const stored = loadPrefs()[key];
+    /* THE LIST IS THE SELECTED PRESET'S SINCE 1.7.0, and `moveInList` is UNCHANGED.
+       Both ends are still resolved AGAINST THE STORED LIST AT DROP TIME, BY ID AND
+       NEVER BY INDEX, which is configurability decision 37 and the reason this drag
+       needs no entry in the `dragging` guard.
+
+       THAT REASONING IS NOW LOAD-BEARING IN A NEW WAY, and it is worth saying rather
+       than inheriting. The rows being dragged belong to a PRESET, and which preset
+       the panel is showing can change under the drag -- a delete in another tab, an
+       id that stopped resolving -- so the list is resolved the same way the row is:
+       read now, by id, and if either end is missing, nothing is written. A drag
+       cannot be started with one hand and a picker changed with the other (§2.9.1's
+       one-pair-of-hands argument), but another tab needs no hands here. */
+    const tab = presetTab(fieldDrag.list);
+    if (!tab) return;
+    const chosen = selectedPreset(tab, loadPresets());
+    const stored = chosen.fields;
     const from = stored.findIndex((field) => field.id === fieldDrag.id);
     const onto = stored.findIndex(
       (field) => field.id === row.dataset[FIELD_ID_ATTR],
@@ -6183,7 +7074,10 @@ ${selectors.join(",\n")} {
 
     // `onto + 1` is the gap BELOW the row, which is what "after" means. `moveInList`
     // owns the off-by-one that removing the dragged row first creates.
-    savePrefs({ [key]: moveInList(stored, from, onto + (dropsAfter(row, event) ? 1 : 0)) });
+    const moved = moveInList(stored, from, onto + (dropsAfter(row, event) ? 1 : 0));
+    editSelectedPreset(tab, (preset) => {
+      preset.fields = moved;
+    });
   }
 
   /* -- the collection's own drag (§2.9.1), added at 1.4.0.
@@ -7195,12 +8089,6 @@ ${selectors.join(",\n")} {
     if (layout) layout.value = prefs.layout;
     const corner = document.getElementById(PREF_CORNER_ID);
     if (corner) corner.value = prefs.corner;
-    // Read back out of storage like the rest, so `Restore export defaults` and
-    // another tab's write both land on this control without either of them having
-    // to know it is here.
-    const shape = document.getElementById(PREF_SHAPE_ID);
-    if (shape) shape.value = prefs.lineShape;
-
     // WHICH TAB, READ BACK OUT OF STORAGE on every render, so nothing holds a copy
     // that could disagree with it -- the same treatment `corner` and `layout` get.
     // `normalisePrefs` has already turned an id this build does not know into the
@@ -7213,30 +8101,179 @@ ${selectors.join(",\n")} {
       if (tabPanel) tabPanel.hidden = tab.id !== current;
     }
 
-    // Both lists on every render, and NOT only the tab on screen. A hidden tab is
+    /* ONE `loadPresets` PER RENDER, and every control on this screen is drawn from
+       it. Two reads a frame apart is the sort of pair that disagrees exactly once,
+       in the frame where something was deleted -- and it would disagree between the
+       picker and the rows the picker scopes, which is the one disagreement on this
+       screen nobody could diagnose. */
+    const presets = loadPresets();
+
+    // Every tab on every render, and NOT only the tab on screen. A hidden tab is
     // still built, so leaving it stale would mean the moment you switched to it you
     // would be looking at whatever the last render of it said -- and the switch
     // itself renders, so it would be right again by the time you looked. A state
     // that is only ever wrong while nobody can see it is still a second value.
     for (const tab of SETTINGS_TABS) {
-      if (tab.bands) renderBands(tab, prefs);
-      if (tab.fields) renderFieldList(tab, prefs);
+      // WHERE THE ROWS READ FROM: the selected preset on a tab that has one, and
+      // nothing on 🔗 Links, whose one row is a preference. One expression, so no
+      // control below has to ask which kind of tab it is on.
+      const preset = tab.fields ? selectedPreset(tab, presets) : null;
+      if (tab.fields) renderPresetBlock(tab, presets, preset);
+      // Read back out of storage like every other value on this screen, so a restore,
+      // a preset switch and another tab's write all land on this control without any
+      // of them having to know it is here.
+      const shape = document.getElementById(shapeSelectId(tab.id));
+      if (shape) shape.value = preset ? preset.lineShape : prefs.lineShape;
+      if (tab.bands) renderBands(tab, preset);
+      if (tab.fields) renderFieldList(tab, preset);
     }
 
     const restore = document.getElementById(RESTORE_ID);
     if (restore) {
       // ON THE TABS THAT HOLD EXPORT SETTINGS AND NOWHERE ELSE. On the appearance
       // tab it is an offer to reset something you are not looking at (decision 22).
-      restore.hidden = !SETTINGS_TABS.find((tab) => tab.id === current)?.exports;
+      const tab = SETTINGS_TABS.find((one) => one.id === current);
+      restore.hidden = !tab?.exports;
       // The label IS the state, disarmed an offer and armed the question, exactly
       // as ⌫ becomes `Empty 3?` (§3). Derived here, so the armed state cannot
       // outlive a render that should have cleared it.
       const armedNow = armed === "restore";
       restore.textContent = armedNow ? "Restore?" : "↺ Restore export defaults";
       restore.dataset.gtArmed = String(armedNow);
-      restore.title = armedNow
-        ? "Click again to put the line shape, both field lists and both bands back to what 1.1.0 emitted. There is no undo."
-        : "Put the line shape, both field lists and both bands back to what 1.1.0 emitted. The appearance switches and the tab you are on are left alone.";
+      /* WHAT IT SAYS IT WILL DO IS NOW A FUNCTION OF THE TAB, because what it does is
+         (presets decision 14). On 🔗 Links it is one dropdown. On 📋 Details and 📊
+         Report it is THE SELECTED PRESET and nothing else -- its name and its ★ are
+         untouched, and no other preset moves, which is the half somebody about to
+         press this needs to be told. Naming the preset is what makes the sentence
+         checkable by the person reading it. */
+      const named = tab?.fields ? selectedPreset(tab, presets).name : null;
+      restore.title = named
+        ? armedNow
+          ? `Click again to put ${named}'s fields, their order, its headings and its head back to what the script ships with. Its name and its ★ are untouched, and your other presets are left alone. There is no undo.`
+          : `Put ${named}'s fields, their order, its headings and its head back to what the script ships with. Its name and its ★ are untouched, and your other presets are left alone.`
+        : armedNow
+          ? "Click again to put 🔗 Links' issue reference back to what 1.1.0 emitted. There is no undo."
+          : "Put 🔗 Links' issue reference back to what 1.1.0 emitted. The appearance switches, your presets and the tab you are on are left alone.";
+    }
+  }
+
+  /* ONE TAB'S PRESET BLOCK, SET RATHER THAN REBUILT -- except for the picker's
+     options, which are the one thing on this screen that IS replaced and have to be:
+     a preset list is DATA that grows and shrinks, where the seven bands and the five
+     shapes are vocabulary.
+
+     THE OPTIONS ARE COMPARED AGAINST WHAT IS ON SCREEN AND NOT AGAINST A REMEMBERED
+     SIGNATURE, which is `renderFieldList`'s own rule and for its own reason: deriving
+     it means there is no variable to reset when `ensureDrawer` builds a fresh drawer.
+     Without the comparison the dropdown would be rebuilt on every render, which would
+     close it under the pointer that opened it and would throw away the keyboard's
+     position in it.
+
+     THE ★ GOES IN THE OPTION TEXT because that is the one part of a native option
+     that is ours to write -- there is no styling hook on an option list the browser
+     paints on top of the page (decision 15). */
+  function renderPresetBlock(tab, presets, chosen) {
+    const list = sortedPresets(presets[tab.id]);
+    const only = list.length === 1;
+    const star = starPreset(presets[tab.id]);
+
+    const picker = document.getElementById(presetPickerId(tab.id));
+    if (picker) {
+      const wanted = list.map((one) => [
+        one.id,
+        `${one.star ? "★ " : ""}${one.name}`,
+      ]);
+      // `children` and not `options`: `renderBands` already walks a `<select>` that
+      // way, and one way of asking a dropdown what it holds is one way to get wrong.
+      const onScreen = [...picker.children].map((one) => [
+        one.value,
+        one.textContent,
+      ]);
+      if (JSON.stringify(wanted) !== JSON.stringify(onScreen)) {
+        picker.replaceChildren(
+          ...wanted.map(([value, text]) => {
+            const option = el("option", null, text);
+            option.value = value;
+            return option;
+          }),
+        );
+      }
+      // AFTER the options, always: setting a value an option list does not carry
+      // yet leaves the control showing whatever sat there before.
+      picker.value = chosen.id;
+    }
+
+    // WHILE THE RENAME FIELD IS OPEN THE ROW BELONGS TO IT. The picker and the three
+    // buttons go, because a rename is a question about the preset the picker names
+    // and leaving the picker live would let you change the answer mid-question.
+    const renaming =
+      presetRenaming?.list === tab.id && presetRenaming.id === chosen.id;
+    const rename = document.getElementById(presetRenameId(tab.id));
+    if (rename) rename.hidden = !renaming;
+    if (picker) picker.hidden = renaming;
+
+    const starButton = document.getElementById(presetStarId(tab.id));
+    if (starButton) {
+      starButton.hidden = renaming;
+      // The state is the attribute, and the stylesheet paints from it -- the same
+      // treatment the ⚙ gets, for the reason that button's own history gives (§2.11).
+      starButton.setAttribute("aria-pressed", String(chosen.star === true));
+      starButton.title = chosen.star
+        ? `A plain press of ${tab.label} already uses ${chosen.name}`
+        : `Make ${chosen.name} the preset a plain press of ${tab.label} uses`;
+    }
+
+    const edit = document.getElementById(presetEditId(tab.id));
+    if (edit) {
+      edit.hidden = renaming;
+      edit.title = `Rename ${chosen.name}`;
+    }
+
+    /* ✕, AND ITS TWO SENTENCES ARE THE COLLECTION CHIP'S OWN. Armed it reads *"Click
+       again to delete X. There is no undo."*; on a list of one it reads *"X is the
+       only preset for this export, so it cannot be removed."* -- the shape of
+       `deleteCollection`'s *"it is the only collection, so it was not removed"*.
+
+       DISABLED ON A LIST OF ONE rather than hidden, so the control says WHY it cannot
+       be pressed. A ✕ that vanished would leave somebody hunting for a delete the
+       panel had a moment ago -- the same argument the band dropdowns' greyed options
+       are built on. */
+    const remove = document.getElementById(presetDeleteId(tab.id));
+    if (remove) {
+      remove.hidden = renaming;
+      remove.disabled = only;
+      const armedNow = armed === presetArmKey(tab.id, chosen.id);
+      remove.dataset.gtArmed = String(armedNow);
+      remove.title = only
+        ? `${chosen.name} is the only preset for this export, so it cannot be removed.`
+        : armedNow
+          ? `Click again to delete ${chosen.name}. There is no undo.`
+          : `Delete ${chosen.name}`;
+    }
+
+    // THE NAME FIELD AND ITS `Create` ARE ONE STATE, so they are shown and hidden
+    // together and `+ Create preset` is the other half of it. There is no third
+    // state and nothing unsaved in any of them.
+    const creating = presetCreating[tab.id] === true;
+    const open = document.getElementById(presetCreateOpenId(tab.id));
+    if (open) {
+      open.hidden = creating;
+      open.title = `Make a new preset. It starts from the fields, order and headings the script ships with, and nothing about ${chosen.name} is touched.`;
+    }
+    const name = document.getElementById(presetNameId(tab.id));
+    if (name) name.hidden = !creating;
+    const create = document.getElementById(presetCreateId(tab.id));
+    if (create) create.hidden = !creating;
+
+    // TWO SENTENCES BECAUSE THEY ARE TWO FACTS, and stated limit 1 is that they need
+    // not agree. DERIVED on every render and never remembered, so a ★ moved in
+    // another tab moves this line with it (principle 1).
+    const note = document.getElementById(presetNoteId(tab.id));
+    if (note) {
+      note.textContent =
+        star.id === chosen.id
+          ? `★ ${star.name} — what a plain press of ${tab.label} uses, and what the settings below edit.`
+          : `★ ${star.name} — what a plain press of ${tab.label} uses. The settings below edit ${chosen.name}.`;
     }
   }
 
@@ -7244,16 +8281,21 @@ ${selectors.join(",\n")} {
      function of storage: each dropdown's value, and whether the pair costs `lines
      equals items`.
 
-     READ BACK OUT OF STORAGE ON EVERY RENDER, so `Restore export defaults` and
-     another tab's write both land on these controls without either of them having
-     to know they exist -- the same treatment `corner`, `layout` and the line shape
-     get. `normalisePrefs` has already turned an id this build does not know into the
-     default, so a dropdown can never be left showing nothing.
+     READ BACK OUT OF THE SELECTED PRESET ON EVERY RENDER, so `Restore export
+     defaults`, a change of picker and another tab's write all land on these controls
+     without any of them having to know they exist -- the same treatment `corner` and
+     `layout` get from storage. `normalisePreset` has already turned an id this build
+     does not know into the default, so a dropdown can never be left showing nothing.
+
+     THE VALUES ARE THE PRESET'S, IN THE TAB'S VOCABULARY. `presetBands` translates
+     once at the top, so nothing below that line has to know a stored preset calls
+     them `band1` and `band2` while `SETTINGS_TABS` calls them `reportBand1` and
+     `reportBand2`.
 
      THE NOTE IS DERIVED AND NEVER REMEMBERED. A flag set when the dropdown changed
      would be a second value that has to agree with the preference, and it would
      disagree the moment another tab changed the band (principle 1). */
-  function renderBands(tab, prefs) {
+  function renderBands(tab, preset) {
     /* WHICH FIELDS ARE ALREADY SPOKEN FOR, AND ONLY BY A BAND ABOVE THIS ONE. The two
        bands may not name the same field (§2.15, reversed from use on 2026-08-25), and
        this is one half of that rule; `bandPatch` is the other.
@@ -7281,7 +8323,8 @@ ${selectors.join(",\n")} {
        its band in the pasted mail still wants the value readable. A duplicate BAND
        has no such reading -- every sub-heading would repeat the heading above it --
        so there is nothing to leave open. */
-    const claimed = tab.bands.map((key) => prefs[key]);
+    const bands = presetBands(tab, preset);
+    const claimed = tab.bands.map((key) => bands[key]);
 
     tab.bands.forEach((key, at) => {
       const node = document.getElementById(bandSelectId(key));
@@ -7294,11 +8337,11 @@ ${selectors.join(",\n")} {
           option.value !== NO_BAND && above.includes(option.value);
       }
       // AFTER the disabling and not before. The value this control is SUPPOSED to
-      // show can never be one of the claimed ones -- `normalisePrefs` collapses a
+      // show can never be one of the claimed ones -- `resolveBands` collapses a
       // duplicate to `None` on the way out of storage -- and setting it last means a
       // browser that declines to select a disabled option cannot leave the control
       // showing whatever sat above it.
-      node.value = prefs[key];
+      node.value = bands[key];
     });
 
     const note = document.getElementById(bandNoteId(tab.id));
@@ -7307,7 +8350,7 @@ ${selectors.join(",\n")} {
     // against a literal `"fixv"`, so a second multi-valued band would light this
     // note up without a line changing here.
     const multi = tab.bands
-      .map((key) => bandFor(prefs[key]))
+      .map((key) => bandFor(bands[key]))
       .filter((band) => band?.multi);
     note.textContent = multi.length
       ? `An issue with two ${multi[0].label.toLowerCase()}s is listed under both, so this report has more lines than issues.`
@@ -7317,6 +8360,10 @@ ${selectors.join(",\n")} {
   /* ONE FIELD LIST, SET RATHER THAN REBUILT. Three things are written here and each
      is a function of storage: the order of the rows, each box's tick, and whether the
      field is also one of 📊 Report's headings.
+
+     ALL THREE ARE THE SELECTED PRESET'S SINCE 1.7.0, and the function is otherwise
+     unchanged: it took a preferences blob and read two keys off it, and it takes the
+     preset those two keys became.
 
      THE ORDER IS COMPARED AGAINST WHAT IS ON SCREEN AND NOT AGAINST A REMEMBERED
      SIGNATURE. The live list and the chips keep a signature because they compare
@@ -7329,10 +8376,10 @@ ${selectors.join(",\n")} {
      `replaceChildren` MOVES THE ROWS AND DESTROYS NONE OF THEM, which is what keeps
      the panel's build-once rule true: a rebuilt row would take the focus off the box
      you are clicking and would pull the floor out from under a drag in flight. */
-  function renderFieldList(tab, prefs) {
+  function renderFieldList(tab, preset) {
     const wrap = document.getElementById(fieldListId(tab.id));
     if (!wrap) return;
-    const list = prefs[tab.fields];
+    const list = preset.fields;
     const rows = new Map(
       [...wrap.children].map((row) => [row.dataset[FIELD_ID_ATTR], row]),
     );
@@ -7353,8 +8400,7 @@ ${selectors.join(",\n")} {
        is printed band or not (decision 8) -- and it is read off the stored bands, so
        ticket 05 making them settable moves this with it and costs nothing here. */
     const heading = new Set(
-      (tab.bands ?? [])
-        .map((key) => prefs[key])
+      (tab.bands ? Object.values(presetBands(tab, preset)) : [])
         .filter((band) => band && band !== NO_BAND)
         .map((band) => BAND_ROW_FIELD[band] ?? band),
     );
@@ -8665,7 +9711,14 @@ ${D} div#${PREFS_ID} {
 
 /* A group of settings, and its heading. THE HEADING APPEARS ONLY WHERE A TAB HOLDS
    MORE THAN ONE GROUP -- with one group it would repeat the tab label immediately
-   below it -- so today the only one is the pinned group above the bar. */
+   below it. NOTHING USES IT TODAY: the pinned group above the bar was the only one,
+   and it went when Issue reference moved into a tab of its own at 1.7.0. The rules
+   are kept rather than deleted, because what they express is what the next tab with
+   two groups needs and re-deriving it would be re-deriving a decision (§2.9).
+
+   NO BACKTICK IN THIS SHEET -- it is a template literal, and one here ends it. This
+   comment was written with two and the file stopped parsing; css-smoke's first check
+   caught it, which is the fourth time. */
 ${D} div.gt-cart-group {
   display: flex;
   flex-direction: column;
@@ -8734,6 +9787,106 @@ ${D} div.gt-cart-tabpanel {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* THE PRESET BLOCK, at the top of the two export tabs. It says WHICH preset
+   everything under it edits, so it is read before the rows it scopes.
+
+   NOTHING IN HERE SETS display EXCEPT THE TWO WRAPPERS, AND THAT IS LOAD-BEARING.
+   The picker, the two text fields and all five buttons are shown and hidden by
+   render -- a rename takes the picker's place, and a name field takes
+   "+ Create preset"'s -- so every one of them is an element the generic [hidden]
+   rule above has to be able to reach. That rule is only (1,1,1), and a rule here
+   naming an element TYPE inside a class would beat it, at (1,1,2). So the controls
+   carry flex, borders and type and no display at all, and the two wrappers, which
+   are never hidden, are the only rules here that set one. THIS IS THE TRAP THAT LEFT
+   THE GEAR INERT AT 0.3.0 (§2.11), and css-smoke asserts every hidden-able element
+   against it by name.
+
+   NO BACKTICK IN THIS SHEET -- it is a template literal, and one here ends it. This
+   comment was written with four of them and the file stopped parsing, which is the
+   third time (see the test README). */
+${D} div.gt-cart-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+${D} div.gt-cart-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* The picker and the two name fields take the room and the buttons do not, so the
+   row keeps its shape whichever of the three is on screen. 11px, matching the tab
+   bar rather than the panel's 12: this row is a header for the settings under it. */
+${D} div.gt-cart-preset-row select,
+${D} div.gt-cart-preset-row input {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--gt-cart-border);
+  border-radius: 3px;
+  background: var(--gt-cart-input-bg);
+  color: var(--gt-cart-text);
+  font: inherit;
+  font-size: 11px;
+}
+${D} button.gt-cart-preset-btn {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid var(--gt-cart-border);
+  border-radius: 3px;
+  background: var(--gt-cart-input-bg);
+  color: var(--gt-cart-text);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+${D} button.gt-cart-preset-btn:hover:not(:disabled) {
+  background: var(--gt-cart-hover);
+}
+/* ★ IS A STATE, and it wears the same three declarations as the active collection
+   chip, the selected tab and the open ⚙: this is the Cart's one word for "this is
+   the one that is on".
+
+   THE SELECTOR IS REPEATED WITH :hover FOR THE FIFTH TIME IN THIS SHEET. Without the
+   twin, the plain hover rule above is the same specificity and wins on source order,
+   so a control that IS on goes quiet under the pointer -- which is exactly how the ⚙
+   was inert for two versions, and how the selected tab and the dragged row each
+   nearly were. css-smoke asserts the win rather than trusting the order. */
+${D} button.gt-cart-preset-btn[aria-pressed="true"],
+${D} button.gt-cart-preset-btn[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--gt-cart-selected-text);
+  background: var(--gt-cart-selected-bg);
+  color: var(--gt-cart-selected-text);
+  font-weight: 600;
+}
+/* Armed ✕: the same red the armed ⌫, the armed chip and the armed ↺ carry, because
+   it is the same gesture at a fourth scope (§2.9). Repeated with :hover for the
+   reason directly above -- the pointer is on the button it just armed. */
+${D} button.gt-cart-preset-btn[data-gt-armed="true"],
+${D} button.gt-cart-preset-btn[data-gt-armed="true"]:hover:not(:disabled) {
+  border-color: var(--gt-cart-remove);
+  background: var(--gt-cart-remove);
+  color: var(--gt-cart-on-bold);
+  font-weight: 600;
+}
+/* THE ✕ ON A LIST OF ONE, and it is disabled rather than removed so the control can
+   say WHY -- the same argument the band dropdowns' greyed options are built on. */
+${D} button.gt-cart-preset-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* IT WRAPS, where a field row's note ellipsises, for gt-cart-band-note's reason:
+   two sentences about what a plain press prints and what the rows below edit are
+   worth two lines of the panel at the 300px floor, and a truncated one would be
+   worse than none. */
+${D} p.gt-cart-preset-note {
+  margin: 0;
+  color: var(--gt-cart-muted);
+  font-size: 10px;
+  font-style: italic;
 }
 
 /* THE TWO FIELD LISTS. Eight rows each, ticked and dragged, and everything about
@@ -9759,6 +10912,10 @@ div#${MENU_ID} button.gt-cart-menu-item:hover {
   });
 
   guard(writeFirstRun);
+  // AND THE PRESETS', beside it. Its own comment says why this is a write and not a
+  // lazy build; in short, only a write can say which side of 1.7.0 a stored line
+  // shape came from.
+  guard(writeFirstRunPresets);
 
   // Cross-tab freshness, and it is ONLY that: correctness is the read-modify-
   // write in `update`. Registered on our own keys, so it hears them and nothing

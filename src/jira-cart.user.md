@@ -932,6 +932,39 @@ collection with it.
 > written in two places, and the two can drift; the drift reaches no user, because
 > the whole effort ships once as 1.7.0. `store-smoke` §18q asserts the four are still
 > there, as a tripwire that goes red when the move lands.
+>
+> > **AMENDED 2026-09-06. THE FOUR KEYS ARE GONE, AND THE TRIPWIRE WENT RED AS
+> > PREDICTED.** `format` and the ⚙ panel both read a preset now, so the four came out
+> > of `DEFAULT_PREFS` and `normalisePrefs` — which keeps only known keys, so a blob
+> > still carrying them drops them on its next write with nothing to migrate. Their
+> > shipped values moved, unchanged, into `PRESET_DEFAULTS`; only their home moved.
+> > `lineShape` stayed, as 🔗 Links' own setting. §18q is kept and **inverted**: it now
+> > asserts the four are absent after a write and that `lineShape` survives, because
+> > the claim worth holding from here is that nothing puts them back.
+> >
+> > **AND THE FIRST RUN IS NOW WRITTEN AT BOOT, BESIDE `writeFirstRun`. THAT IS A
+> > CORRECTION OF THE PARAGRAPH ABOVE, NOT AN ADDITION TO IT.** The build was lazy —
+> > *the key existing is what says the build has happened*, and nothing was rewritten
+> > because you looked at it, which is this section's own rule. That was right while
+> > nothing read a preset. **It stopped being right the moment `format` did**, and the
+> > failure is narrow and real: the build reads `lineShape` off the **raw** preferences
+> > blob, so while the key is absent the 📋 Details and 📊 Report presets *follow*
+> > 🔗 Links' shape — change that one dropdown and the other two buttons move with it,
+> > which is precisely the silently-follows state presets decision 5 exists to refuse.
+> > `boot-smoke` found it by pressing 🔗 Links' dropdown and reading the other two back.
+> >
+> > **No lazy build can fix it and no test on the blob can either.** The question the
+> > build has to answer is *was this shape chosen before or after 1.7.0*, and a blob
+> > holding `lineShape` and none of the four export keys looks identical either way.
+> > Only a write can record which side of the upgrade a value came from — which is why
+> > the collections have `writeFirstRun`, and this is its twin.
+> >
+> > **What it costs is exactly what the lazy build was protecting:** an install grows a
+> > fourth key on its first boot after upgrading, having clicked nothing. That is the
+> > cost `writeFirstRun` has paid since 0.1.0, and the reason is the same — the store is
+> > where *this has happened* is recorded, and a value nobody wrote is a value nothing
+> > can date. `loadPresets` is still a pure read; the write is its own function, called
+> > once from the boot path, and `store-smoke` holds both halves.
 
 **`v` is at the root and nowhere else.** It is bumped only when an existing field
 changes shape or meaning. **Adding an optional field never bumps it**, or one new
@@ -2432,6 +2465,94 @@ a tab appearing changes nothing about what a button emits.
 one, the heading would repeat the tab label immediately below it. The pinned group
 keeps its heading because it is not under a tab.
 
+> ### AMENDED 2026-09-06, 1.7.0: THERE ARE FOUR TABS, AND `pinned` NO LONGER EXISTS
+>
+> The bar reads `Appearance` · `🔗 Links` · `📋 Details` · `📊 Report`. **Everything
+> above stands as the record of the three-tab choice and its grounds; what follows is
+> what moved and what it cost.**
+>
+> **`Issue reference` MOVED INTO A TAB OF ITS OWN, and the row that carried the whole
+> argument for pinning it is the row that moved.** It was pinned because it governed
+> all three exports, so a tab that owned it would have told a small lie about its
+> scope — and the position itself was carrying the word *shared*. **Export presets
+> (`docs/jira-cart/presets/`, decision 5) end that: a preset always names its own line
+> shape**, so 📋 Details and 📊 Report take their head from the preset they run and the
+> row governs 🔗 Links alone. Pinned, it would now be the lie. The table's fourth row —
+> the one rejected for putting a shared setting on a tab — is no longer describing this
+> screen.
+>
+> **THERE ARE THREE `Issue reference` DROPDOWNS NOW, ONE PER EXPORT TAB, AND THEY
+> WRITE TO TWO DIFFERENT PLACES.** 🔗 Links' writes the preference; 📋 Details' and 📊
+> Report's write the *selected preset's* own shape. Which it is comes off whether the
+> tab has a field list — a tab has presets exactly when it has one — so there is no
+> fourth flag in `SETTINGS_TABS` and no literal `"links"` in the handler.
+>
+> **THE COST §2.14 PAID FOR THIS**, stated here because it is a promise this document
+> made and has now narrowed: it used to be that all three exports built their head from
+> one setting, so they *could not* disagree about what a collected issue looks like.
+> They can now, deliberately — a preset is something the user built and named, not a key
+> touched on their behalf. What is unchanged is that a preference may still only say
+> **which** fields, in what order, which headings and which of five shapes; nothing a
+> user can click reaches `detailChip`.
+>
+> **§6 ITEM 17 PREDICTED THIS PRESSURE AND WAS HALF RIGHT.** Its words, quoted rather
+> than paraphrased because the whole point of the item was to be answered:
+>
+> > *"What would reopen it is a fourth tab, and the shape of the pressure is
+> > predictable: the moment a second **kind** of setting arrives — something that is
+> > neither appearance nor one export — `Appearance` stops being the odd one out and
+> > the bar has two groups in it, which is when a two-level structure starts paying for
+> > itself inside 300px."*
+>
+> **What arrived is not a second kind of setting. It is a fourth BUTTON tab.** So
+> `Appearance` is *more* of an outlier than it was, not less — three tabs named after
+> buttons in the foot and one named after a kind of setting — and the two-level
+> structure item 17 was holding in reserve is **not** bought by this change. **Item 17
+> stays open with one more tab against it**, and that is the honest record: the
+> prediction named the right control and the wrong reason.
+>
+> **WHAT IT COST WAS MEASURED RATHER THAN ARGUED. Four full labels fit at the 300px
+> floor without wrapping** (ticket 01, pressed 2026-08-27). So the bar did not have to
+> shorten a label the way the rig's own rejected `tabs4` variant did, and appendix A.9's
+> finding that *a word survives where a dim pictograph does not* never had to be spent.
+> **That number survived a reading the foot's did not**: `button.gt-cart-tab` and the
+> bar itself are byte-identical between the rig and the script, which is why *"they
+> fit"* stands where the same session's foot measurement was withdrawn. `rig-smoke`
+> now holds that comparison rule by rule.
+>
+> **AND THE GROUP-HEADING RULE DID NOT CHANGE, though what it measures did.** An export
+> tab holds three or four groups now — the preset block, the shape, the bands, the list
+> — and still carries no headings, because they read as one thing: *which preset*, then
+> *what that preset is*. The pinned group that did carry a heading is gone with
+> `pinned`; the `gt-cart-group` rule is kept for the next tab that needs it.
+
+**THE PRESET BLOCK SITS AT THE TOP OF 📋 DETAILS AND 📊 REPORT — 1.7.0, 2026-09-06.**
+A picker, `★`, `✎`, `✕` and `+ Create preset`, above the settings they govern,
+because a control that scopes the rows below it has to be read before them. The
+decisions are in `docs/jira-cart/presets/README.md` and are not restated here; what
+belongs in this section is the three things about the SCREEN:
+
+- **The picker is the one control on this screen whose options are replaced.** Every
+  other list here is vocabulary — seven bands, five shapes — and the panel is built
+  once and never rebuilt. A preset list is **data**, so it grows and shrinks. The
+  options are therefore compared against what is on screen and written only on a
+  difference, which is the rule `renderFieldList` already follows for row order and
+  for the same reason: a rebuild on every render would close the dropdown under the
+  pointer that opened it.
+- **Changing the picker writes nothing.** The selection is in memory and starts at ★
+  each sitting, so nothing stored can point at a preset that no longer exists. It is
+  the only `change` in the drawer that does not reach storage, and `boot-smoke` proves
+  it with a sentinel key rather than by comparing bytes — a no-op rewrite of the same
+  normalised content is invisible to a byte comparison, which is how the first version
+  of that check passed on a write.
+- **Hiding is the layout here, which puts this block back inside §2.11's oldest
+  trap.** The rename field takes the picker's place and a name field takes
+  `+ Create preset`'s, so eleven of the script's `hidden` writes are in this one block.
+  A rule naming an element *type* inside a class is (1,1,2) and beats the generic
+  `[hidden]` at (1,1,1) — which is exactly what left the ⚙ inert at 0.3.0. The sheet's
+  preset rules therefore set `display` on the two wrappers only, and `css-smoke` names
+  every hidden-able element in the block and holds them to it.
+
 **EACH EXPORT TAB HOLDS ONE FIELD LIST: eight rows, each a grip, a checkbox and a
 name, in the order the preference stores them** (§2.14, landed 2026-08-25). Every
 catalogue field has a row whether it is ticked or not — off is not absent, so a field
@@ -3865,6 +3986,43 @@ the terms it has to be answered in:
 > number — and no user keystroke can reach it. What is duplicated is the SELECTION,
 > whose duplication costs nothing but a second list of checkboxes.
 
+> ### AMENDED 2026-09-06, 1.7.0: THE SELECTION IS A PRESET'S, AND THE SENTENCE ABOVE
+> ### STILL HOLDS WORD FOR WORD
+>
+> Each export owns a **list of named presets**, and a preset holds the ordered ticked
+> field list, one line shape and — 📊 Report only — two band ids. One preset per list
+> carries a ★, and that is what a plain press of the button uses. **Nothing in the
+> sentence above changes**: a preference may still say only *which fields, in what
+> order, which headings, and which of five shapes*, and may never say what a field
+> looks like. What moved is where the selection is stored and how many of them there
+> can be.
+>
+> **THE ONE THING THAT DID CHANGE IS A NUMBER**: it was one selection per export and it
+> is now any number of them, one of which is flagged. So *one catalogue, two
+> selections* is now *one catalogue, two LISTS of selections* — and the duplication it
+> permits is still only of the selection, which is what makes it cost nothing but more
+> checkboxes.
+>
+> **A SECOND PROMISE IN THIS SECTION IS NARROWED, AND IT IS NOT THIS ONE.** §2.9 used
+> to say all three exports build their head from a single `Issue reference`, so the
+> three could not disagree about what a collected issue looks like. **A preset always
+> names its own shape** (presets decision 5), so they now can — deliberately, and
+> against the recommendation, which was a nullable *follow the shared setting*. The
+> cost is stated limit 3 in that record: changing your line shape everywhere means
+> editing every preset, and nothing reports which one you missed.
+>
+> **THE MOMENT A SETTING REACHES `detailChip`, THE BULLET BELOW IS BACK, UNAMENDED.**
+> That is the line to hold: a preset is a filter over a fixed renderer and nothing
+> else, and 1.7.0 added named filters rather than a way to write one.
+>
+> **WHAT PROVES IT, rather than what asserts it.** `format-smoke` builds every export
+> from a list of several presets in which the ★ is neither the first in the array nor
+> the first by name, and holds three things: that a plain press reads the ★ one, that
+> editing a preset which is not ★ moves not a single byte, and that 🔗 Links' bytes do
+> not move when a preset does. The shipped `Standard` presets reproduce 1.6.0 byte for
+> byte — the harness's own base is `PRESET_DEFAULTS`, sliced out of the script, so
+> every section written before 1.2.0 is still a check on the shipped values.
+
 Three consequences, each of which is a thing a later session would otherwise have to
 rediscover:
 
@@ -3916,6 +4074,18 @@ when it has not.
 > the harness rather than a property of the platform: retro-fitting the same
 > synthetic drag to the field lists was offered and declined as out of scope. So
 > step 31 still stands, for a narrower reason than the one written above it.
+>
+> **AND A THIRD, ON 2026-09-06, WHICH IS NEITHER A CORRECTION NOR A CHANGE OF
+> MECHANISM.** The rows being dragged belong to a **preset** now, so the drop writes the
+> selected preset's list rather than a preference. `moveInList` is unchanged and both
+> ends are still resolved against the stored list at drop time, **by id and never by
+> index** — and that reasoning became load-bearing in a new way, because the preset the
+> panel is showing can change under a drag if another tab deletes one. A drag cannot be
+> started with one hand and a picker changed with the other; another tab needs no hands.
+> **And this drag is driven by a harness at last**: `boot-smoke` runs it end to end, not
+> because the scope call above was reversed but because ticket 03 moved where the drop
+> writes, and a mutation that made the drop a no-op survived the whole suite. §7 step 31
+> is still the browser pass for what a pointer feels like.
 >
 > **Two: the pure function is not called `moveField` any more.** It is `moveInList`,
 > because it never touched a field — it is an array move, and the collection's drag
@@ -4086,6 +4256,34 @@ status, assignee, fix version, time remaining and the parent.
 > the tick. The alternative — a band that greys out its own row field — was the
 > tidier-looking one and it would have made rule 4 unreachable by a user who had
 > already hit the problem it describes.
+>
+> > **AMENDED AGAIN 2026-09-06, 1.7.0: THE TWO BANDS ARE A PRESET'S, and so is the
+> > field list they interact with.** 📊 Report owns a list of named presets, each
+> > carrying its own two band ids, its own ordered ticked field list and its own line
+> > shape; one preset per list carries a ★ and that is what a plain press uses
+> > (`docs/jira-cart/presets/`).
+> >
+> > **EVERY SENTENCE ABOVE IS UNCHANGED IN SUBSTANCE and one word in each is
+> > different: *the* preference becomes *the selected preset's*.** The default is
+> > still that priority and team are unticked, so the shipped `Standard` preset emits
+> > 1.1.0's bytes; the tick still wins over the band; the `also a heading` mark is
+> > still derived from the stored bands and so still moves when a band moves. What is
+> > new is that a second preset can answer differently, and that the ⚙ panel draws the
+> > marks for the preset the picker names rather than for the one the button uses —
+> > which are two different questions, and the reason the block carries a note saying
+> > both.
+> >
+> > **A 📋 Details preset carries no bands at all**, and a hand-edited blob that puts
+> > one there has it dropped: that export has no headings, so a stored `band1` on it
+> > would be a promise the format does not keep.
+> >
+> > **The preset's keys are `band1` and `band2`, where `SETTINGS_TABS` and `EXPORTS`
+> > name them `reportBand1` and `reportBand2`.** Position is the meaning in both, so
+> > the translation is total and lives in one place (`presetBands`). It is worth
+> > knowing rather than rediscovering: the preference names survive in the two tables
+> > because `format-smoke` holds those two tables to naming the same pair, and the
+> > preset uses short names because a 📋 Details preset must not carry a key called
+> > `reportBand1`.
 
 **`P0` before `P1` before `P2`, and there is no rank table.** The names already sort
 as strings, so nothing here can fall out of step with Jira's own priority scheme. An
@@ -4225,6 +4423,20 @@ sections to somebody's page.
 > back underneath itself.
 >
 > **The two alternatives, weighed and declined**, are in §4.
+>
+> > **AMENDED 2026-08-28 AND AGAIN 2026-09-06. THE RULE IS UNCHANGED; IT HAS ONE COPY
+> > AND IT LIVES SOMEWHERE ELSE.** It was ten lines inline in `normalisePrefs`. A
+> > 📊 Report **preset** carries the same two band ids and needs the same rule, and a
+> > second copy is the drift these harnesses exist to catch — so it was **extracted**
+> > rather than copied, into `resolveBands`, with one copy of *band 2 is the one that
+> > gives way*.
+> >
+> > **And at 1.7.0 it has one caller left, not two.** The bands stopped being
+> > preferences when they became a preset's (see below), so `normalisePrefs` no longer
+> > resolves a pair and `normalisePreset` is the only caller. It stays a function
+> > rather than being inlined there, for two reasons that are both about later
+> > sessions: it is what `store-smoke` runs its five hostile pairs against directly,
+> > and the day a second export grows headings it needs two callers again.
 
 
 **Stated limits.**
@@ -4308,21 +4520,25 @@ Everything else is inside the drawer.
 | 🔗 Links | drawer, the foot | Copies the whole collection as a list, plus a spaced `<ul>` as HTML. **How each line names its issue is the `Issue reference` setting**, and the default is what 1.1.0 emitted (§2.8) |
 | 📃 Names | drawer, the foot | Copies `[KEY] Summary` per line |
 | 🔑 Keys | drawer, the foot | Copies `KEY, KEY, KEY` |
-| 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, team, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. **Which of those fields it prints, and in what order, is the `📋 Details` tab's own list** — the default is what 1.1.0 emitted. A copy spends it, and any change to the collection drops it; a change to the field list does **not**, because the fetch always asks for all of them (§2.14) |
-| 📊 Report | drawer, the foot | **Two presses**, sharing 📋 Details' fetch. Copies the collection grouped under headings. The default is priority and then team, which is the shape the Technology Portfolio Office sends to team leads, **and since 1.2.0 both bands are settings** — see the two rows below. **It has its own field list** as well, on the same tab, over the same eight fields (§2.15, §2.14) |
+| 📋 Details | drawer, the foot | **Two presses.** The first asks Jira for type, status, priority, assignee, team, fix version, time remaining and parent, and the label becomes `Copy N items`. The second copies the rich list. **Which of those fields it prints, in what order, and how each line names its issue is the ★ PRESET of the `📋 Details` tab** since 1.7.0 — the shipped one is what 1.1.0 emitted. A copy spends it, and any change to the collection drops it; a change to a preset does **not**, because the fetch always asks for all of them (§2.14) |
+| 📊 Report | drawer, the foot | **Two presses**, sharing 📋 Details' fetch. Copies the collection grouped under headings. The shipped shape is priority and then team, which is what the Technology Portfolio Office sends to team leads, **and since 1.2.0 both bands are settings** — see the two rows below. **It has its own field list** as well, on the same tab, over the same eight fields. Since 1.7.0 all of that belongs to a **named preset**, and a plain press prints the ★ one (§2.15, §2.14) |
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | **A state button.** Opens the settings screen, which REPLACES the two sections and the foot. It stays lit while it is up, and the head reads `⚙ Settings`. Press it again to go back |
-| A settings tab | drawer, the settings screen | `Appearance`, `📋 Details` or `📊 Report`, with `Issue reference` pinned above the bar. Which tab you were last on is remembered |
-| Issue reference | drawer, the settings screen, pinned above the tabs | One of **five named shapes** for how an issue is written at the head of a line — a markdown link, a markdown link with no summary, key + summary + URL, key + URL, or the URL alone. **It governs 🔗 Links, 📋 Details and 📊 Report together** (§2.8) |
-| A field's checkbox | drawer, `📋 Details` or `📊 Report` | Whether that field is printed on the line. Each tab has its **own** list over the **same** eight fields — type, status, priority, assignee, team, fix version, time remaining, parent — and every field has a row whether it is ticked or not. **Zero ticked is allowed**: the line is then the issue reference alone (§2.14) |
+| A settings tab | drawer, the settings screen | `Appearance`, `🔗 Links`, `📋 Details` or `📊 Report` — **four since 1.7.0**, and nothing is pinned above the bar any more. Which tab you were last on is remembered |
+| A preset picker | drawer, `📋 Details` or `📊 Report` | **Which preset the settings below edit** (1.7.0). Sorted by name, with `★ ` in front of the one a plain press of that button uses. Changing it **writes nothing** — it is in memory, and it starts at ★ each sitting |
+| `★` | drawer, `📋 Details` or `📊 Report` | Makes the selected preset the one a plain press of that button prints. **The preset you are editing and the preset that prints need not be the same one**, and the note under the block says both |
+| `✎` and `✕` | drawer, `📋 Details` or `📊 Report` | Rename in place, and delete. The delete **arms first** and refuses on a list of one, exactly as a collection chip's ✕ does |
+| `+ Create preset` | drawer, `📋 Details` or `📊 Report` | Opens a name field. `Create` **commits the name first** and selects the new preset, so nothing you edit afterwards can land on the one you had open. It starts from the fields the script ships with. There is no Cancel: undoing a new preset is deleting it, which asks twice |
+| Issue reference | drawer, `🔗 Links`, `📋 Details` and `📊 Report` — one per tab | One of **five named shapes** for how an issue is written at the head of a line — a markdown link, a markdown link with no summary, key + summary + URL, key + URL, or the URL alone. **🔗 Links' is that button's own setting; the other two belong to the selected PRESET** (§2.8, and presets decision 5). It was one pinned control governing all three until 1.7.0 |
+| A field's checkbox | drawer, `📋 Details` or `📊 Report` | Whether that field is printed on the line. Each tab has its **own** list over the **same** eight fields — type, status, priority, assignee, team, fix version, time remaining, parent — and every field has a row whether it is ticked or not. **Zero ticked is allowed**: the line is then the issue reference alone (§2.14). Since 1.7.0 the tick lands on the **selected preset** and on nothing else |
 | A field's row | drawer, `📋 Details` or `📊 Report` | **Drag it to reorder.** The line prints the ticked fields in the order the list stands in. A drop into the *other* tab's list is refused. There is no keyboard path (§6 item 4) |
 | `also a heading` | drawer, `📊 Report` | That field is one of the report's two bands. It is a note and not a refusal — tick it and the value appears on the row as well (§2.14 rule 4) |
-| `Group by` | drawer, `📊 Report` | The report's first heading level. One of **seven** fields — priority, team, status category, type, assignee, fix version or parent — and it may not be `None`, because a report with no bands at all is 📋 Details (§2.15) |
+| `Group by` | drawer, `📊 Report` | The report's first heading level, **on the selected preset**. One of **seven** fields — priority, team, status category, type, assignee, fix version or parent — and it may not be `None`, because a report with no bands at all is 📋 Details (§2.15) |
 | `Then by` | drawer, `📊 Report` | The second heading level, the same seven fields plus `None` for one level only. **The field `Group by` holds is shown greyed here rather than hidden**, so it says why it cannot be chosen; choosing the other dropdown's field **swaps the pair in one press** (§2.15) |
 | Sections | drawer, `Appearance` | `auto`, `stacked` or `split`. `auto` decides from the drawer's own width |
 | Corner | drawer, `Appearance` | Bottom right or bottom left. The drawer's chrome mirrors it |
 | A `🔗` beside the `+` | drawer, `Appearance` | **On by default** — the only switch here that is. Off, the hovered rail is the single `+` it was at 1.2.0, which is what to do if the wider rail covers something in your rows (§2.7.1) |
-| ↺ Restore export defaults | drawer, the export tabs | Puts the line shape, both field lists and both bands back to what 1.1.0 emitted. Click once to arm it — the label becomes `Restore?` — and again to commit. It leaves the appearance switches and the tab you are on alone |
+| ↺ Restore export defaults | drawer, the export tabs | **Reaches the tab you are on and nothing else** (1.7.0). On `📋 Details` and `📊 Report` it puts the **selected preset's** fields, their order, its headings and its head back to what the script ships with — its name and its ★ untouched, and your other presets left alone. On `🔗 Links` it puts that tab's dropdown back. Click once to arm it — the label becomes `Restore?` — and again to commit. It leaves the appearance switches and the tab you are on alone |
 | ✕ | drawer, the head | Closes the drawer. **The same on both screens**: it never means "go back" |
 | The grip | drawer, the free corner | Drag to resize. Double-click to let the drawer size itself again |
 | The divider | drawer, between the sections | Drag to give one section more room. Double-click to hand it back |
@@ -4906,6 +5122,16 @@ These are not gaps in the design. Each was named, and each was left.
     tab's field list, and the pinned `Issue reference` row stays where it is as the
     default the nulls follow. It reopens §2.8's amendment of 2026-08-25 and nothing
     else.
+    > **CLOSED THE OTHER WAY ON 2026-09-06, AND THE COST WAS TAKEN ON PURPOSE.** A
+    > preset always names its own shape and there is no *follow the shared setting*
+    > state (presets decision 5) — **chosen against the recommendation, which was this
+    > item's nullable.** What makes it not the bug described above is that a preset is
+    > a thing the user built and named, not a key touched on their behalf; what is
+    > paid instead is stated limit 3 of that record: changing your line shape
+    > everywhere means editing every preset, and nothing reports which one you missed.
+    > `Issue reference` is no longer pinned and no longer shared — 🔗 Links keeps a
+    > preference of its own (§2.9, amended 2026-09-06). **This item is answered rather
+    > than open; ticket 05 owns rewriting it in place.**
 17. **The settings panel's taxonomy: `Appearance` is a peer of two export tabs.
     Named as a cost and accepted on 2026-08-24, recorded here on 2026-08-25 so it is
     not rediscovered as a defect** (§2.9, decisions 18 and 29). The bar reads
@@ -4927,6 +5153,17 @@ These are not gaps in the design. Each was named, and each was left.
     **Nothing about this is a defect and nothing depends on it.** A tab added later
     arrives visible, because a bar shows every tab whether it has been pressed or
     not (decision 21), so the structure can change without a migration.
+    > **THE FOURTH TAB ARRIVED ON 2026-09-06 AND IT IS NOT THE ONE THIS ITEM
+    > PREDICTED.** The bar is now `Appearance` · `🔗 Links` · `📋 Details` ·
+    > `📊 Report`, and `Issue reference` is not pinned above it any more — a preset
+    > names its own shape, so that row governs 🔗 Links alone. **What arrived is a
+    > fourth BUTTON tab, not a second KIND of setting**, so `Appearance` is *more* of
+    > an outlier than it was: three tabs named after buttons in the foot and one named
+    > after a kind of setting. **The two-level structure this item held in reserve is
+    > therefore not bought, and the item stays open with one more tab against it.** It
+    > cost nothing measurable: four full labels fit at the 300px floor, measured on
+    > 2026-08-27. The full amendment is in §2.9, with this item's own words quoted.
+    > **Ticket 05 owns rewriting this item in place.**
 18. **Two copy receipts that behave differently, and 1.3.0 left them that way on
     purpose.** The foot's `✅` is written straight onto the button by `flash`, so an
     unrelated re-render can clear it early — §2.8 says so about itself and calls the
@@ -5230,6 +5467,14 @@ pass each, and they are cheap.
     while it scrolls, and its three labels must not wrap inside 300px. Press ⚙ again:
     the two sections and all six foot buttons must come back with nothing clipped,
     which is risk 10's arithmetic meeting a real layout on the other screen.
+    > **RE-RUN OWED AT 1.7.0, AND IT IS FOUR LABELS NOW.** The bar is `Appearance` ·
+    > `🔗 Links` · `📋 Details` · `📊 Report`, and the four fit at the 300px floor on
+    > the rig, measured 2026-08-27 — but the rig's tab rules were checked against the
+    > script's and that is not the same as pressing the real drawer. **The export tabs
+    > also grew a preset block**, so the thing to look at while scrolling is the
+    > picker's row: the picker, `★`, `✎` and `✕` in one row at 300px, and the rename
+    > field taking that row's place with nothing clipped. Ticket 05 of the presets
+    > effort owns writing this step out properly.
 28. **The ⚙ says which screen you are on, and the head agrees with it.** Press ⚙: the
     button must stay lit while the panel is up — not only while it has the focus —
     and the head must read `⚙ Settings`. Click elsewhere in the drawer: the button

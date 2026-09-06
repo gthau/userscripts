@@ -201,6 +201,27 @@ written, and no user-written string reaches the clipboard.
     > ticket or two and the two can drift; **it reaches no user**, because the whole
     > effort ships once as 1.7.0 (decision 24). `store-smoke` §18q is the tripwire: it
     > asserts the four are still there, so it goes red the day they go.
+    >
+    > **DONE ON 2026-09-06, BY TICKET 03, AND §18q WENT RED AS BUILT TO.** The four
+    > keys are out of `DEFAULT_PREFS` and `normalisePrefs`; their shipped values moved
+    > unchanged into `PRESET_DEFAULTS`; §18q is kept and **inverted**, asserting they
+    > are gone and that `lineShape` survives. `EXPORT_PREF_KEYS` is `["lineShape"]`.
+    >
+    > **AND IT COST ONE THING NOBODY HAD ASKED FOR, which is the finding.** Ticket 02
+    > built the first run lazily — nothing was written until something wrote — and
+    > that was right while nothing read a preset. It stopped being right here: the
+    > build reads `lineShape` off the RAW preferences blob, so **while the key is
+    > absent the two export presets FOLLOW 🔗 Links' shape.** Move that one dropdown
+    > and 📋 Details and 📊 Report move with it, which is exactly the *silently
+    > follows* state decision 5 refuses. `boot-smoke` found it by pressing the dropdown
+    > and reading the other two back.
+    >
+    > **No lazy build can fix it and no test on the blob can either**: the question is
+    > *was this shape chosen before or after 1.7.0*, and a blob holding `lineShape` and
+    > none of the four looks identical either way. Only a write can date a value. So
+    > `writeFirstRunPresets` runs at boot beside the collections' `writeFirstRun`, and
+    > §2.4's *nothing is rewritten because you looked at it* is amended in place: the
+    > READ still writes nothing, and the write is its own function called once.
 23. ~~**The foot may gain a row, and the floor is re-derived from a MEASUREMENT.** By
     arithmetic the six buttons already come to roughly 452px of content against ~275px
     usable at the 300px floor, so the foot is already two rows; three arrows add ~60px
@@ -362,7 +383,7 @@ written, and no user-written string reaches the clipboard.
 | --- | --- | --- | --- |
 | [01](01-the-prototype.md) | The rig grows a presets variant, and four numbers come back | No script change at all | **BUILT AND PRESSED 2026-08-27.** It reversed decision 8, added 26, closed limit 2, and found the rig's fourth drift. **Two numbers owed on a re-press** |
 | [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | **BUILT 2026-08-28.** `store-smoke` 127 → 212, suite 1,489, `format-smoke` untouched. **It deferred half of decision 22** — see below — and it extracted the band pair rule instead of copying it |
-| [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `Save as new…`, the per-tab restore | |
+| [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `+ Create preset`, the per-tab restore | **BUILT 2026-09-06.** Suite 1,489 → 1,608. It landed **decision 22's other half**, found a **defect in ticket 02's lazy first run**, deleted **three lines** a mutation could not touch, and rewrote **six checks** that could not fail |
 | [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | |
 | [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | |
 
@@ -559,6 +580,55 @@ the tick pattern read back before and after), and the armed label goes
 one exposed a third fault in the check itself: the stub handed out a fresh node per
 `querySelector`, so setting `.value` on the arrow fired a handler nothing had
 registered — **it passed and proved nothing.**
+
+### Ticket 03 is built, 2026-09-06, and item 17 got the wrong kind of fourth tab
+
+The bar is `Appearance` · `🔗 Links` · `📋 Details` · `📊 Report`, `pinned` is gone,
+and the preset block is at the top of the two export tabs. **§6 item 17's prediction
+is quoted in §2.9 and answered rather than paraphrased**, and the answer is that *it
+named the right control and the wrong reason*: what arrived is a fourth **button**
+tab, not a second **kind** of setting, so `Appearance` is more of an outlier than it
+was and the two-level structure item 17 held in reserve is not bought. **Item 17 stays
+open with one more tab against it.** It cost nothing measurable, because ticket 01 had
+already measured that four full labels fit at the 300px floor.
+
+**Decision 22's other half landed here**, and it found a defect in ticket 02's lazy
+first run — see the amendment under decision 22 above. The short version: while the
+presets key was absent, the two export presets followed 🔗 Links' shape, and only a
+write can say which side of 1.7.0 a stored shape came from.
+
+**Three lines of the script were DELETED because a mutation could not touch them**,
+and every one had been asked for by name in a ticket or written on purpose:
+
+| The line | Why it could not matter |
+| --- | --- |
+| `deletePreset` passing ★ to the first remaining by name | Ticket 03 asked for it *"on write too, so the two agree and neither is the only guard"* — and they agree by construction. Every delete goes out through `oneStar`, which sends a starless list to the first preset **by name**, from the same `firstByName`. There was only ever one guard |
+| `deletePreset` clearing the selection | Its own comment said *a convenience and not a guard*. An id naming a preset that is gone already falls to ★ in `selectedPreset` |
+| the comment that went with the first | Replaced by the finding, so it does not come back |
+
+**And six checks were rewritten because they could not fail**, which is the same
+defect on the other side of the seam and the more useful half of the run. The table is
+in [`test/jira-cart/README.md`](../../../test/jira-cart/README.md). **40 mutations,
+seven passes**; the first pass had five survivors and each pass after it found fewer,
+because the checks got sharper rather than because the code did.
+
+**And one defect was found by reading the delegated listener rather than by pressing
+anything.** `change` bubbles from every form control, including a text input on blur,
+and the panel has one delegated `change` listener — so the rename field, carrying the
+picker's dataset attribute, would have set the selection to the name being typed and
+the panel would have jumped to the ★ preset. No harness here could have caught it: the
+stub's blur synthesises no `change`. Fixing it produced **two guards where one was
+needed**, and the redundant one was deleted rather than kept.
+
+**The field lists' drag is driven by a harness at last.** §2.14 recorded in August
+that nothing drove it and that retro-fitting was declined as out of scope. Ticket 03
+moved where that drop writes — a preference became the selected preset — and a
+mutation making the drop a no-op survived the whole suite. The gap stopped being free.
+
+**What 03 did NOT do, and 04 is unblocked either way**: no arrow anywhere, no foot
+change, no `MIN_BLOCK` change, and no version bump. A plain press reads ★, which is
+the whole of this ticket's visible behaviour. **04 no longer has to take the four keys
+out** — 03 did — so its own note about *whichever lands first* is answered.
 
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.

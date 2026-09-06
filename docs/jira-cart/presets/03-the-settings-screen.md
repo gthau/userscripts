@@ -194,3 +194,134 @@ restore, so extend rather than start:
   reaches `detailChip`, §2.14's original bullet is back, unamended.**
 - No arrow anywhere. A plain press reads ★. That is the whole of this ticket's
   visible behaviour.
+
+
+---
+
+## BUILT on 2026-09-06
+
+`node test/jira-cart/run.mjs` green. **The suite is 1,489 → 1,608 checks**, recounted
+from the run rather than estimated: `boot-smoke` 439 → **548**, `format-smoke` 552 →
+**560**, `css-smoke` 86 → **90**, `store-smoke` 212 → **210**. The store's number went
+DOWN and that is not a loss: the band sweeps moved off the preference path onto the
+preset path, where the rule now has its only caller, and they were already there.
+
+**What is in the script**, in the order the file has it: the `links` tab in
+`SETTINGS_TABS`; `PRESET_DEFAULTS`, which is where the four export keys went;
+`sortedPresets`, `starPreset`, `presetBandKey`, `presetBands`, `applyBandPatch`,
+`writeFirstRunPresets`; `presetSelection` / `presetCreating` / `presetRenaming`;
+`selectedPreset`, `editSelectedPreset`, `shapeControl`, `presetBlock`,
+`renderPresetBlock`; and `presetTab`, `pressPresetStar`, `startPresetRename`,
+`commitPresetRename`, `cancelPresetRename`, `armPresetDelete`, `deletePreset`,
+`openPresetName`, `closePresetName`, `createPreset`.
+
+### Item 17 got a fourth tab and NOT the second kind of setting it predicted
+
+Recorded in §2.9 with its words quoted rather than paraphrased, and the answer is
+that **it named the right control and the wrong reason**. What arrived is a fourth
+BUTTON tab, so `Appearance` is *more* of an outlier than it was — three tabs named
+after buttons in the foot and one named after a kind of setting. **The two-level
+structure it was holding in reserve is therefore not bought, and item 17 stays open
+with one more tab against it.**
+
+**It cost nothing measurable**, because ticket 01 had already measured it: four full
+labels fit at the 300px floor without wrapping, so neither the wrapping bar nor
+`tabs4`'s shortened labels was needed, and A.9's *a word survives where a dim
+pictograph does not* never had to be spent.
+
+### Decision 22's other half landed here, and it needed one thing nobody had asked for
+
+The four keys left `DEFAULT_PREFS` and `normalisePrefs`; their shipped values moved
+into `PRESET_DEFAULTS` unchanged; `store-smoke` §18q was **inverted** from *the four
+are still there* to *the four are gone*, which is exactly what ticket 02 built it to
+do.
+
+**AND IT EXPOSED A DEFECT IN TICKET 02'S LAZY FIRST RUN, found by pressing rather
+than by reading.** The build reads `lineShape` off the raw preferences blob, so
+**while the presets key is absent the two export presets FOLLOW 🔗 Links' shape** —
+move that one dropdown and 📋 Details and 📊 Report move with it, which is precisely
+the *silently follows* state decision 5 exists to refuse. `boot-smoke` found it with
+one new check: press 🔗 Links' dropdown, read the other two back.
+
+**No lazy build can fix it and no test on the blob can either.** The question is *was
+this shape chosen before or after 1.7.0*, and a blob holding `lineShape` and none of
+the four export keys looks identical either way. Only a write can date a value. So
+`writeFirstRunPresets` runs at boot beside `writeFirstRun`, and §2.4's *nothing is
+rewritten because you looked at it* is amended rather than quietly broken: the READ
+still writes nothing, and the write is its own function called once.
+
+### Three lines were deleted because a mutation could not touch them
+
+Each was written on purpose and each turned out to be unobservable. **The ★ transfer
+in `deletePreset`** — this ticket asked for it *"on write too, so the two agree and
+neither is the only guard"*, and they agree by construction: every delete goes out
+through `oneStar`, which gives a starless list to the first preset by name, from the
+same `firstByName`. **The selection reset in `deletePreset`** — its own comment said
+*a convenience and not a guard*, which was the reason to remove it. And the comment
+that went with the first. The precedents are this repository's own: `byName`'s dead
+`toLowerCase` and `css-smoke`'s first backtick check.
+
+### Six checks were rewritten because they could not fail
+
+The table is in [`test/jira-cart/README.md`](../../../test/jira-cart/README.md), and
+it is the more useful half of the run. The short version: a *byte-identical* check
+that compared two copies of the shipped defaults; a *writes nothing* check that
+compared bytes a no-op rewrite would not change; a *name and ★ untouched* check run on
+a preset called `Standard` that carried the flag; a ★ press made on the preset the
+repair would have chosen anyway; a *last preset refuses* check whose button was
+`disabled`, so no press reached the handler; and a `uniqueName` check whose renamed
+preset was stored last, where the normaliser gives the same answer.
+
+**40 mutations, seven passes, and the passes are the point** — the first had five
+survivors, and each pass after it found fewer because the checks got sharper rather
+than because the code did.
+
+### One defect was found by READING the delegated listener, not by pressing anything
+
+`change` **bubbles** from every form control, including a text input on **blur**, and
+the settings panel has one delegated `change` listener. The preset block's rename
+field carried the picker's own dataset attribute — so blurring it would have landed in
+the picker's branch and set the selection to the **name somebody had just typed**. The
+panel would then have shown the ★ preset instead, and the rename would have read as
+though it had jumped to another preset. `boot-smoke`'s stub blur synthesises no
+`change`; a browser's does, so nothing here could have caught it.
+
+**Fixing it produced two guards where one was needed**, and the mutation run said so:
+the attribute came off the two text fields AND the handler's branch was given an id
+test, and **each alone prevented the bug** — so neither could be proved able to fail.
+The id test is gone, because every other branch in that handler dispatches on an
+attribute alone. What is left is one guard, one comment saying why the fields carry no
+attribute, and a check that dispatches a `change` at the rename field directly **on a
+preset that is not ★** — because a broken selection falls back to ★, and on the ★
+preset the wrong answer and the right one are the same string.
+
+### The field lists' drag is driven by a harness at last
+
+§2.14 recorded in 2026-08-25 that nothing drove it and that retro-fitting was declined
+as out of scope. **Ticket 03 moved where that drop writes** — a preference became the
+selected preset — **and a mutation making the drop a no-op survived the entire
+suite.** The gap stopped being free, so `boot-smoke` now drives `dragstart` →
+`dragover` → `drop` → `dragend` through the delegated listeners, holds that the drop
+lands on the selected preset and leaves the other one byte-identical, and holds the
+cross-list refusal. §7 step 31 is still the browser pass for what a pointer feels like.
+
+### One harness bug, found by adding checks above an old one
+
+The stub widens every rect it hands out by a pixel per call, so the right-click menu —
+placed at the pointer and clamped to the viewport by its own width — began failing
+once enough rects had been read earlier in the file. The counter is reset before that
+section now, with a comment. **A check that depends on how much ran before it will
+fail for a reason that is not its own.**
+
+### Still owed
+
+- **§6 item 17 is amended in §2.9 but not in §6 itself.** Ticket 05 owns §6 and §7.
+- **§7 needs the browser steps this ticket makes checkable only in a browser**: the
+  four-label bar at the 300px floor in real Jira, the preset block at that floor with
+  the rename field open, and the ✕'s armed red. Ticket 05.
+- **The rig's `Presets · proposed` variant is untouched**, and it is now a proposal
+  for something that shipped. It is left exactly as it was pressed, because that is
+  what it is a record of; ticket 05 decides whether it becomes a fifth *shipped*
+  variant or is struck.
+- **The version is still 1.6.0.** The whole effort ships once as 1.7.0 (decision 24),
+  which is ticket 05.

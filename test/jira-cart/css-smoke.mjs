@@ -95,9 +95,22 @@ const HIDDEN_ABLE = [
   "aside#gt-cart-drawer div#gt-cart-body",
   "aside#gt-cart-drawer div.gt-cart-tabpanel",
   "aside#gt-cart-drawer button.gt-cart-restore",
+  /* THREE MORE SINCE 1.7.0, AND THEY ARE THE PRESET BLOCK. Eleven of the source's
+     `.hidden =` sites are in it, over these three kinds of element: the picker and
+     the two text fields, which take each other's place -- a rename replaces the
+     picker, a name field replaces `+ Create preset` -- and the five buttons.
+
+     THIS IS THE ONE PLACE ON THE SETTINGS SCREEN WHERE HIDING IS THE LAYOUT, so it
+     is also where the 0.3.0 trap is easiest to walk back into: a rule naming an
+     element TYPE inside a class is (1,1,2) and beats the generic (1,1,1)
+     `[hidden]`. The sheet's preset rules therefore set `display` on the two wrappers
+     only, and the check below is what holds them to it. */
+  "aside#gt-cart-drawer div.gt-cart-preset-row select",
+  "aside#gt-cart-drawer div.gt-cart-preset-row input",
+  "aside#gt-cart-drawer button.gt-cart-preset-btn",
 ];
 is("the script still hides exactly the elements this list names",
-   (src.match(/\.hidden = /g) || []).length, 16);
+   (src.match(/\.hidden = /g) || []).length, 27);
 
 const hidingRules = rules.filter((r) => /display:\s*none/.test(r.body));
 const showsDisplay = (sel) =>
@@ -256,6 +269,33 @@ const dropRule = (row, edge) =>
 const onlyAColour = (row) => ["before", "after"].map((edge) =>
   /^\s*border-block-(start|end)-color:[^;]+;?\s*$/.test(dropRule(row, edge)?.body ?? ""));
 is("and the indicator only ever changes its colour, never its width", onlyAColour("field"), [true, true]);
+
+/* ---- 2c-ter. THE SAME TRAP A FIFTH TIME, on the preset block's ★ (1.7.0). ★ is a
+   state button on `aria-pressed`, wearing the Cart's one "this is the one that is
+   on" pair, and the plain hover rule beside it is the same specificity -- so without
+   the repeated selector the ON control goes quiet under the pointer, which is exactly
+   how the ⚙ was inert for two versions.
+
+   AND THE ARMED ✕ IS THE SAME SHAPE OF RULE ON THE SAME CLASS, so it is checked here
+   rather than left to be noticed: the pointer is by definition on the button it just
+   armed. */
+const presetHover = rules.find((r) => r.sel === "aside#gt-cart-drawer button.gt-cart-preset-btn:hover:not(:disabled)");
+const presetOn = rules.find((r) => /button\.gt-cart-preset-btn\[aria-pressed="true"\]/.test(r.sel));
+const presetArmed = rules.find((r) => /button\.gt-cart-preset-btn\[data-gt-armed="true"\]/.test(r.sel));
+is("★ is painted from the Cart's own selected tokens, not a new blue",
+   ["border-color", "background", "color"].map((prop) =>
+     new RegExp(`(^|;)\\s*${prop}:\\s*var\\(--gt-cart-selected`).test(presetOn?.body ?? "")),
+   [true, true, true]);
+const presetOnHover = presetOn?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("and it keeps them under the pointer, so a ★ preset does not go quiet on hover",
+   beats(spec(presetOnHover ?? ""), spec(presetHover?.sel ?? "")), true);
+const presetArmedHover = presetArmed?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("and the armed ✕ keeps its red under the pointer that armed it",
+   beats(spec(presetArmedHover ?? ""), spec(presetHover?.sel ?? "")), true);
+// The armed ✕ carries the same red as the armed ⌫, the armed chip and the armed ↺:
+// one gesture, four scopes, one colour.
+is("and that red is the Cart's own remove token, at a fourth scope",
+   /(^|;)\s*background:\s*var\(--gt-cart-remove\)/.test(presetArmed?.body ?? ""), true);
 
 /* ---- 2c-bis. THE SAME TRAP A FOURTH TIME, on the collection's own drag (§2.9,
    1.4.0). Everything above about the field rows has to hold about the item rows,
