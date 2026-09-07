@@ -313,12 +313,30 @@ once enough rects had been read earlier in the file. The counter is reset before
 section now, with a comment. **A check that depends on how much ran before it will
 fail for a reason that is not its own.**
 
+### PRESSED IN REAL JIRA on 2026-09-07, and every browser-only claim held
+
+Reported as *"it works well"* and then itemised, because that sentence is a use report
+rather than a set of answers. **All four of this ticket's browser-only claims were
+pressed** — the 300×215 floor with ⚙ up, the create/rename/delete wording, the restore
+on a preset, and the note read with the picker off ★ — and **the press added a fifth
+that is the end-to-end claim**: ★ moved, ⚙ closed, and a plain press of 📋 Details and
+📊 Report used the new starred preset. That is a real fetch, a real clipboard write and
+a real paste, which is the one thing nothing under `test/` can reach. The table is in
+[the decision record](README.md).
+
+**It says nothing about the foot**, and that is not an oversight: ⚙ replaces the body
+**and the foot with it**, so a press at the floor with the settings up cannot see the
+six buttons. Decision 23's floor is still open and belongs to 04.
+
 ### Still owed
 
-- **§6 item 17 is amended in §2.9 but not in §6 itself.** Ticket 05 owns §6 and §7.
-- **§7 needs the browser steps this ticket makes checkable only in a browser**: the
-  four-label bar at the 300px floor in real Jira, the preset block at that floor with
-  the rename field open, and the ✕'s armed red. Ticket 05.
+- **§6 item 17 is amended in §2.9 but not in §6 itself.** Ticket 05 owns §6 and §7 —
+  each now carries a dated pointer rather than a rewrite, so nothing in either reads
+  as true when it is not.
+- **§7 needs its steps WRITTEN, not run.** The four-label bar at the 300px floor and
+  the preset block at that floor are pressed and confirmed above; what is missing is
+  the step text saying so, plus a step for *a plain press uses the ★ preset*, which is
+  new behaviour §7 has no entry for. Ticket 05.
 - **The rig's `Presets · proposed` variant is untouched**, and it is now a proposal
   for something that shipped. It is left exactly as it was pressed, because that is
   what it is a record of; ticket 05 decides whether it becomes a fifth *shipped*

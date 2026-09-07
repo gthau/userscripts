@@ -630,6 +630,35 @@ change, no `MIN_BLOCK` change, and no version bump. A plain press reads ★, whi
 the whole of this ticket's visible behaviour. **04 no longer has to take the four keys
 out** — 03 did — so its own note about *whichever lands first* is answered.
 
+### PRESSED IN REAL JIRA on 2026-09-07, and the press went one item further than it was asked
+
+Reported as *"it works well"*, and then **itemised**, because "it works" is a use
+report rather than a set of answers — which is the rule this record has been keeping
+since ticket 01's first press reversed a decision.
+
+| What was pressed | What it closes |
+| --- | --- |
+| **The 300×215 floor, with ⚙ up** | **§7 step 27's re-run, the four-label half.** Four full tab labels do not wrap, and the picker with `★`, `✎` and `✕` sits in one row with the rename field able to take that row's place. This is the one thing no harness here can see, and it had been answered off the RIG until now — where limit 2 was closed by a rig press plus a byte-identical comparison of the tab rules, it is now closed by the real drawer |
+| **`+ Create preset`, `✎`, `✕`** | The wording, which is the half a person has to judge: the armed sentence and the list-of-one refusal both read as intended. `boot-smoke` holds the strings; it cannot say whether they land |
+| **↺ Restore on a preset** | Decision 14 in the hand: the preset's fields come back, its name and its ★ do not move, and no other preset moves. The tooltip naming the preset reads right BEFORE the press, which is the half that matters for a control with no undo |
+| **The note, with the picker off ★** | Stated limit 1's only mitigation on this screen. The two sentences read as two facts |
+
+**AND ONE ITEM THE PRESS ADDED, WHICH IS THE END-TO-END CLAIM:** *"selecting a new
+default preset and triggering Details and Report: the new starred preset is used."*
+
+**That is the one thing nothing under `test/` can prove.** `format-smoke` asserts that
+`format` reads the ★ preset of the right list, over a list where the ★ is neither
+first in the array nor first by name — but it asserts it about a pure function with a
+shimmed store. What was pressed is `★` moved in the ⚙ panel, ⚙ closed, a **real
+fetch** against a **real collection**, a **real clipboard write**, and a paste that
+came out in the new preset's shape. Decision 1 — *presets ARE the export
+configuration* — is confirmed at the only scope that counts.
+
+**What this press does NOT say anything about is the FOOT**, and that is worth stating
+rather than assuming: ⚙ replaces the body **and the foot with it**, so a press at the
+floor with the settings up cannot see the six buttons at all. Decision 23's
+`MIN_BLOCK stays 215` is still an open number, and ticket 04 is where it closes.
+
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.
 

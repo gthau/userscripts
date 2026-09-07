@@ -5467,14 +5467,24 @@ pass each, and they are cheap.
     while it scrolls, and its three labels must not wrap inside 300px. Press ⚙ again:
     the two sections and all six foot buttons must come back with nothing clipped,
     which is risk 10's arithmetic meeting a real layout on the other screen.
-    > **RE-RUN OWED AT 1.7.0, AND IT IS FOUR LABELS NOW.** The bar is `Appearance` ·
-    > `🔗 Links` · `📋 Details` · `📊 Report`, and the four fit at the 300px floor on
-    > the rig, measured 2026-08-27 — but the rig's tab rules were checked against the
-    > script's and that is not the same as pressing the real drawer. **The export tabs
-    > also grew a preset block**, so the thing to look at while scrolling is the
-    > picker's row: the picker, `★`, `✎` and `✕` in one row at 300px, and the rename
-    > field taking that row's place with nothing clipped. Ticket 05 of the presets
-    > effort owns writing this step out properly.
+    > **RE-RUN AT 1.7.0, AND IT IS FOUR LABELS NOW — CONFIRMED IN A BROWSER ON
+    > 2026-09-07, in real Jira.** The bar is `Appearance` · `🔗 Links` · `📋 Details` ·
+    > `📊 Report`, and **the four full labels do not wrap at the 300px floor**. That
+    > had been answered off the RIG on 2026-08-27 and stood on a byte-identical
+    > comparison of the tab rules; it now stands on the real drawer, which is what this
+    > step exists for. **The export tabs also grew a preset block**, and it holds at the
+    > floor too: the picker with `★`, `✎` and `✕` in one row, and the rename field able
+    > to take that row's place with nothing clipped.
+    >
+    > **This step cannot say anything about the FOOT and never could**: ⚙ replaces the
+    > body and the foot with it, so at the floor with the settings up the six buttons
+    > are not on screen. The foot's own floor is the presets effort's ticket 04.
+    >
+    > Ticket 05 of that effort owns folding this note into the step text, and owes one
+    > step this section has no entry for at all: **a plain press uses the ★ preset** —
+    > move ★, close ⚙, press 📋 Details and 📊 Report, and check the paste came out in
+    > the new preset's shape. That was pressed on 2026-09-07 and it is the only claim
+    > in the feature that no harness here can reach.
 28. **The ⚙ says which screen you are on, and the head agrees with it.** Press ⚙: the
     button must stay lit while the panel is up — not only while it has the focus —
     and the head must read `⚙ Settings`. Click elsewhere in the drawer: the button

@@ -24,6 +24,26 @@ re-derived minimum height.
 >
 > **What 03 did NOT touch, so nothing here is second-guessed:** no arrow, no foot
 > change, no `COLLECTION_FIXED_PX` and no `MIN_BLOCK`, and no version bump.
+>
+> **AND 03 WAS PRESSED IN REAL JIRA ON 2026-09-07, which closed the tab bar at the
+> floor and says NOTHING about the foot.** ⚙ replaces the body and the foot with it, so
+> a press at 300×215 with the settings up cannot see the six buttons. Decision 23 is
+> still open exactly as it was.
+>
+> **SO TAKE THE FOOT MEASUREMENT IN THE REAL DRAWER, NOT ON THE RIG.** That is a change
+> from what the *Read first* list implies, and the reason is the rig's own record: the
+> foot has drifted from the script **four times**, the measurement has been WITHDRAWN
+> ONCE, and the number it stands on now was taken from a drawer 300px wide where the
+> real one is 298px inside its border. A third rig press is a third reading from an
+> instrument that has been wrong before. **Once this ticket lands the arrows, the foot
+> that has to be measured EXISTS** — drag the drawer to 300×215 and read it there.
+> `rig-smoke` keeps the rig honest for the questions the rig is still the only way to
+> ask; this is not one of them any more.
+>
+> The same applies to decision 26's `min-inline-size: 11ch`: *no jump* on `📋 Copy ★`
+> was measured at the rig's 11px against the script's 12px, and the record says
+> plainly that **should is not a measurement**. Ship the mark, then read the row in
+> Jira.
 
 **Read first:** ADR **§2.8** (the dispatch table and its two amendments), **§2.14**
 (the two presses, what throws the held fetch away, and *the label IS the state*),
