@@ -1876,6 +1876,39 @@ works.
 > what lets the harness assert all five shapes' bytes with no store to stand up. The
 > three formats that have no head ignore it, the same way they already ignore `scope`.
 
+> **Amended on 2026-09-07, 1.7.0: the ENTRY gained two names and `format` gained a
+> fourth argument. The builders' signature did not move.** Presets ticket 04, the
+> arrows.
+>
+> An entry now names **which preset list it draws from** and **what its arrow
+> offers**, and `format` performs the reads: `format(kind, items, scope, pick)`
+> resolves the pick and hands the builders the same `(items, scope, shape, fields,
+> bands)` they already took. So the rule the 2026-08-25 amendment set is unchanged and
+> was extended rather than bent — **the configuration arrives as arguments and no
+> builder reads storage** — which is still what lets the harness assert bytes with no
+> store standing up.
+>
+> **WHICH LIST IS ASKED OF `entry.fields` AND NOT OF `entry.kind`.** Matching a kind
+> against a settings tab id would be a NEW correspondence, true today by coincidence
+> and checked by nothing; `EXPORTS` and `SETTINGS_TABS` already name the same field
+> keys and `format-smoke` holds them to it, so that key is a seam this repository
+> maintains.
+>
+> **`entry.arrow` NAMES A VOCABULARY, AND IT IS THE ONLY PLACE THE TWO MEET.** `pick`
+> is one string that is a preset id for 📋 Details and 📊 Report and a **shape id** for
+> 🔗 Links — whose shape list *is* its preset list, because its only configurable
+> property is a shape and that list is already fixed and named in this file (presets
+> decision 4). Two functions read it, `pickedPreset` and `pickedShapeId`, and both
+> follow the same sentence: **a pick that names nothing is not an error, it is a miss
+> that falls to what a plain press uses.**
+>
+> **THE PICK IS RESOLVED AT THE PRESS AND NEVER SNAPSHOTTED** (presets decision 17),
+> which is the rule a plain press was already following — so a plain press and an
+> arrow pick are the same call with a different fourth argument, and there is no
+> second copy of the export configuration to disagree with the panel. A preset deleted
+> between an arrow pick and the copy it armed lands on ★ and the copy still writes;
+> that path is reachable with one pair of hands and `boot-smoke` drives it.
+
 > **Amended on 2026-08-20: that last sentence was wrong, and §2.14 is the
 > counter-example.** The dispatch table did take exactly one entry. The **two-step
 > fetch behind it did not** — a payload that is not in storage needed a fetch step,
@@ -3800,8 +3833,64 @@ that copies them.
 | --- | --- |
 | `📋 Details` | idle. The press fetches |
 | `📋 Fetching…` | one `bulkfetch` for the whole active collection |
-| `📋 Copy` | answered, and unspent. The count is in the tooltip, not the label |
+| `📋 Copy ★` | answered, and unspent, and **this copy will use the ★ preset** |
+| `📋 Copy` | answered, and unspent, and **this copy will use a preset picked from the arrow** |
 | `✅` / `⚠️` | 900 ms, then the label is derived again |
+
+> **Amended on 2026-09-07, 1.7.0: the armed rung carries a MARK, and the row above it
+> read `📋 Copy` until then.** Presets decision 26, added from the prototype and asked
+> for by nothing — the press was meant to answer whether the edit-versus-★ split was
+> confusing, and what came back was better than the question: *"a plain report press
+> triggers the fetching, so it changes the button text to Fetching regardless of the
+> preset used."* Which is exactly right. The label is this ladder and never a preset's
+> name, so **the control you press said nothing about what it would produce.**
+>
+> **THE MARK IS THE ★ AND ITS ABSENCE — corrected on 2026-09-07 by a press in real
+> Jira, and it was `★` or `▾` for eleven days.** The arrow beside these buttons draws a
+> `▾` caret and it is **always** drawn (presets decision 18), so `📊 Copy ▾` put two
+> carets side by side with one of them inert. Reported in those words: *"it has an
+> arrow next to it (so 2 arrows, 1 next to Copy and does nothing, and then the arrow to
+> select preset)"*.
+>
+> **`▾` WAS ALREADY SPOKEN FOR**, which is the part worth keeping: the badge ends in
+> one — `🛒 Scratch 3 ▾` — where it means *this opens something*, and §2.9 borrowed that
+> from `jira-backlog-sprints`. Giving it a second meaning of *not the default*, on a
+> control with a real caret glued to its edge, was overloading the one glyph in this
+> script that already had a job.
+>
+> **THE PROTOTYPE HAD THE IDENTICAL COLLISION AND NOBODY SAW IT.** `paste-test.html`
+> rendered `Copy ▾` beside the arrow's caret from the day decision 26 was written. Its
+> `Foot labels` and `Arrow` switches are two separate controls, so the label was judged
+> **on its own** and never as a pair with the thing next to it. That is a general
+> lesson about switchable rigs rather than about this glyph: *a variant you can turn off
+> is a variant somebody will judge alone.*
+>
+> **The absence is a stronger signal than a second glyph at this size**, and it takes
+> something out of a row that is two lines deep at the floor. `📊 Copy` cannot be
+> mistaken for another rung — idle reads `📊 Report`, busy reads `📊 Fetching…` — so it
+> can only mean armed and not on ★. **The cost is stated rather than hidden:** somebody
+> who has seen only one of the two states has nothing on screen telling them the other
+> exists.
+
+> **THE MARK CANNOT SHOW THE NAME**, and it should not: the tooltip does that, and
+> the `11ch` box below is what a name would overflow. What the mark carries is
+> *whether you are on the default*, which is the half you can get wrong without
+> noticing.
+>
+> **IT APPEARS EXACTLY WHERE IT CAN VARY.** At idle there is nothing to disambiguate —
+> a pick exists only while a fetch is held, and picking from the arrow *is* the fetch
+> — so an idle button can only ever mean ★, and a mark that cannot change is noise.
+> `📋 Fetching…` carries none either: you have just picked, and `Fetching… ★` would
+> overflow the box. **A consequence worth having on purpose: the idle foot is
+> byte-identical to 1.6.0's**, so an install that never opens an arrow cannot tell the
+> mark exists.
+>
+> **🔗 Links carries no mark, and that is not an inconsistency.** It copies on one
+> press, so there is no pending moment for a mark to describe.
+>
+> It is derived inside `render` from the same expression the copy resolves the pick
+> with, so the mark cannot disagree with what the press will do — including when the
+> picked preset has been deleted, where both fall to ★ together.
 
 The label **is** the state, which is this repository's convention — `⌫` becomes
 `Empty 3?` before it will empty anything (§3). It is derived inside `render` for
@@ -3817,6 +3906,15 @@ the stepped buttons carry `min-inline-size: 11ch`, enough for the longest of the
 labels plus an emoji; and **the item count leaves the label** for the tooltip,
 because the collection's own heading shows it two lines above (§2.9). Corrected on
 2026-08-21.
+
+> **Amended on 2026-09-07: the mark fits INSIDE the reservation, and the arrow beside
+> it does not touch it.** `📋 Copy ★` is nine characters against a box reserved for
+> eleven. The arrow is a sibling in a wrapper, not a widening of the button, so the
+> reservation is still the button's own — moving it out to the wrapper would reserve
+> the button *and* its arrow, which is a different number. **This is still a rig
+> measurement**: it was read at the rig's 11px text and again at the script's 12px and
+> held both times, but a `ch` is the width of a `0` in the inherited font and the rig
+> inherits a different one. §7 carries the browser step that reads the row in Jira.
 
 **The ladder's icon comes from the entry's own label**, not from a literal. It was
 a literal `📋`, so §2.15's `📊 Report` showed `📋 Fetching…` — a defect that could
@@ -3852,6 +3950,18 @@ stored item and refreshing them with the ↻ that already exists.
 list** — add, remove, empty, switch collection, another tab writing — and a
 successful copy. The test is a signature, not a "ready" flag beside it, so there is
 no second value that could disagree with the collection (principle 1).
+
+> **Amended on 2026-09-07, 1.7.0: the held object carries the arrow's PICK, and the
+> six above throw it away for free.** `detailsHeld` is `{ signature, rows, kind, pick }`
+> — `kind` since the 2026-08-21 reversal below, `pick` since presets ticket 04. It
+> rides here for one reason: everything that invalidates the fetch has to invalidate
+> the pick with it, and putting it on the same object means **nothing has to remember
+> to.** Five of the six do it by the signature and the sixth by spending the object.
+>
+> **IT IS THE ID AS PICKED AND NOT A RESOLVED PRESET.** The pick is resolved at the
+> press (presets decision 17), so a preset deleted between the fetch and the copy
+> falls to ★ instead of being carried along as a stale object — and the armed label,
+> derived from the same expression, has already gained its `★` back by then.
 
 **The signature is the key list, NOT the whole stored blob.** The fetch writes
 summaries back through `applySummaries`, and comparing the blob would make our own
@@ -4219,6 +4329,28 @@ saying `Copy` while a press would fetch. With one reader there is no second labe
 put back. One reversal, two things simpler — and worth recording, because the
 instinct is to expect a correction to cost something.
 
+> **Amended on 2026-09-07, 1.7.0: THE RULE HOLDS WITH A THIRD CONTROL IN THE ROW, and
+> the arrows are where it could most easily have been broken again.** Presets ticket
+> 04. Each stepped button gains a native `<select>` beside it, and picking from one is
+> a gesture on a control that is *not* the button — which is exactly the shape of the
+> defect this section reversed.
+>
+> **IT HOLDS BY CONSTRUCTION AND NOT BY CARE.** The arrow calls `onDetails` — the
+> button's own function — with the pick as an extra argument, so it cannot walk a
+> different ladder, cannot skip the fetch the button would have done, and cannot reach
+> the other button's kind at all: `detailsFor` still asks for one kind, and `fetchDetails`
+> still writes one. There is no second code path in which the old defect could
+> reappear, which is a better guarantee than a check. `boot-smoke` asserts it anyway,
+> because "the other one did not move" is cheap to assert and this claim has been
+> wrong once.
+>
+> **AND THE ARROW DOES WHAT ITS BUTTON DOES** (presets decision 16), which is the same
+> sentence read forwards: 🔗 Links copies at once, the two stepped buttons fetch and
+> the `Copy` that follows uses the pick, and either of them **already armed** copies
+> without re-fetching — because `DETAIL_FIELDS` asks for all nine fields whatever any
+> preset says and the selection is applied at render, so a second request would return
+> the same rows.
+
 ```
 **P1**
 
@@ -4525,6 +4657,8 @@ Everything else is inside the drawer.
 | 🔍 Search | drawer, the foot | Opens the whole collection in Jira's issue search, in a new tab. From there it can be filtered, bulk-edited, saved as a filter or shared |
 | ⚙ | drawer, the head | **A state button.** Opens the settings screen, which REPLACES the two sections and the foot. It stays lit while it is up, and the head reads `⚙ Settings`. Press it again to go back |
 | A settings tab | drawer, the settings screen | `Appearance`, `🔗 Links`, `📋 Details` or `📊 Report` — **four since 1.7.0**, and nothing is pinned above the bar any more. Which tab you were last on is remembered |
+| An arrow, beside 🔗 Links, 📋 Details and 📊 Report | drawer, the foot | **The same gesture the button does, with a different choice** (1.7.0). A native dropdown: on 🔗 Links it holds the five line shapes and picking one **copies at once**; on the two stepped buttons it holds that button's presets and picking one **fetches**, so the `Copy` that follows uses it. A button already at `Copy` copies straight away instead, without asking Jira again. **The pick is spent by the copy** and nothing about it is stored — the dropdown always shows what the next press would use. It is always there, even where a list holds one preset |
+| The mark on an armed `Copy` | drawer, the foot | **`📋 Copy ★`, or `📋 Copy` with no star** (1.7.0): whether this copy will use the ★ preset or one you picked from the arrow. It is on the armed step only, because that is the only step where it can differ. **The name is in the tooltip**, which also says which preset a plain press would use |
 | A preset picker | drawer, `📋 Details` or `📊 Report` | **Which preset the settings below edit** (1.7.0). Sorted by name, with `★ ` in front of the one a plain press of that button uses. Changing it **writes nothing** — it is in memory, and it starts at ★ each sitting |
 | `★` | drawer, `📋 Details` or `📊 Report` | Makes the selected preset the one a plain press of that button prints. **The preset you are editing and the preset that prints need not be the same one**, and the note under the block says both |
 | `✎` and `✕` | drawer, `📋 Details` or `📊 Report` | Rename in place, and delete. The delete **arms first** and refuses on a list of one, exactly as a collection chip's ✕ does |
@@ -4753,6 +4887,32 @@ Notes on the controls:
 
     **All of these numbers are derived from the stylesheet, not measured in a
     browser.** A three-line probe would confirm them, and it is in appendix C.3.
+
+    > **Amended on 2026-09-07, 1.7.0: THE THREE ARROWS WERE WEIGHED AGAINST THIS FLOOR
+    > AND DID NOT MOVE IT.** Presets ticket 04, decision 23. The estimate said they
+    > would: six buttons already wrap at 300px, so three more controls looked like a
+    > third row and a floor of about 245. **Measured instead, and the foot is 2 rows
+    > and 66px WITH the arrows and 2 rows and 66px without them** — they fit in slack
+    > the second row already had, and `MIN_BLOCK` stays 215 and the 145 reserve stays
+    > 145. The estimate had the right font size and still got the wrap wrong, which is
+    > an argument for measuring rather than for estimating more carefully.
+    >
+    > **It generalises**, and that is worth stating rather than assuming: 300px is
+    > `MIN_INLINE`, the drawer cannot be narrower, and flex wrapping never needs more
+    > rows as width grows — so the worst case is the case that was measured.
+    >
+    > **The arrows are not a fifth fixed part.** They sit inside the foot, which is
+    > already one of the four this reserve pays for, so the `flex: none` list
+    > `css-smoke` counts is the same length it was. That is exactly why they cost
+    > nothing here, and a control added BESIDE the foot would not be free.
+    >
+    > **AND THIS NUMBER IS STILL A RIG NUMBER.** It was taken in `paste-test.html`,
+    > withdrawn once when that page's foot was found to have drifted from this
+    > stylesheet in four values, and re-taken after the fix — from a rig drawer 300px
+    > wide where the real one is 298px inside its border. §7 carries the browser step
+    > that closes it. The press of 2026-09-07 could not: the settings panel replaces
+    > the body **and the foot with it**, so a press at the floor with ⚙ up cannot see
+    > these six buttons at all.
 11. **The Cart exists once per tab.** Several tabs hold several copies of the same
     collection, and their freshness rests on a notification that a frozen or
     discarded tab may never receive. The re-read on drawer open and on tab-visible
@@ -5302,6 +5462,7 @@ replaced by something else.
 | 13 (reload), 16 | **Mechanism confirmed outside a browser** | The script run TWICE over one store: a drawer left open comes back open with its size, and a stale tab that adds one item does not write away the five it never saw. **All six are there** |
 | 1, 5, 7 | **Needs a live visit to each of the nine views** | Nothing but Jira has nine views |
 | 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
+| 42 | **UNRUN, and it holds the number risk 10 is owed** | The three arrows, 1.7.0. Every gesture is driven by `boot-smoke` and every byte a pick can produce is held by `format-smoke`; what is left is the paint and the layout. **Its first item is the foot's row count at the 300×215 floor**, which decision 23's `MIN_BLOCK stays 215` rests on and which has only ever been read off `paste-test.html` — twice, withdrawn once. Step 27's re-run of 2026-09-07 **cannot** answer it: ⚙ replaces the body and the foot with it. The other items are the native list opening outside the drawer's clip, whether the caret is noticed at rest, whether `📋 Copy ★` moves the row, whether a dead arrow looks dead, and the end-to-end paste |
 | 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its three labels do not wrap inside 300px; the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
 | the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
 | 30 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira. Whole** | The line shapes, used rather than read. The pinned `Issue reference` row is above the tab bar with its five options; **all five shapes were pressed on all three exports** and each line's head took the shape chosen; and **the pinned row and its dropdown fit and read at the drawer's 300px floor**, which is the one thing no harness here can see — its widest label is shorter than `Automatic (side by side when wide)`, and that reasoning now has a press behind it. The harness holds the rest: every shape's bytes in both flavours with a summary and without, that the shape table names the same ids as the preference's own vocabulary, and that a stored shape is read **at the press** rather than held in a variable. **The shapes themselves were pasted on 2026-08-24** (appendix A.9.1). And **`Restore export defaults` puts the dropdown back**, pressed the same day — the half worth running separately, because it is a render reading storage rather than a value the handler wrote, which is what a fake DOM models least well |
@@ -5985,6 +6146,44 @@ pass each, and they are cheap.
     > either direction, the duplicate that reads as a deletion, the empty list's
     > outline, the four refusals, and the 300×215 floor. **The per-view item is the only
     > one of the fourteen that is finished.**
+42. **THE FOOT'S THREE ARROWS, AND THE TWO THINGS ABOUT THEM NO HARNESS CAN SEE
+    (§2.8, §2.14, presets ticket 04, 1.7.0).** `boot-smoke` drives every gesture, and
+    `format-smoke` holds every byte a pick can produce. What is left is paint and
+    layout, and both of them are things this effort has already been wrong about
+    twice.
+    - **THE ROW COUNT AT THE FLOOR, WHICH IS THE NUMBER RISK 10 IS STILL OWED.** Drag
+      the drawer to its 300×215 minimum, with ⚙ **down**. Count the rows the foot
+      takes. The claim is **two**, and `MIN_BLOCK` staying 215 rests on it. **Do not
+      take this off the rig again**: `paste-test.html` reported it twice, it was
+      withdrawn once when that page's foot was found to have drifted from the script's
+      in four values, and the reading that stands came from a rig drawer 300px wide
+      where the real one is 298px inside its border. Step 27's re-run cannot answer
+      this and never could — ⚙ replaces the body **and the foot with it**.
+    - **THE LIST OPENS OUTSIDE THE CLIP, AT THAT SAME FLOOR.** Press one of the three
+      arrows and check the option list is drawn **whole**, on top of the page, and not
+      cut off at the drawer's edge. This is the entire argument for a native `<select>`
+      (decision 15), and a menu of our own is what it is measured against. Check it on
+      the **bottom** corner in particular, where the list has to open upwards.
+    - **THE CARET IS NOTICED AT REST**, which is stated limit 6 and the thing that beat
+      a beta tester at 1.1.0: ⚙ was a 13px grey glyph in a transparent box and it was
+      not found. Look at the foot **before** you know where the arrows are. The divider
+      is what was chosen to answer this, on a press of both candidates on 2026-08-27.
+    - **`📋 Copy ★` DOES NOT MOVE THE ROW**, which is decision 26's own measurement and
+      the one it was taken at 11px against a `min-inline-size: 11ch` written for 12px.
+      A `ch` is the width of a `0` in the inherited font, and the rig inherits IBM Plex
+      Sans where the drawer inherits Jira's stack — so **should is not a measurement**.
+      Arm 📋 Details and watch the row: nothing beside it may shift. Then pick from the
+      arrow so its star drops and it reads `📋 Copy`, and watch again.
+    - **A DEAD ARROW LOOKS DEAD.** Empty the collection. All six buttons dim; the three
+      arrows must dim with them and must **not** light up under the pointer. This is
+      one `:has()` rule, and a browser without `:has()` drops it — the arrow still
+      cannot be picked, but it will look live.
+    - **AND THE END-TO-END CLAIM, WHICH IS THE POINT OF THE FEATURE.** With two presets
+      on 📋 Details in visibly different shapes, pick the non-★ one from the arrow, let
+      it fetch, press `Copy`, and **paste**. The document must be the picked preset's.
+      Then press 📋 Details plainly and paste again: it must be ★'s. Nothing under
+      `test/` can reach this — the harness asserts a pure function with a shimmed store,
+      and what this presses is a real fetch, a real clipboard write and a real paste.
 
 ---
 

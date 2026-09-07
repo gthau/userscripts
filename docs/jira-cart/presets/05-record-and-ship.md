@@ -9,6 +9,36 @@
 `test/jira-cart/README.md`, [`docs/jira-cart/README.md`](../README.md), and
 [the decision record](README.md) with every ticket's outcome filled in.
 
+> **02, 03 AND 04 HAVE ALL LANDED, AND FOUR ITEMS BELOW ARE ALREADY DONE OR NO LONGER
+> YOURS.** Read these before the sections that name them.
+>
+> **§2.8, §2.14, §2.15, risk 10 and §3 are amended IN PLACE AND DATED already** —
+> ticket 04 did its own, on 2026-09-07, as ticket 03 did on 2026-09-06 and ticket 02 on
+> 2026-08-28. §2.4's paragraph is ticket 02's and carries ticket 03's amendment. What
+> is left for you there is **checking them as a set**, not writing them.
+>
+> **§7 ALREADY HAS ITS BROWSER STEP FOR THE ARROWS: step 42**, and it holds five of the
+> seven bullets the *§7 — how to test* list below asks for. What that list still owes
+> is the ★-moved-in-another-tab case and the Outlook/Teams paste. **Do not write a
+> second step; extend 42.** Step 27 also carries a note from 2026-09-07 that says, in
+> its own words, that folding it into the step text is yours — and that §7 has **no
+> entry at all** for *a plain press uses the ★ preset*, which was pressed in real Jira
+> and is the one claim in this feature no harness can reach.
+>
+> **THE FOOT'S ROW COUNT AT 300px IS STILL AN OPEN NUMBER, AND IT IS THE ONLY ONE.**
+> Decision 23 says `MIN_BLOCK` stays 215 and ticket 04 shipped that as a non-change, but
+> the measurement is a **rig** reading — taken twice in `paste-test.html`, withdrawn
+> once for drift, and re-taken from a rig drawer 300px wide where the real one is 298px
+> inside its border. Step 42's first item reads it in the real drawer. The same applies
+> to decision 26's *no jump* on `📋 Copy ★`, measured at the rig's 11px against the
+> script's 12px. **Take both before you write 1.7.0 down as finished**, and if either
+> comes back different, that is a change to `MIN_BLOCK` and not a note.
+>
+> **AND EVERY CHECK 02–04 ADDED IS ALREADY PROVEN ABLE TO FAIL**: 8 mutations at ticket
+> 02, 40 over seven passes at 03, and 34 over three passes at 04, all with 0 survivors,
+> all tabulated in `test/jira-cart/README.md`. The *confirm it now* bullet below is a
+> re-read rather than a run.
+
 ---
 
 ## The version

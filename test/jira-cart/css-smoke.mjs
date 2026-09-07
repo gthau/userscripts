@@ -652,5 +652,97 @@ is("the item rows' indicators change a colour and never a width",
      return /border-block-(start|end)-color:/.test(r?.body ?? "") && !/width|style/.test(r?.body ?? "");
    }), [true, true]);
 
+/* ---- THE FOOT'S THREE ARROWS (presets ticket 04). Four claims, and every one of
+   them is a defect that already happened or a rule a press chose -- none is a
+   preference being written down twice. */
+const splitButton = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer span.gt-cart-split > button.gt-cart-copy",
+);
+const arrowBox = rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-arrow");
+const arrowHover = rules.find((r) => r.sel.startsWith("aside#gt-cart-drawer span.gt-cart-arrow:hover"));
+const arrowDead = rules.find((r) => r.sel.includes("span.gt-cart-arrow:has("));
+
+/* 1. THE ARROW CLOSES THE BUTTON'S RIGHT EDGE, AND THIS IS A DEFECT THAT ALREADY
+   HAPPENED. The button drops its right border to make room; the prototype's first
+   quiet variant replaced it with a TRANSPARENT one, and the button read as cut open
+   -- reported on 2026-08-27 as "without border it looks strange, like if the button
+   is somewhat cut". So the replacement is asserted to EXIST and to name the border
+   token, because `transparent` would satisfy a check that only asked for a border. */
+is("the button in a split drops its right border to make room for the arrow",
+   /border-inline-end:\s*0/.test(splitButton?.body ?? ""), true);
+is("and its right corners with it, or the pair reads as two controls",
+   [/border-start-end-radius:\s*0/.test(splitButton?.body ?? ""),
+    /border-end-end-radius:\s*0/.test(splitButton?.body ?? "")], [true, true]);
+is("the arrow carries the replacement border, and it is a real colour rather than transparent",
+   /border:\s*1px solid var\(--gt-cart-border\)/.test(arrowBox?.body ?? ""), true);
+
+/* 2. THE DIVIDER IS WHAT DISTINGUISHES THE TWO LOOKS, AND THE SHIPPED ONE HAS IT.
+   Two candidates were pressed on 2026-08-27 and they differed by exactly one
+   declaration -- whether the arrow carries a border on the side it shares with the
+   button. The divider won. Without it the pair is one continuous button with a caret
+   at its end, and the button's own 8px right padding then reads as "too much space to
+   the left of the arrow". The losing variant is `border-inline-start: 0`, so its
+   ABSENCE is the check: a shorthand border with no start-side override. */
+is("the divider is there -- the arrow does NOT drop its shared border",
+   /border-inline-start:\s*0/.test(arrowBox?.body ?? ""), false);
+
+/* 3. THE RESTING AFFORDANCE IS PAINTED, AND IT SURVIVES A HOVER. Limit 6: a beta
+   tester could not find the ⚙ at 1.1.0 because it was a grey glyph in a transparent
+   box with no resting state, and a bare caret glued to a button is the same failure
+   waiting to happen. So the box paints a ground at rest, and the hover changes the
+   ground and nothing else -- a hover that also moved the border would make the
+   control jump under the pointer. */
+is("the arrow paints a ground at rest rather than sitting transparent",
+   /background:\s*var\(--gt-cart-input-bg\)/.test(arrowBox?.body ?? ""), true);
+is("and a caret that can be seen against it", /color:\s*var\(--gt-cart-text\)/.test(arrowBox?.body ?? ""), true);
+is("the hover changes the ground and nothing else, so nothing moves under the pointer",
+   [/background:/.test(arrowHover?.body ?? ""),
+    /border|inline-size|padding|font-size/.test(arrowHover?.body ?? "")], [true, false]);
+/* AND A DEAD ARROW DOES NOT LIGHT UP. The exclusion is in the hover's OWN selector,
+   which is `button.gt-cart-copy:hover:not(:disabled)`'s shape one rule up: written
+   that way there is no cascade to lose, which is the trap this sheet has fallen into
+   five times. Asserted rather than trusted, because the alternative -- a more
+   specific rule underneath -- looks identical in a diff and depends on `:has()`
+   folding its argument's specificity. */
+is("the hover excludes the arrow whose select is disabled, in its own selector",
+   /:hover:not\(:has\(select:disabled\)\)/.test(arrowHover?.sel ?? ""), true);
+is("and the dead one is dimmed the way the button beside it is",
+   [/opacity:\s*0\.45/.test(arrowDead?.body ?? ""), /cursor:\s*default/.test(arrowDead?.body ?? "")],
+   [true, true]);
+is("read off the select's own disabled state, not off a second attribute",
+   /select:disabled/.test(arrowDead?.sel ?? ""), true);
+/* THE SELECT IS INVISIBLE AND COVERS THE WHOLE BOX. The caret is ours and the option
+   list is the platform's, painted on top of the page and outside every clip this
+   drawer owns -- which is the measurement that made this a native control rather than
+   a menu of our own (decision 15). If the select stopped covering the box, the caret
+   would be a picture of a control. */
+const arrowSelect = rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-arrow select");
+is("the select is laid over the whole box at zero opacity",
+   [/position:\s*absolute/.test(arrowSelect?.body ?? ""), /inset:\s*0/.test(arrowSelect?.body ?? ""),
+    /opacity:\s*0\b/.test(arrowSelect?.body ?? "")], [true, true, true]);
+
+/* 4. THE 11ch RESERVATION IS UNTOUCHED. It is what stops a changing label rearranging
+   this row, and the mark the armed rung now carries -- `📋 Copy ★` -- has to fit
+   INSIDE it rather than widen it. The rule is asserted to be exactly what it was, and
+   to be on the stepped buttons rather than on the split wrapper: moving it out to the
+   wrapper would reserve the button AND its arrow, which is a different number. */
+const stepped = rules.find((r) => r.sel === "aside#gt-cart-drawer button.gt-cart-copy[data-gt-steps]");
+is("the two stepped buttons still reserve 11ch, and it is still on the BUTTON",
+   /min-inline-size:\s*11ch/.test(stepped?.body ?? ""), true);
+is("and the split wrapper reserves no width of its own",
+   /min-inline-size/.test(rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-split")?.body ?? ""),
+   false);
+/* AND THE ARROWS ARE NOT A FIFTH FIXED PART. They sit INSIDE the foot, which is
+   already one of the four the magic number pays for, so the `flex: none` list checked
+   above is the same length it was -- which is exactly why they cost nothing at the
+   floor. The two `flex: none` declarations they DO add are in rules of their own, so
+   they cannot quietly join that list and make the number stale without anybody
+   noticing. This asserts the separation rather than the count, which is checked
+   above. */
+is("the arrows declare their own flex: none, outside the collection's fixed-parts rule",
+   [/flex:\s*none/.test(rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-split")?.body ?? ""),
+    /flex:\s*none/.test(arrowBox?.body ?? "")], [true, true]);
+is("and neither of them is in it", fixedParts.some((one) => /gt-cart-split|gt-cart-arrow/.test(one)), false);
+
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

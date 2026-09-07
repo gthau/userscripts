@@ -250,9 +250,24 @@ written, and no user-written string reaches the clipboard.
     `MIN_BLOCK` are untouched, and the comment above them gains the fact that the foot
     is two rows *with* the arrows and that it was measured. Writing down a floor that
     did not move is cheaper than a later session wondering whether it did.
+
+    > **DELIVERED AS A NON-CHANGE ON 2026-09-07, AND THE NUMBER IS STILL OWED.** Both
+    > constants are untouched and the comment above them now separates the two
+    > standings by name: the `38` it derives the foot from is a **derivation**, and it
+    > was already understated at 300px before the arrows existed — it is deliberately
+    > not corrected into agreement, because it is the arithmetic the number was built
+    > from. The two rows are a **measurement**, and it is a **RIG** measurement. Ticket
+    > 04 did not take it in the real drawer, because that is a press and not a build.
+    >
+    > **ADR §7 step 42 is where it closes**, and its first item is exactly this: drag
+    > the real drawer to 300×215 with ⚙ **down** and count the rows. Until then the
+    > claim rests on a reading from a rig drawer 300px wide where the real one is 298px
+    > inside its border, taken from a page whose foot had already drifted from the
+    > script in four values once. `css-smoke` holds that the arrows added no fixed part
+    > to the collection section, which is the half a harness can answer.
 24. **1.7.0.** The collections blob's `v` is **not** bumped: no stored item changes
     shape (§2.4). So no `gt-jira-cart.collections.bak` write either.
-26. **THE ARMED LABEL CARRIES A MARK: `📊 Copy ★` or `📊 Copy ▾`.** Added
+26. **THE ARMED LABEL CARRIES A MARK: `📊 Copy ★`, or `📊 Copy` with no star.** Added
     2026-08-27, from the prototype, and it exists because of something the user said
     rather than something they were asked. The prototype press was supposed to answer
     whether limit 1's split is confusing; **the answer that came back was better than
@@ -262,8 +277,8 @@ written, and no user-written string reaches the clipboard.
     never names a preset, so **the control you press tells you nothing about what it
     will produce.**
 
-    So the armed label says which of the two it is: **★ for the default, ▾ for
-    something picked from the arrow.** It cannot show the preset's NAME — that is the
+    So the armed label says which of the two it is: **★ for the default, and nothing
+    for something picked from the arrow.** It cannot show the preset's NAME — that is the
     tooltip's job — but *whether you are on the default* is the half that matters,
     because it is the half you can get wrong without noticing. This follows the Cart's
     own rule that the label IS the state, and it is the same rule §2.14 applied to the
@@ -289,6 +304,38 @@ written, and no user-written string reaches the clipboard.
     **🔗 Links carries no mark, and that is not an inconsistency.** It copies on one
     press, so there is no moment at which a 🔗 Links press is pending and could be
     about to use something other than its default.
+
+    > **AMENDED ON 2026-09-07 BY A PRESS IN REAL JIRA: THE NON-DEFAULT MARK WAS `▾`
+    > AND IS NOW NOTHING.** Reported the day ticket 04 shipped it: *"it has an arrow
+    > next to it (so 2 arrows, 1 next to Copy and does nothing, and then the arrow to
+    > select preset)."* The arrow beside the button draws a `▾` caret and it is
+    > **always** drawn (decision 18), so `📊 Copy ▾` put two carets side by side with
+    > one of them inert. **This is the fifth control in two efforts reversed by
+    > somebody pressing it**, and the four before it are in `configurability/` and in
+    > decision 8 above.
+    >
+    > **`▾` WAS ALREADY SPOKEN FOR IN THIS SCRIPT.** The badge ends in one —
+    > `🛒 Scratch 3 ▾` — where it means *this opens something*, borrowed from
+    > `jira-backlog-sprints`. Giving it a second meaning of *not the default*, on a
+    > control with a real caret glued to its edge, was overloading the one glyph that
+    > already had a job. Nobody checked that, and the check is one grep.
+    >
+    > **THE PROTOTYPE HAD THE IDENTICAL COLLISION AND NOBODY SAW IT, WHICH IS THE
+    > FINDING.** `paste-test.html` has rendered `Copy ▾` beside the arrow's caret since
+    > the day this decision was written — it is on the same screen, in the same row.
+    > Its `Foot labels` and `Arrow` switches are **two separate controls**, so the
+    > label was judged on its own and never as a pair with the thing next to it. The
+    > lesson generalises past this glyph: **a variant you can turn off is a variant
+    > somebody will judge alone.** The page's fence now says to turn both on and look
+    > at the pair.
+    >
+    > **WHAT REPLACED IT, AND WHY NOT A SECOND GLYPH.** `★` and its absence, chosen by
+    > the user over `★`/`☆` and `★`/`•`. Presence versus absence is a stronger signal
+    > at 12px than one glyph versus another, and it takes something out of a row that
+    > is two lines deep at the floor. `📊 Copy` cannot be mistaken for another rung —
+    > idle reads `📊 Report`, busy reads `📊 Fetching…`. **The cost is accepted:**
+    > somebody who has seen only one of the two states has nothing on screen telling
+    > them the other exists, and the tooltip is where the preset is named either way.
 
 25. **THE PROTOTYPE COMES FIRST, AND IT EXTENDS `paste-test.html`.** Not a second
     file. Ticket 06 of the last effort recorded why in the strongest terms available:
@@ -326,7 +373,7 @@ written, and no user-written string reaches the clipboard.
    > **NARROWED on 2026-08-27 by decision 26.** It said ★ in the tab and ★ in the
    > arrow's list were *"the only things that say so"*, and the user pointed out what
    > that misses: neither of them is on the control you press. The armed label now
-   > carries ★ or ▾, so the button says **whether it is on the default** at the moment
+   > carries ★ or drops it, so the button says **whether it is on the default** at the moment
    > it is about to act. What is still true, and still accepted, is that nothing names
    > the preset except a tooltip, and that editing one preset while another is ★
    > changes nothing about what a plain press prints.
@@ -384,7 +431,7 @@ written, and no user-written string reaches the clipboard.
 | [01](01-the-prototype.md) | The rig grows a presets variant, and four numbers come back | No script change at all | **BUILT AND PRESSED 2026-08-27.** It reversed decision 8, added 26, closed limit 2, and found the rig's fourth drift. **Two numbers owed on a re-press** |
 | [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | **BUILT 2026-08-28.** `store-smoke` 127 → 212, suite 1,489, `format-smoke` untouched. **It deferred half of decision 22** — see below — and it extracted the band pair rule instead of copying it |
 | [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `+ Create preset`, the per-tab restore | **BUILT 2026-09-06.** Suite 1,489 → 1,608. It landed **decision 22's other half**, found a **defect in ticket 02's lazy first run**, deleted **three lines** a mutation could not touch, and rewrote **six checks** that could not fail |
-| [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | |
+| [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | **BUILT AND PRESSED 2026-09-07.** Suite 1,608 → 1,735. **42 mutations**: 34 on the feature with 0 survivors after three passes — the first pass had four, three real gaps and one line that was not doing anything — three on guards, all of which survived and were meant to, and five after the press. **The press reversed decision 26's `▾`**, which the prototype had been showing beside the arrow's own caret all along. The floor is recorded as **unmoved rather than re-derived**: it is still a rig number, and §7 step 42 is where it closes |
 | [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | |
 
 ### Ticket 01 is built and the four answers are still owed, 2026-08-27
@@ -576,7 +623,8 @@ a measurement**, and this is the claim `min-inline-size: 11ch` exists to protect
 **Two claims the node run now holds**, added the same day and both able to fail:
 creating a preset **does not change the preset that was open** (the exact defect, with
 the tick pattern read back before and after), and the armed label goes
-`📋 Details` → `📋 Copy ★` → `📋 Copy ▾` when the arrow is picked. Fixing the second
+`📋 Details` → `📋 Copy ★` → `📋 Copy ▾` when the arrow is picked (the `▾` was
+reversed on 2026-09-07 — see decision 26). Fixing the second
 one exposed a third fault in the check itself: the stub handed out a fresh node per
 `querySelector`, so setting `.value` on the arrow fired a handler nothing had
 registered — **it passed and proved nothing.**
@@ -658,6 +706,91 @@ configuration* — is confirmed at the only scope that counts.
 rather than assuming: ⚙ replaces the body **and the foot with it**, so a press at the
 floor with the settings up cannot see the six buttons at all. Decision 23's
 `MIN_BLOCK stays 215` is still an open number, and ticket 04 is where it closes.
+
+### Ticket 04 is built, 2026-09-07, and the one number it owed is still owed
+
+The three arrows are in the foot, `format` takes the pick as a fourth argument, and
+the armed rung of both stepped buttons carries `★` or drops it. Suite **1,608 →
+1,735**:
+`boot-smoke` 548 → 602, `format-smoke` 560 → 617, `css-smoke` 90 → 105.
+
+**THE ARROW DOES WHAT ITS BUTTON DOES IS LITERAL IN THE CODE, and that is the whole
+design.** `onFootArrow` reads which entry the select belongs to, finds the button
+beside it, and calls **the button's own function** with the pick as an extra argument —
+`copyActive` for 🔗 Links, `onDetails` for the two stepped ones. There is no second
+code path, so an arrow cannot walk a different ladder, cannot skip the fetch the button
+would have done, and cannot arm the other button. §2.15 had to reverse that last one
+from use once, and a third control in the row was the obvious chance to reintroduce it;
+it is prevented by construction rather than by care, and `boot-smoke` asserts it anyway
+because the claim has been wrong before.
+
+**DECISION 23 IS NOT CLOSED, AND THIS TICKET DELIBERATELY DID NOT CLOSE IT.** What
+landed is the **non-change** the ticket asked for: `MIN_BLOCK` stays 215,
+`COLLECTION_FIXED_PX` stays 145, and the comment above them now says which number is
+the derivation (`38`, one row, understated at 300px since before this feature) and
+which is the measurement (two rows, 66px, with and without the arrows). **The
+measurement is still a rig number** — read in `paste-test.html`, withdrawn once for
+drift, re-read from a rig drawer 300px wide where the real one is 298px inside its
+border. **§7 gains step 42**, whose first item is the row count in the real drawer at
+300×215 with ⚙ down. The press of 2026-09-07 could not answer it and never could: ⚙
+replaces the body and the foot with it.
+
+**The same is true of decision 26's `min-inline-size: 11ch`.** *No jump* on
+`📋 Copy ★` was measured at the rig's 11px against the script's 12px, and a `ch` is the
+width of a `0` in the inherited font. Step 42 carries it.
+
+**ONE SEAM WAS SIMPLIFIED BECAUSE THE SECOND CALLER ARRIVED.** `selectedPreset` was
+`list.find(...) ?? starPreset(list)` — *which preset do these rows edit* — and the
+arrow needed *which preset will this press print*, which is the identical sentence
+about a different id. It is one function now, `pickedPreset(list, pick)`, and
+`selectedPreset` is written in terms of it. So the dangling rule has **one** `??`, and
+the panel and the foot cannot drift apart about what a missing id means. It was two
+identical expressions for exactly as long as it took the second caller to exist.
+
+**AND THE MARK IS THE SAME EXPRESSION THE COPY RESOLVES WITH**, which is what makes
+decision 26 impossible to get wrong: `★` is shown when `pickedPreset(list, held.pick)`
+is the ★ preset, and that is the call the copy itself performs. A preset deleted
+between the pick and the copy puts the label's `★` back in the same render that changes
+what the press will do.
+
+**AND IT WAS PRESSED IN REAL JIRA THE SAME DAY, WHICH REVERSED THE MARK.** The
+non-default rung read `📊 Copy ▾` and the arrow's own caret is `▾`, so the row showed
+two arrows with one of them inert. See the amendment under decision 26: the mark is
+`★` and its absence now, the prototype had shown the collision all along, and the
+number of controls this record has seen reversed by a press is five.
+
+**FOUR MUTATIONS SURVIVED THE FIRST PASS, and one of them was not a gap.** The full
+table is in [`test/jira-cart/README.md`](../../../test/jira-cart/README.md). Three were
+real holes — the options rebuilt on every render, the caret glyph emptied, and the
+select wearing the buttons' own attribute so a query answered correctly *by document
+order*. The fourth was `pick: pick ?? null`, and no mutation could touch it because
+every reader falls to ★ on `undefined` and `null` alike. **It was deleted rather than
+checked**, which is ticket 03's own standing rule applied to ticket 04's code.
+
+**AND THREE GUARDS SURVIVED A MUTATION ON PURPOSE, WHICH NARROWED TICKET 03'S RULE.**
+That ticket deleted three lines a mutation could not touch, and reading its rule as
+*delete every unreachable guard* is wrong — `starPreset`'s own `??` is unreachable and
+is kept with a stated reason. The distinction the script already draws is **a guard
+that duplicates another guard goes; a sole guard on the copy path stays, labelled**.
+`onFootArrow` had two unreachable ones and now has one, carrying the reason `shapeFor`
+already gives for keeping its own: a `TypeError` on the copy path is a copy that
+silently never happened.
+
+**AND ONE CHECK PASSED ON NOTHING BEFORE IT WAS REWRITTEN.** Every byte claim here is
+*it used THIS preset and not THAT one*, and the first version ran on two presets that
+both printed the `url` shape, because earlier sections of `boot-smoke` had left ★
+Standard on it. Every copy came out identical. The section pins both shapes on purpose
+now and asserts that they differ before asserting which was read — the third time this
+file has had to correct a fixture whose two sides agreed.
+
+**One thing outside the ticket was fixed because it was found on the way.**
+`paste-test.html` held two literal NUL bytes as a sort sentinel, which made the whole
+file read as **binary** to `grep` — it prints *binary file matches* and no lines. That
+is the rig that has drifted from the script six times, and every one of those drifts
+was found by reading it. The sentinel is an escape now; the value is unchanged.
+
+**What ticket 04 did NOT do:** no version bump, no `MIN_BLOCK` change, no change to any
+stored shape, and nothing to §6. Ticket 05 owns all of those.
 
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.

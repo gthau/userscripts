@@ -6,6 +6,14 @@ re-derived minimum height.
 
 **Needs 02.** Independent of 03 — this one reads presets where 03 edits them.
 
+> **BUILT ON 2026-09-07. Suite 1,608 → 1,734, 34 mutations, 0 survivors.** What it
+> landed, what it found, and the one number it did NOT close are in
+> [the decision record](README.md). **The floor is recorded as UNMOVED rather than
+> re-derived**, because the measurement behind it is still a rig number — and the
+> browser step that closes it is ADR §7 **step 42**, whose first item is the foot's row
+> count in the real drawer at 300×215 with ⚙ down. Everything below is the ticket as
+> written, kept so the amendments can be read against it.
+
 > **03 LANDED FIRST, ON 2026-09-06, AND IT DID TWO THINGS THIS TICKET NO LONGER HAS
 > TO.** Read them before the section *Where it hangs off the dispatch table* below,
 > which was written as though `format` still read the preferences.
@@ -114,6 +122,12 @@ So the **armed** rung says which of the two it is:
 | `📊 Copy ★` | this copy will use the ★ preset |
 | `📊 Copy ▾` | this copy will use something picked from the arrow |
 
+> **THE `▾` WAS REVERSED ON 2026-09-07, ON A PRESS IN REAL JIRA.** It reads `📊 Copy`
+> with no mark. The arrow beside the button draws a `▾` caret and it is always drawn,
+> so this table's second row put two carets side by side with one of them inert. See
+> decision 26's amendment in [the record](README.md) — including that the prototype had
+> been showing the collision all along.
+
 **It cannot show the NAME** — the tooltip does that, and the tooltip should. What the
 mark carries is *whether you are on the default*, which is the half you can get wrong
 without noticing.
@@ -199,7 +213,8 @@ refusal to arm:
 - an arrow pick on 📋 / 📊 **fetches**, and the `Copy` that follows uses the pick
 - an arrow pick while the button is **already armed** copies and does **not** re-fetch
 - a plain press uses ★, before and after ★ moves
-- **the armed label reads `Copy ★` on the default and `Copy ▾` after a pick**, both
+- **the armed label reads `Copy ★` on the default and `Copy` after a pick** — the `▾`
+  this line asked for was reversed by the press, see above — both
   derived inside `render` rather than written at the press
 - `🔗 Links` never grows a mark
 - the pick is thrown away by everything that throws the held fetch away — add, remove,

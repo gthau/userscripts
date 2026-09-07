@@ -38,7 +38,12 @@ const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys",
                // its `fields` key names, so the two functions that answer "which list"
                // and "which preset" come with it -- sliced, never copied, because a
                // second `starPreset` here would assert that a copy is right.
-               "byName","firstByName","starPreset","presetBands"];
+               // AND THE PICK, at ticket 04. `format` takes the arrow's pick as its
+               // fourth argument and resolves it at the press through these two -- a
+               // preset id for the two exports with a list, a shape id for 🔗 Links
+               // (decisions 4 and 17). Sliced for the same reason: a second copy of
+               // the `?? star` fallback here would assert that a copy is right.
+               "byName","firstByName","starPreset","pickedPreset","pickedShapeId","presetBands"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
 // because section 12 below asserts things ABOUT these values -- that no ground is
 // saturated, that no colour appears without one -- and a copy would let the file
@@ -947,6 +952,121 @@ is("while 🔗 Links takes its head from the preference and not from any preset"
 is("🔗 Links' bytes do not move when a preset moves",
   withPresets(PRESET_SET, () => f.format("links", DETAILED, "collection")),
   f.format("links", DETAILED, "collection"));
+
+/* -- 16e. AND AN ARROW'S PICK READS THE PRESET IT NAMES, added with ticket 04.
+
+   ONE RULE FOR BOTH PATHS AND NO SNAPSHOT (decision 17): a plain press is this same
+   call with no fourth argument, so every claim in 16d above is the `pick`-absent case
+   of every claim here. What a check can hold is that the pick REACHED the read -- and
+   the failure it guards is silent, because a pick that quietly falls back to ★
+   produces a perfectly good document in the wrong shape.
+
+   EVERY REACHABLE PICK, BY CONSTRUCTION. The list is walked rather than named, so a
+   third preset in `PRESET_SET` is covered without being added here. */
+const picked = (kind, pick) =>
+  withPresets(PRESET_SET, () => f.format(kind, DETAILED, "collection", pick));
+const alone = (kind, preset) =>
+  withPresets({ ...PRESET_SET, [kind]: [preset] }, () =>
+    f.format(kind, DETAILED, "collection"));
+for (const kind of ["details", "report"]) {
+  for (const preset of PRESET_SET[kind]) {
+    is(`${kind} · a pick of ${preset.name} builds exactly what that preset alone builds`,
+      picked(kind, preset.id), alone(kind, preset));
+  }
+  // AND THE TWO ARE DIFFERENT DOCUMENTS, or the loop above passes on nothing. This is
+  // the check that makes the one before it mean something, and it is written out
+  // rather than assumed because a fixture whose presets agree is exactly how a pick
+  // check comes to prove nothing.
+  is(`${kind} · and the two presets do not print the same bytes anyway`,
+    picked(kind, PRESET_SET[kind][0].id).text === picked(kind, PRESET_SET[kind][1].id).text,
+    false);
+  // A PICK NAMING NOTHING IS A MISS THAT FALLS TO ★, which is the guard the whole
+  // feature rests on: it is reachable with one pair of hands -- arm, open ⚙, delete
+  // the preset you picked, close ⚙, copy.
+  is(`${kind} · a pick naming a preset that is gone falls to ★, and still builds`,
+    picked(kind, "d-deleted"), starred(kind));
+  is(`${kind} · so does no pick at all, which is what a plain press hands in`,
+    picked(kind, undefined), starred(kind));
+  is(`${kind} · and so does the empty string, which is what a never-set select reads`,
+    picked(kind, ""), starred(kind));
+}
+// THE TWO LISTS ARE NEVER SHARED (decision 2), and a pick cannot cross between them:
+// an id from the other list names nothing here, so it falls to this list's ★ rather
+// than reaching a preset of the wrong kind.
+is("a 📋 Details preset id picked on 📊 Report names nothing there, so ★ is used",
+  picked("report", PRESET_SET.details[0].id), starred("report"));
+is("and the reverse", picked("details", PRESET_SET.report[0].id), starred("details"));
+
+/* 🔗 LINKS' PICK IS A SHAPE AND NOT A PRESET (decision 4), and it is the other half
+   of the one string, two vocabularies seam. Its shape list is already a fixed named
+   list in the script, so there is no preset list to name. */
+for (const shape of f.LINE_SHAPE_IDS) {
+  is(`links · a pick of ${shape} builds exactly what that shape builds`,
+    withPresets(PRESET_SET, () => f.format("links", DETAILED, "collection", shape)),
+    withPrefs({ lineShape: shape }, () => f.format("links", DETAILED, "collection")));
+}
+is("a 🔗 Links pick naming no shape falls to the preference, and still builds",
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection", "haiku")),
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection")));
+// AND A PRESET ID IS NOT A SHAPE. The one crossing that would be silent: an id that
+// happened to name a shape would print the wrong head with no error anywhere.
+is("a preset id picked on 🔗 Links names no shape, so the preference is used",
+  withPrefs({ lineShape: "key-url" },
+    () => withPresets(PRESET_SET, () => f.format("links", DETAILED, "collection", "d-b"))),
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection")));
+
+/* THE FIVE PASTE RULES OVER EVERY REACHABLE PICK. Section 16i runs them over every
+   field SELECTION; a pick reaches the same renderers by a different door, and a
+   document is a document whichever door it came through. Cheap to run and the
+   cheapest possible answer to "does this feature emit bytes we have never pasted". */
+for (const kind of ["details", "report"]) {
+  for (const preset of PRESET_SET[kind]) {
+    const out = picked(kind, preset.id);
+    const label = `${kind} · ${preset.name}`;
+    is(`${label} · rule 5: no font-size anywhere`, /font-size/.test(out.html), false);
+    is(`${label} · rule 2: nothing depends on opacity`, /opacity/.test(out.html), false);
+    is(`${label} · rule 1: no separator is a box`, /border:/.test(out.html), false);
+    is(`${label} · rule 3: every background is one of the pale lozenge grounds`,
+      [...out.html.matchAll(/background:(#[0-9a-f]{6})/gi)].map((m) => m[1])
+        .every((one) => pale.includes(one)), true);
+    is(`${label} · rule 3: no colour the palette does not name`,
+      [...out.html.matchAll(/color:(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
+        .every((one) => allowed.has(one)), true);
+    is(`${label} · no trailing space on any line`, /[ \t]$/m.test(out.text), false);
+    is(`${label} · no format drops an item`, out.text.includes("GLX-402"), true);
+  }
+}
+
+/* -- 16f. THE THIRD SEAM BETWEEN THE TWO TABLES, and it is 16c's for the arrows.
+   `arrow` names the vocabulary a pick comes from, so an entry that says `presets` and
+   has no `fields` key is an arrow over a list that cannot be found -- a dropdown the
+   render would have to leave empty, silently. */
+is("every export whose arrow offers presets names the preset list it offers",
+  f.EXPORTS.filter((one) => one.arrow === "presets").map((one) => !!one.fields), [true, true]);
+is("and they are exactly the exports that read a field list, which is the same seam 16c holds",
+  f.EXPORTS.filter((one) => one.arrow === "presets").map((one) => one.kind),
+  f.EXPORTS.filter((one) => one.fields).map((one) => one.kind));
+is("every preset list an arrow offers is one a settings tab edits",
+  f.EXPORTS.filter((one) => one.arrow === "presets")
+    .map((one) => f.PRESET_LISTS.some((tab) => tab.fields === one.fields)), [true, true]);
+// 🔗 Links is the one entry whose arrow offers the SHAPES, and it carries no field
+// list at all -- the shape list IS its preset list (decision 4).
+is("exactly one export offers shapes instead, and it is 🔗 Links",
+  f.EXPORTS.filter((one) => one.arrow === "shapes").map((one) => one.kind), ["links"]);
+is("and it names no preset list, because it has none",
+  f.EXPORTS.find((one) => one.arrow === "shapes").fields, undefined);
+// AN ARROW ON THE ENTRY THAT NAVIGATES WOULD BE A DROPDOWN THAT COPIES NOTHING, and
+// one on 📃 Names or 🔑 Keys would offer a choice neither format reads.
+is("the three link-bearing exports carry an arrow and the other three do not",
+  f.EXPORTS.map((one) => [one.kind, !!one.arrow]),
+  [["links", true], ["names", false], ["keys", false],
+   ["details", true], ["report", true], ["jql", false]]);
+is("and no arrow sits on the entry that navigates rather than copying",
+  f.EXPORTS.filter((one) => one.arrow).some((one) => one.opens), false);
+// The vocabulary is closed: a value neither renderer knows would draw an empty list.
+is("every arrow names one of the two vocabularies",
+  f.EXPORTS.filter((one) => one.arrow).map((one) => one.arrow).sort(),
+  ["presets", "presets", "shapes"]);
 
 /* THE OTHER FOUR EXPORTS DO NOT VARY WITH A FIELD LIST. This began as a browser step
    -- "press 🔗 Links after a reorder and check it did not move" -- and it needs no

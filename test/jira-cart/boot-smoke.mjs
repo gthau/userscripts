@@ -280,7 +280,18 @@ const rows = () => byId.get("gt-cart-live-list").children.filter((k) => k.classL
 const toggleOf = (row) => row.children.find((k) => k.classList.includes("gt-cart-row-body"));
 const keyOf = (row) => row.children.find((k) => k.classList.includes("gt-cart-row-key"));
 const items = () => byId.get("gt-cart-item-list").children.filter((k) => k.classList.includes("gt-cart-item"));
-const copy = (kind) => byId.get("gt-cart-foot").children.find((k) => k.attrs["data-gt-format"] === kind);
+/* THE SIX BUTTONS, AND THREE OF THEM ARE A LEVEL DEEPER SINCE TICKET 04. A
+   `<select>` cannot live inside a `<button>`, so 🔗 Links, 📋 Details and 📊 Report
+   are each wrapped in a `span.gt-cart-split` holding the button and its arrow. One
+   level and not a tree walk, because one level is the structure the stylesheet paints
+   and a walk would keep passing if the markup grew a third. */
+const copy = (kind) =>
+  byId
+    .get("gt-cart-foot")
+    .children.flatMap((k) => [k, ...k.children])
+    .find((k) => k.attrs["data-gt-format"] === kind);
+// The arrow beside one of those three, found by id the way the script finds it.
+const arrow = (kind) => byId.get(`gt-cart-arrow-${kind}`);
 const errors = () => logs.filter(([l]) => l === "error").map(([, m]) => m);
 
 dispatch(badge, "click");
@@ -533,8 +544,15 @@ await settle();
 // The COUNT IS NOT IN THE LABEL: it was the widest label in the foot and the tick
 // the narrowest, so pressing the button rearranged the wrapping row and pressing it
 // again put it back. The count is in the sentence instead, which has no width.
-is("one of two answered, and the button armed", details().textContent, "📋 Copy");
-is("the count moved to the tooltip", /^Copy 2 items\./.test(details().title), true);
+/* AND THE ARMED RUNG CARRIES ★, which is the third rung of the label ladder and
+   presets decision 26. `★` means this copy will use the ★ preset; `▾` means it will
+   use something picked from the arrow. Nothing has been picked here, so it is ★. */
+is("one of two answered, and the button armed", details().textContent, "📋 Copy ★");
+is("the count moved to the tooltip", /^Copy 2 items using ★ /.test(details().title), true);
+// THE NAME IS IN THE TOOLTIP AND NEVER IN THE LABEL: the label has 11ch reserved and
+// a name would overflow it, so the mark carries WHETHER you are on the default and
+// the sentence carries which one that is.
+is("and the tooltip names the preset the mark cannot", /★ Standard\./.test(details().title), true);
 // THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS. This was the other way round
 // until 2026-08-21 -- one press armed both, on the reasoning that the held result
 // describes the collection rather than a button -- and the user pressed one and
@@ -575,7 +593,7 @@ is("THE HELD FETCH IS SPENT BY THE COPY, so no paste is older than the press bef
 network.body = ANSWER;
 dispatch(copy("report"), "click");
 await settle();
-is("pressing Report arms Report", copy("report").textContent, "📊 Copy");
+is("pressing Report arms Report", copy("report").textContent, "📊 Copy ★");
 is("with ITS OWN icon, derived from its label rather than hardcoded",
   copy("report").textContent.startsWith("📊"), true);
 is("and Details stays idle this time", details().textContent, "📋 Details");
@@ -592,7 +610,7 @@ is("and it is grouped: a priority band, then a team", (() => {
 network.body = ANSWER;
 dispatch(details(), "click");
 await settle();
-is("armed again", details().textContent, "📋 Copy");
+is("armed again", details().textContent, "📋 Copy ★");
 dispatch(items()[1].children.find((k) => k.classList.includes("gt-cart-x")), "click");
 flush();
 is("removing an item dropped the held fetch", details().textContent, "📋 Details");
@@ -1280,18 +1298,18 @@ flush();
 network.body = ANSWER;
 dispatch(details(), "click");
 await settle();
-is("📋 Details is armed while the settings are up", details().textContent, "📋 Copy");
+is("📋 Details is armed while the settings are up", details().textContent, "📋 Copy ★");
 const fixvBox = fieldBox("details", "fixv");
 fixvBox.checked = false;
 dispatch(fixvBox, "change");
 flush();
 is("a field unticked mid-arm wrote the preset", ticked("details").includes("fixv"), false);
-is("AND THE ARMED COPY IS STILL ARMED", details().textContent, "📋 Copy");
-is("and still offers the same two items it fetched", /^Copy 1 item/.test(details().title), true);
+is("AND THE ARMED COPY IS STILL ARMED", details().textContent, "📋 Copy ★");
+is("and still offers the same two items it fetched", /^Copy 1 item using/.test(details().title), true);
 // The same from outside this tab, which is where nobody pressed anything.
 setPreset("report", { fields: editedPreset("report").fields.map((one) => ({ ...one, on: false })) });
 is("another tab emptying the OTHER list does not disarm it either",
-  details().textContent, "📋 Copy");
+  details().textContent, "📋 Copy ★");
 // And the copy it makes is the list as it stands NOW, not as it stood at the press.
 dispatch(details(), "click");
 await settle();
@@ -2117,6 +2135,367 @@ is("the search names all three keys, the bare one included, in collection order"
   "https://dalet.atlassian.net/issues/?jql=key in (RDC-1, RDC-77, GLX-402)");
 is("the commas and parentheses are encoded, or the search silently returns another set",
   /key%20in%20\(RDC-1%2C%20RDC-77%2C%20GLX-402\)/.test(opened.at(-1).url), true);
+
+/* ---- THE FOOT'S THREE ARROWS (presets ticket 04), DRIVEN END TO END.
+
+   THE ARROW DOES WHAT ITS BUTTON DOES, with the pick instead of the default
+   (decision 16), and everything below is that one sentence in its four cases: 🔗
+   Links copies at once, the two stepped buttons fetch, an already-armed button
+   copies without re-fetching, and a plain press still uses ★.
+
+   IT IS DRIVEN THROUGH THE REAL NODE AND THE REAL LISTENER. Ticket 01's node run
+   found a check that set `.value` on an arrow the stub had handed out fresh per
+   query, so the handler it fired was one nothing had registered -- it passed and
+   proved nothing. `arrow()` here goes through `byId`, which is the node the script
+   built, and `dispatch` bubbles to the delegated listener on the foot the way a
+   browser would. The mutation table in the README beside this file records which of
+   these were confirmed able to fail. */
+const pickArrow = (kind, value) => {
+  arrow(kind).value = value;
+  dispatch(arrow(kind), "change");
+};
+const shapeOptions = () => arrow("links").children.map((one) => one.value);
+const presetOptions = (kind) => arrow(kind).children.map((one) => one.textContent);
+
+/* THE PREFERENCE AND BOTH PRESET SHAPES ARE PINNED IN THIS SECTION rather than
+   inherited from the sections above, and that is not tidiness. The sections above had
+   left 🔗 Links' shape on `url` and ★ Standard's with it, so the first version of
+   every byte check below passed whichever value was read -- which is the check that
+   proves nothing, and the fault this file has had to correct twice. Every claim here
+   is "it used THIS one and not THAT one", so the two have to differ on purpose. */
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), lineShape: "markdown" });
+setPreset("details", { lineShape: "markdown" });
+setPreset("report", { lineShape: "markdown" });
+dispatch(document, "visibilitychange");
+flush();
+
+is("all three link-bearing buttons carry an arrow, and the other three do not",
+  ["links", "details", "report", "names", "keys", "jql"].map((k) => !!arrow(k)),
+  [true, true, true, false, false, false]);
+// THE ARROW IS ALWAYS DRAWN, even for a list of one (decision 18). One that came and
+// went would change the foot's width and its row count, which is the
+// reflow-under-the-pointer defect §2.14 spent a day removing from this very row.
+is("and it is there with a list of ONE preset", presetOptions("details").length, 1);
+/* M28's FINDING: THE SELECT MUST NOT WEAR THE BUTTONS' ATTRIBUTE. A mutation that put
+   `data-gt-format` on the arrows as well survived the whole suite, because `footButton`
+   queries the foot for that attribute and the button happens to come first in the
+   tree -- a query answering correctly by DOCUMENT ORDER, which keeps working until
+   somebody reorders the markup. Two attributes over two disjoint sets of nodes is the
+   design; this is what holds it. */
+is("the arrows carry their own attribute and never the buttons'",
+  ["links", "details", "report"].map((k) =>
+    [arrow(k).attrs["data-gt-arrow"], arrow(k).attrs["data-gt-format"]]),
+  [["links", undefined], ["details", undefined], ["report", undefined]]);
+/* AND THE CARET IS THERE, which is the whole of the resting affordance: the select
+   over it is `opacity: 0`, so without the glyph the arrow is an empty box with a
+   border. A mutation that emptied it survived until this line. */
+is("each arrow draws a caret, because the select over it is invisible",
+  ["links", "details", "report"].map((k) =>
+    arrow(k).parent.children.filter((one) => one.tag === "span").map((one) => one.textContent)),
+  [["▾"], ["▾"], ["▾"]]);
+is("and the caret is hidden from assistive tech, because the select beside it is the control",
+  ["links", "details", "report"].map((k) =>
+    arrow(k).parent.children.find((one) => one.tag === "span").attrs["aria-hidden"]),
+  ["true", "true", "true"]);
+is("with the ★ in the option's own TEXT, because a native option has no other hook",
+  presetOptions("details"), ["★ Standard"]);
+// 🔗 Links' list is the five shapes and not a preset list, which was the user's own
+// reformulation of the question (decision 4): its only configurable property is a
+// shape, and the shape list is already a fixed named list in the script.
+is("🔗 Links offers the five shapes instead", shapeOptions(),
+  ["markdown", "markdown-key", "key-summary-url", "key-url", "url"]);
+is("and no ★ among them, because a shape carries no flag",
+  arrow("links").children.some((one) => one.textContent.startsWith("★")), false);
+// WHAT THE ARROW SHOWS IS WHAT THE NEXT PRESS WOULD USE, one rule for all three.
+/* THE OPTIONS ARE NOT REBUILT WHEN NOTHING CHANGED, and the check is node IDENTITY
+   rather than content: `replaceChildren` makes new `<option>` elements, so the same
+   objects surviving a render is the only evidence that nothing was replaced. A
+   dropdown rebuilt under the pointer that opened it closes, and throws the keyboard's
+   position in it away -- neither of which a fake DOM can see, which is why this is
+   asserted from the outside. A mutation that always replaced survived until this
+   line. */
+const optionNodes = (kind) => arrow(kind).children;
+const beforeRender = ["links", "details", "report"].map((k) => optionNodes(k)[0]);
+rerender();
+is("a render that changes nothing leaves the very same option nodes in place",
+  ["links", "details", "report"].map((k, at) => optionNodes(k)[0] === beforeRender[at]),
+  [true, true, true]);
+
+is("each arrow rests on what a plain press of its button would use",
+  [arrow("links").value, arrow("details").value === starOf("details").id],
+  ["markdown", true]);
+/* AND EACH ARROW SAYS WHAT PICKING WOULD DO, derived for the same reason the label is:
+   an armed stepped button's arrow COPIES rather than fetches, so a fixed sentence
+   about fetching would be wrong at exactly the moment somebody was deciding whether to
+   press it. 🔗 Links' sentence is the one that never changes, because it has no
+   pending state to be in. */
+is("🔗 Links' arrow says it copies at once", /copies at once/.test(arrow("links").title), true);
+is("and an IDLE stepped arrow says it fetches first, naming the ★ it would replace",
+  /^Ask Jira, then copy with a preset other than ★ Standard\. Picking one fetches/
+    .test(arrow("details").title), true);
+
+/* A PICK ON 🔗 LINKS COPIES AT ONCE, with the picked shape's bytes. No fetch, no
+   second press, and no state left behind -- which is why the control goes back to
+   showing the preference on the next render. */
+const beforeArrowCopy = clipboard.length;
+pickArrow("links", "url");
+await settle();
+is("a 🔗 Links pick wrote once, with no second press", clipboard.length, beforeArrowCopy + 1);
+is("and the bytes are the PICKED shape's, not the preference's",
+  clipboard.at(-1)["text/plain"].text.split("\n"),
+  ["- https://dalet.atlassian.net/browse/RDC-1",
+   "- https://dalet.atlassian.net/browse/RDC-77",
+   "- https://dalet.atlassian.net/browse/GLX-402"]);
+is("the preference itself was NOT written -- a pick is not a setting",
+  prefsOf().lineShape, "markdown");
+is("so the arrow is back on what a plain press does, which is not what was picked",
+  [arrow("links").value, prefsOf().lineShape], ["markdown", "markdown"]);
+// 🔗 LINKS CARRIES NO MARK, and that is not an inconsistency: it copies on one press,
+// so there is no pending moment for a mark to describe (decision 26).
+await settle();
+await settle();
+is("and 🔗 Links never grew a mark", copy("links").textContent, "🔗 Links");
+
+/* A PICK ON A STEPPED BUTTON FETCHES, and the `Copy` that follows uses the pick. Two
+   presets are needed to say anything at all here, so one is created through the panel
+   -- the way a pair of hands reaches it -- and ★ is left where it was. */
+dispatch(gear(), "click");
+flush();
+dispatch(tabButton("details"), "click");
+flush();
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Executive";
+dispatch(presetCreate("details"), "click");
+flush();
+/* THE TWO PRESETS ARE MADE TO PRINT DIFFERENT BYTES, by id and not through the picker,
+   because "which preset was read" is the only question this section asks and two
+   presets in the same shape cannot answer it. Standard keeps markdown, Executive gets
+   url, and every byte check below names which of the two it expects. */
+(() => {
+  const all = presetsOf();
+  all.details = all.details.map((preset) => ({
+    ...preset,
+    lineShape: preset.name === "Executive" ? "url" : "markdown",
+  }));
+  store["gt-jira-cart.presets"] = JSON.stringify(all);
+  rerender();
+})();
+is("Standard prints markdown and Executive prints url, so the bytes can tell them apart",
+  presetsOf().details.map((one) => [one.name, one.lineShape]).sort(),
+  [["Executive", "url"], ["Standard", "markdown"]]);
+dispatch(gear(), "click");
+flush();
+is("two presets now, and ★ is still on the shipped one",
+  [namesOf("details").sort(), starOf("details").name], [["Executive", "Standard"], "Standard"]);
+is("the arrow offers both, sorted by name, with the ★ marked in the text",
+  presetOptions("details"), ["★ Standard", "Executive"].sort((a, b) =>
+    a.replace("★ ", "").localeCompare(b.replace("★ ", ""))));
+
+const executive = presetsOf().details.find((one) => one.name === "Executive").id;
+network.body = ANSWER;
+const beforeFetches = calls.fetches;
+pickArrow("details", executive);
+await settle();
+is("a pick on 📋 Details FETCHED", calls.fetches, beforeFetches + 1);
+/* AND THE ARMED LABEL DROPS ITS ★, which is decision 26's whole content: the label is
+   the fetch ladder and never a preset's name, so the armed rung is the only place that
+   can say whether you are on the default.
+
+   THE MARK IS THE ★ AND ITS ABSENCE, amended 2026-09-07 from a press in real Jira. It
+   was `▾` for a pick, and the arrow beside this button draws a `▾` caret that is always
+   there -- so the row showed two carets with one of them inert. The exact string is
+   asserted rather than a regex, because the failure this replaces was a TRAILING
+   character, and a trailing space would be the same class of defect and just as
+   invisible. */
+is("and the armed label drops its ★, because this copy will not use the ★ preset",
+  details().textContent, "📋 Copy");
+is("with no trailing space where the mark used to be",
+  /\s$/.test(details().textContent), false);
+is("the tooltip names the preset the mark cannot, and says what a plain press does",
+  /using Executive, picked from the arrow\. ★ Standard is what a plain press uses/
+    .test(details().title), true);
+// AND THE ARROW'S OWN SENTENCE CHANGED WITH THE STATE: an armed button's arrow copies
+// rather than fetches, so the tooltip that said "Picking one fetches" a moment ago
+// must not still say it.
+is("an ARMED stepped arrow says it copies at once and asks Jira nothing",
+  /^Copy the items already in hand with a preset other than ★ Standard\. Picking one copies at once, and nothing is fetched again$/
+    .test(arrow("details").title), true);
+// THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS, and a third control in the row is
+// a third chance to reintroduce the defect §2.15 reversed from use on 2026-08-21.
+is("and the OTHER stepped button was not walked through its ladder",
+  copy("report").textContent, "📊 Report");
+is("nor was its arrow moved off ★",
+  arrow("report").value === starOf("report").id, true);
+// THE LABEL IS DERIVED INSIDE `render`, not written at the press: a re-render with
+// nothing else changed has to produce the same mark, or the mark is a second value.
+rerender();
+is("the mark survives a bare re-render, so it is derived and not written",
+  details().textContent, "📋 Copy");
+
+const beforePickCopy = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("the Copy that follows wrote once", clipboard.length, beforePickCopy + 1);
+is("and it used the PICKED preset's url shape, not ★ Standard's markdown",
+  clipboard.at(-1)["text/plain"].text.split("\n")[0],
+  "- https://dalet.atlassian.net/browse/RDC-1");
+await settle();
+await settle();
+is("the held fetch is spent, and the pick went with it", details().textContent, "📋 Details");
+
+/* AND A PLAIN PRESS STILL USES ★ -- before and after ★ moves. This is the half the
+   arrow must not have broken, and it is checked on both sides of the move because a
+   pick resolved at the press and a pick snapshotted at the pick give the same answer
+   until the default changes underneath them. */
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("a plain press after all that is back on ★", details().textContent, "📋 Copy ★");
+const beforeStarCopy = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("and it copied in ★ Standard's markdown shape",
+  clipboard.at(-1)["text/plain"].text.startsWith("- [RDC-1](https://dalet.atlassian.net/browse/RDC-1)"), true);
+is("one write, not two", clipboard.length, beforeStarCopy + 1);
+await settle();
+await settle();
+// ★ MOVES, THROUGH THE PANEL, and a plain press follows it. The end-to-end claim the
+// real-Jira press of 2026-09-07 made about ticket 03, driven here for the arrow's
+// sake: nothing under `test/` had it before, and this is the cheap half of it.
+dispatch(gear(), "click");
+flush();
+presetPicker("details").value = executive;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetStar("details"), "click");
+flush();
+dispatch(gear(), "click");
+flush();
+is("★ moved to Executive", starOf("details").name, "Executive");
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("a plain press is STILL on ★, which is now a different preset", details().textContent, "📋 Copy ★");
+const beforeMoved = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("and it printed the NEW default's shape", clipboard.length, beforeMoved + 1);
+is("which is the url shape Executive holds",
+  clipboard.at(-1)["text/plain"].text.split("\n")[0],
+  "- https://dalet.atlassian.net/browse/RDC-1");
+await settle();
+await settle();
+
+/* AN ARROW PRESSED ON AN ALREADY-ARMED BUTTON COPIES, AND DOES NOT RE-FETCH
+   (decision 16's last row). It does not re-fetch because `DETAIL_FIELDS` asks for all
+   nine fields whatever any preset says and the selection is applied at render, so a
+   second request would return the same rows. */
+const standard = presetsOf().details.find((one) => one.name === "Standard").id;
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("armed, on ★ Executive", details().textContent, "📋 Copy ★");
+const armedFetches = calls.fetches;
+const armedWrites = clipboard.length;
+pickArrow("details", standard);
+await settle();
+is("the pick on an ARMED button copied", clipboard.length, armedWrites + 1);
+is("and asked Jira NOTHING, because the rows in hand already carry every field",
+  calls.fetches, armedFetches);
+is("using the picked preset and not the ★ one it was armed with",
+  clipboard.at(-1)["text/plain"].text.startsWith("- [RDC-1](https://dalet.atlassian.net/browse/RDC-1)"), true);
+await settle();
+await settle();
+is("and the copy spent the held fetch, as any copy does", details().textContent, "📋 Details");
+
+/* THE PICK IS THROWN AWAY BY EVERYTHING THAT THROWS THE HELD FETCH AWAY, and it needs
+   no rule of its own: it rides on the held object, so the signature that invalidates
+   the fetch invalidates the pick with it. Driven here through one of the five -- an
+   add -- because the other four are already driven against the held fetch above and
+   the pick cannot outlive the object it is a field of. */
+network.body = ANSWER;
+pickArrow("details", standard);
+await settle();
+is("armed on a pick again", details().textContent, "📋 Copy");
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [
+    { key: "RDC-1", summary: "A live issue" },
+    { key: "RDC-77" },
+    { key: "GLX-402", summary: "A smart link title" },
+    { key: "RDC-9000" },
+  ] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("another tab adding an item threw the fetch away", details().textContent, "📋 Details");
+is("and the arrow is back on ★, because there is no pick left to show",
+  arrow("details").value, starOf("details").id);
+
+/* THE PICKED PRESET DELETED BETWEEN THE FETCH AND THE COPY: the copy uses ★ AND STILL
+   WRITES (decision 17). Driven the way one pair of hands reaches it -- arm, open ⚙
+   which hides the foot, delete through the panel, close ⚙, copy -- rather than as a
+   story about two tabs. This is the check the feature rests on, because the failure it
+   guards is silent: a pick that falls back when it should not produces a perfectly
+   good document in the wrong shape. */
+network.body = ANSWER;
+pickArrow("details", standard);
+await settle();
+is("armed on Standard, picked from the arrow", details().textContent, "📋 Copy");
+dispatch(gear(), "click");
+flush();
+presetPicker("details").value = standard;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("Standard is gone, and ★ Executive is the only preset left",
+  [namesOf("details"), starOf("details").name], [["Executive"], "Executive"]);
+dispatch(gear(), "click");
+flush();
+is("the armed label fell back to ★ the moment the preset went, because it is derived",
+  details().textContent, "📋 Copy ★");
+const beforeFallback = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("AND THE COPY STILL WROTE, rather than refusing or throwing", clipboard.length, beforeFallback + 1);
+is("in ★ Executive's url shape, which is what a plain press would have printed",
+  clipboard.at(-1)["text/plain"].text.split("\n")[0],
+  "- https://dalet.atlassian.net/browse/RDC-1");
+is("and no error was logged on the way", errors(), []);
+await settle();
+await settle();
+
+/* AND THE ARROW STANDS DOWN WITH ITS BUTTON. An arrow left live on an empty
+   collection would run a gesture `format` refuses -- a copy that never happened, with
+   no feedback at all, which is the "I picked it and nothing happened" report decision
+   19 kept `Edit presets…` out of this list to avoid. */
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1, collections: [{ id: "c1", name: "Scratch", items: [] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("every arrow is disabled exactly when its button is",
+  ["links", "details", "report"].map((k) => arrow(k).disabled === copy(k).disabled),
+  [true, true, true]);
+is("and they are all disabled, because the collection is empty",
+  ["links", "details", "report"].map((k) => arrow(k).disabled), [true, true, true]);
+
+// Put the three items and the one shipped preset back, so nothing below this line
+// reads a store it did not set.
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [
+    { key: "RDC-1", summary: "A live issue" },
+    { key: "RDC-77" },
+    { key: "GLX-402", summary: "A smart link title" },
+  ] }],
+});
+setPreset("details", { name: "Standard", lineShape: "markdown" });
+dispatch(document, "visibilitychange");
+flush();
 
 /* ---- THE HOVER RAIL, ADDED AT 1.3.0: the copy button beside the `+`, and the
    geometry claim the whole arrangement rests on.

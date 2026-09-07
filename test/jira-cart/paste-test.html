@@ -1426,11 +1426,16 @@
         <!-- THE ARMED LABEL IS WHERE "WHICH PRESET" GETS ANSWERED, because the
              label is the fetch ladder and never the preset's name: `📊 Report` →
              `📊 Fetching…` → `📊 Copy`, whatever preset is in play. So the armed
-             label carries a MARK -- ★ for the default, ▾ for something picked from
-             the arrow. THE QUESTION THIS SWITCH ASKS IS WHETHER IT FITS: the two
-             stepped buttons reserve `min-inline-size: 11ch` because a changing label
-             used to rearrange this whole row, and a mark that overflows that box
-             brings the defect back. -->
+             label carries a MARK -- ★ for the default, and NOTHING for something
+             picked from the arrow. THE QUESTION THIS SWITCH ASKS IS WHETHER IT FITS:
+             the two stepped buttons reserve `min-inline-size: 11ch` because a changing
+             label used to rearrange this whole row, and a mark that overflows that box
+             brings the defect back.
+
+             AND THE QUESTION IT DID NOT ASK, WHICH COST A PRESS: the mark was `▾` for
+             a pick until 2026-09-07, and this page rendered it right next to the
+             arrow's own `▾` caret for eleven days without anybody noticing. Turn BOTH
+             switches on and look at the pair, not at the label. -->
         <!-- BOTH OF THE NEXT TWO CLOSE THE SETTINGS, because ⚙ replaces the foot
              and a switch about the foot has nothing to change while it is up. -->
         <div class="switch-row">
@@ -2067,11 +2072,17 @@
   /* -------------------------------------------------------------- by the epic
      The parent stops being a field and becomes the structure, so it is skipped
      in every meta line. Items with no parent land in a final group. */
+  /* THE SENTINEL IS WRITTEN `\u0000` AND NOT AS A RAW NUL BYTE, changed on 2026-09-07.
+     It was a literal NUL, which is the same string at runtime and made this whole FILE
+     read as binary: `grep` and `rg` say "binary file matches" and print nothing, and
+     ripgrep with -I skips it in silence. This is the file that has drifted from the
+     script SIX times, and every one of those drifts was found by READING it -- so a
+     rig nobody can grep is the rig this record has the least business having. */
   function groups() {
     const order = [];
     const byKey = new Map();
     for (const item of items()) {
-      const id = item.parent ? item.parent.key : " none";
+      const id = item.parent ? item.parent.key : "\u0000none";
       if (!byKey.has(id)) {
         byKey.set(id, { parent: item.parent, items: [] });
         order.push(id);
@@ -2080,7 +2091,7 @@
     }
     /* The parentless group sorts last: it is the remainder, not a peer. */
     return order
-      .sort((a, b) => (a === " none" ? 1 : b === " none" ? -1 : 0))
+      .sort((a, b) => (a === "\u0000none" ? 1 : b === "\u0000none" ? -1 : 0))
       .map((id) => byKey.get(id));
   }
 
@@ -3367,8 +3378,15 @@
       const name = kind === "details" ? "Details" : "Report";
       if (!armed) { button.textContent = icon + " " + name; continue; }
       const onStar = !presetsOn() || !pick[kind] || pick[kind] === starPreset(kind).id;
+      /* THE MARK IS THE ★ AND ITS ABSENCE. It was `★` or `▾` until 2026-09-07, and a
+         press in real Jira killed the `▾`: the arrow beside this button draws a `▾`
+         caret and it is ALWAYS drawn, so `📊 Copy ▾` showed two carets with one of them
+         inert. THIS PAGE HAD THE IDENTICAL COLLISION AND NOBODY SAW IT -- `Foot labels`
+         and `Arrow` are two switches, so the label was read on its own and never as a
+         pair with the control beside it. Worth keeping in view when the next switch is
+         added: a variant you can turn off is a variant somebody will judge alone. */
       button.textContent = presetsOn()
-        ? icon + " Copy " + (onStar ? "★" : "▾")
+        ? icon + " Copy" + (onStar ? " ★" : "")
         : icon + " Copy";
       button.title = presetsOn()
         ? (onStar

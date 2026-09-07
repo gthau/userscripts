@@ -1513,6 +1513,32 @@
     return list.find((one) => one.star) ?? firstByName(list);
   }
 
+  /* AND WHAT *THIS* PRESS PRINTS, WHICH IS THE SAME QUESTION WITH A PICK IN IT
+     (presets ticket 04, decision 17). Added 2026-09-07 with the arrows.
+
+     THE PICK NAMES A PRESET AND IS RESOLVED HERE, AT THE PRESS -- which is the rule
+     a plain press already followed, so there is now ONE rule for both paths and no
+     snapshot of a preset taken at the moment it was picked. A snapshot would be a
+     second copy of the export configuration, and it would disagree with the panel
+     exactly once: in the frame where somebody edited the preset between the pick and
+     the copy.
+
+     AN ID THAT NAMES NOTHING IS NOT AN ERROR, IT IS A MISS THAT FALLS TO ★, and that
+     `??` is the whole of the dangling rule -- the same one `selectedPreset` lives by,
+     which is why that function is now written in terms of this one. The reachable
+     path is one pair of hands and no second tab: arm 📊 Report, open ⚙ -- which hides
+     the foot -- delete the preset you picked, close ⚙, press `Copy`. So `pick` is
+     kept as the ID AS PICKED and never as a resolved preset; resolving late is what
+     makes that path land somewhere rather than throw.
+
+     THE LIST IS PASSED IN, NEVER READ HERE. `renderFoot` draws the arrow, the mark on
+     the armed label and the tooltip from ONE `loadPresets`, and `format` performs one
+     of its own at the press. Two reads a frame apart is the pair that disagrees
+     exactly once, in the frame where something was deleted (§2.5). */
+  function pickedPreset(list, pick) {
+    return list.find((one) => one.id === pick) ?? starPreset(list);
+  }
+
   /* WHERE THE TWO BAND VOCABULARIES MEET, AND IT IS THE ONLY PLACE THEY DO.
 
      `SETTINGS_TABS` and `EXPORTS` name the bands `reportBand1` and `reportBand2` --
@@ -3738,6 +3764,25 @@ ${selectors.join(",\n")} {
     return SHAPES.find((shape) => shape.id === id) ?? SHAPES[0];
   }
 
+  /* 🔗 LINKS' SIDE OF THE PICK, and the counterpart of `pickedPreset` (ticket 04).
+     Its arrow offers the five shapes rather than a preset list (decision 4), so its
+     pick is a SHAPE ID, and the same sentence resolves it: a pick that names one wins,
+     and anything else falls to what a plain press uses.
+
+     `LINE_SHAPE_IDS` AND NOT `SHAPES`: the vocabulary is what a stored or stale value
+     is range-checked against, exactly as `normalisePrefs` checks it, and the harness
+     already holds the two lists together. Without the check a value left on the
+     control by an older build would reach `shapeFor` and fall to `SHAPES[0]` -- which
+     is `markdown` and looks like a working copy in the wrong shape, rather than the
+     shape the 🔗 Links tab holds.
+
+     THE PREFERENCE IS READ HERE AND NOWHERE ELSE ON THIS PATH, so there is never a
+     second shape in play that could have been used by mistake. `format` does not call
+     this at all when a preset is in hand. */
+  function pickedShapeId(pick) {
+    return LINE_SHAPE_IDS.includes(pick) ? pick : loadPrefs().lineShape;
+  }
+
   /* The foot's four controls. THREE COPY AND ONE OPENS, which is why this is not
      called COPY_FORMATS any more: a name that promised a copy while one entry
      navigated is the kind of small lie that costs the next reader an afternoon.
@@ -3765,6 +3810,28 @@ ${selectors.join(",\n")} {
       // heading on a single hovered issue; and 🔍 Search has no single-item form by
       // §2.8's own rule. `format-smoke` asserts exactly one entry carries this.
       single: true,
+      /* AND ITS ARROW OFFERS THE FIVE SHAPES (presets ticket 04, decisions 4 and
+         15). `arrow` NAMES THE VOCABULARY A PICK COMES FROM, in the same table that
+         says what the button does with it -- so the foot asks the entry what to put
+         in the list and never infers it.
+
+         IT IS NOT DERIVED FROM `single` OR FROM `fields`, and that is the same
+         argument `format` makes about `entry.fields` a few screens below: matching
+         "the entry with a single-item form" against "the entry whose arrow offers
+         shapes" would be a NEW correspondence, true today by coincidence and checked
+         by nothing. The two entries that carry `fields` would be found that way; this
+         one has none, because its only configurable property is a shape and the shape
+         list is already a fixed named list in this file. THE SHAPE LIST IS ITS PRESET
+         LIST, which was the user's own reformulation of the question (decision 4).
+
+         WHY A NATIVE `<select>` AND NOT A MENU WE DRAW: every container in the drawer
+         is `overflow: clip`, so a menu of our own is silently gone -- which is the
+         measurement that put ⚙ on its own screen and made the two band dropdowns
+         native, rather than a preference. The browser paints an option list on top of
+         the page, outside every clip we own. The cost is that the list cannot be
+         styled, so ★ goes in the option's TEXT, the one part of a native option that
+         is ours (decision 15). */
+      arrow: "shapes",
     },
     {
       kind: "names",
@@ -3799,6 +3866,12 @@ ${selectors.join(",\n")} {
       // fixed label, and the foot's builder reads it to give the button its own
       // action instead of the plain `copy` one.
       needsDetails: true,
+      // AND ITS ARROW OFFERS THIS TAB'S PRESETS. See 🔗 Links above for what `arrow`
+      // is and why it is not derived. `presets` says the list is the one `fields`
+      // already names, and `format-smoke` asserts that every entry saying so HAS a
+      // `fields` key -- an arrow offering presets from an export with no preset list
+      // is a dropdown that cannot be filled.
+      arrow: "presets",
     },
     {
       kind: "report",
@@ -3820,6 +3893,10 @@ ${selectors.join(",\n")} {
       // requests. THE ARMING IS NOT SHARED: a press arms its own button and nothing
       // else, reversed from use on 2026-08-21 (§2.15).
       needsDetails: true,
+      // The same arrow 📋 Details carries, over this tab's own list. THE TWO LISTS
+      // ARE NEVER SHARED: a 📋 Details preset and a 📊 Report preset are different
+      // kinds of thing, because one has headings and one cannot (decision 2).
+      arrow: "presets",
     },
     {
       kind: "jql",
@@ -3873,6 +3950,20 @@ ${selectors.join(",\n")} {
    * their own list -- its shape, its ordered field list, and for 📊 Report its two
    * bands. There is no unnamed copy of that state left to read.
    *
+   * AND WHICH PRESET IS AN ARGUMENT SINCE TICKET 04, WHICH IS THE ONE THING THE
+   * ARROWS CHANGED HERE. `pick` is the id an arrow named, or nothing; `pickedPreset`
+   * and `pickedShapeId` turn "nothing" into what a plain press uses, so a plain press
+   * and an arrow pick are the SAME CALL with a different fourth argument. The rule
+   * that made that possible is decision 17 -- the pick names a preset and is resolved
+   * at the press -- and it is the rule a plain press was already following, which is
+   * why nothing about the read below had to be duplicated for it.
+   *
+   * WHAT `pick` MEANS IS `entry.arrow`'s ANSWER, and the two vocabularies meet in
+   * exactly the two functions named above: a preset id for the entries whose arrow
+   * offers presets, a shape id for 🔗 Links, whose shape list IS its preset list
+   * (decision 4). One string, one place that decides which kind it is -- the
+   * arrangement `presetBands` already uses for the other pair of vocabularies.
+   *
    * WHICH LIST BELONGS TO WHICH EXPORT IS ASKED OF `entry.fields`, not of the kind.
    * `EXPORTS` and `SETTINGS_TABS` already name the same field keys and `format-smoke`
    * asserts it, so that key is a seam this repository maintains -- where matching
@@ -3900,7 +3991,7 @@ ${selectors.join(",\n")} {
    * Returns null rather than an empty payload, so no caller can write nothing to
    * the clipboard by accident.
    */
-  function format(kind, items, scope) {
+  function format(kind, items, scope, pick) {
     const entry = EXPORTS.find((one) => one.kind === kind);
     if (!entry) return null;
     // A COPY OF ZERO ITEMS MUST NOT WRITE AT ALL. An empty collection would put
@@ -3914,15 +4005,21 @@ ${selectors.join(",\n")} {
     const tab = entry.fields
       ? PRESET_LISTS.find((one) => one.fields === entry.fields)
       : undefined;
-    const preset = tab ? starPreset(loadPresets()[tab.id]) : null;
+    /* AND WHICH PRESET OF THAT LIST, WHICH IS WHERE THE ARROW'S PICK LANDS. `pick`
+       is absent for a plain press and for every gesture that has no arrow, and
+       `pickedPreset` sends both of those to ★ -- so this line is the whole of "one
+       rule for both paths" (decision 17). An id naming a preset that was deleted
+       between the fetch and the copy lands there too. */
+    const preset = tab ? pickedPreset(loadPresets()[tab.id], pick) : null;
     return entry.build(
       items,
       scope,
-      // The preset's own shape where there is one, and 🔗 Links' preference where
-      // there is not. ONE READ EITHER WAY: `loadPrefs` is not called at all on the
-      // preset path, so there is no second value in play that could have been used
-      // by mistake.
-      shapeFor(preset ? preset.lineShape : loadPrefs().lineShape),
+      // The preset's own shape where there is one, and 🔗 Links' pick-or-preference
+      // where there is not. ONE READ EITHER WAY: `loadPrefs` is not called at all on
+      // the preset path, so there is no second value in play that could have been
+      // used by mistake -- and on the shape path `pickedShapeId` is the only thing
+      // that reads it.
+      shapeFor(preset ? preset.lineShape : pickedShapeId(pick)),
       // `normalisePresets` has completed the list against the catalogue on the way
       // out -- the same `normaliseFieldList` the preference went through -- so a
       // stored preset missing a field, naming one this build does not have, or
@@ -3957,8 +4054,14 @@ ${selectors.join(",\n")} {
    * nothing caught it, and the copy silently never happened. Inside a click
    * handler the write needs no gate anyway.
    */
-  async function copyActive(button, kind) {
-    const payload = format(kind, activeCollection(load()).items, "collection");
+  async function copyActive(button, kind, pick) {
+    // `pick` IS THE ARROW'S, AND IT IS ONLY EVER 🔗 LINKS' HERE: the two stepped
+    // buttons never reach this path -- their entry names the `details` action instead
+    // (see the foot's builder) -- and 📃 Names, 🔑 Keys and 🔍 Search have no arrow to
+    // pick from, so they hand `undefined` through and `format` sends that to the
+    // preference. THE ARROW DOES WHAT ITS BUTTON DOES, and here that is literal: the
+    // arrow calls this function, the same one the button calls (decision 16).
+    const payload = format(kind, activeCollection(load()).items, "collection", pick);
     if (!payload) return;
     try {
       await writeClipboard(payload);
@@ -4609,9 +4712,9 @@ ${selectors.join(",\n")} {
      another tab -- and "nothing fetched is ever stored" needs no re-arguing. The
      selection is applied at RENDER, in `format`. */
 
-  /* { signature, rows, kind } or null. NOT a "ready" flag beside it: the signature
-     IS the validity test, so there is no second value that could disagree with the
-     collection (principle 1).
+  /* { signature, rows, kind, pick } or null. NOT a "ready" flag beside it: the
+     signature IS the validity test, so there is no second value that could disagree
+     with the collection (principle 1).
 
      `kind` is which button's press produced it, and it exists because of a
      REVERSAL on 2026-08-21. The fetch was shared: one press armed BOTH stepped
@@ -4627,7 +4730,21 @@ ${selectors.join(",\n")} {
      `detailChip`, so the five rules of §2.14 cannot hold in one format and drift in
      the other.
      What costs a second request is pressing both in turn, which is one extra
-     `bulkfetch` and no more (§2.6 rule 4). */
+     `bulkfetch` and no more (§2.6 rule 4).
+
+     `pick` IS THE PRESET THE ARROW NAMED, OR NULL FOR A PLAIN PRESS, and it arrived
+     with ticket 04. It rides HERE, on the held fetch, for one reason: everything that
+     throws the fetch away has to throw the pick away with it, and putting it on the
+     same object means nothing has to remember to. An add, a remove, an empty, a
+     collection switch, another tab writing and a successful copy already invalidate
+     this object -- five of them by the signature and one by spending it -- so the
+     pick inherits all six and needs no rule of its own.
+
+     IT IS THE ID AS PICKED AND NOT A RESOLVED PRESET, which is decision 17: the pick
+     is resolved at the PRESS, by `pickedPreset`, so a preset deleted between the
+     fetch and the copy falls to ★ instead of being carried along as a stale object.
+     That path is reachable with one pair of hands -- arm, open ⚙, delete, close ⚙,
+     copy -- and it is the one the harness drives. */
   let detailsHeld = null;
 
   // The kind being fetched, or null. Holding the KIND rather than a flag is what
@@ -4665,10 +4782,16 @@ ${selectors.join(",\n")} {
     }));
   }
 
-  // Looked up fresh rather than captured: the fetch is async, and a React remount
-  // can rebuild the whole drawer while it is out, which would leave a captured
-  // node detached and the feedback invisible.
-  function detailsButton(kind) {
+  /* Looked up fresh rather than captured: the fetch is async, and a React remount
+     can rebuild the whole drawer while it is out, which would leave a captured node
+     detached and the feedback invisible.
+
+     IT SERVES ALL SIX BUTTONS SINCE TICKET 04 and is named for the row rather than
+     for one of them, because an arrow pick has to flash and step THE BUTTON BESIDE
+     IT -- 🔗 Links' included, which has no fetch behind it at all. `data-gt-format`
+     is on the buttons and nothing else: the three arrows carry their kind on
+     `data-gt-arrow`, so this query cannot be handed a `<select>` by mistake. */
+  function footButton(kind) {
     const foot = document.getElementById(FOOT_ID);
     return foot ? foot.querySelector(`[data-gt-format="${kind}"]`) : null;
   }
@@ -4688,7 +4811,7 @@ ${selectors.join(",\n")} {
    * belongs (§2.6). Refusing the whole copy for one unreadable issue would make
    * the format unreachable for as long as that issue is in the collection.
    */
-  async function fetchDetails(kind) {
+  async function fetchDetails(kind, pick) {
     if (fetchingDetails || refreshing) return;
     const state = load();
     const collection = activeCollection(state);
@@ -4730,7 +4853,14 @@ ${selectors.join(",\n")} {
           rows.set(reference, entry);
           rows.set(entry.key, entry);
         }
-        detailsHeld = { signature: detailSignature(load()), rows, kind };
+        /* AND THE PICK RIDES ALONG, UNRESOLVED AND UNNORMALISED. It was written
+           `pick ?? null` for a day, on the reasoning that a plain press should store
+           the same value every time; a mutation removing the `?? null` survived the
+           whole suite, because every reader of this field goes through `pickedPreset`
+           and `undefined` and `null` land on ★ alike. A line no mutation can touch is
+           a line that is not doing anything -- the standing rule ticket 03 deleted
+           three lines by -- so it is gone rather than checked. */
+        detailsHeld = { signature: detailSignature(load()), rows, kind, pick };
         logger.log(
           `details in hand for ${collection.name}: ${asked.size} reference${asked.size === 1 ? "" : "s"} sent, ${found.size} answered`,
         );
@@ -4748,7 +4878,7 @@ ${selectors.join(",\n")} {
 
     if (failed) {
       // Looked up by kind, so the ⚠️ lands on the button that was pressed.
-      const button = detailsButton(kind);
+      const button = footButton(kind);
       if (button) flash(button, "⚠️");
     }
   }
@@ -4763,12 +4893,27 @@ ${selectors.join(",\n")} {
    * failure the two-step design exists to remove. So every paste was fetched by
    * the press before it.
    */
-  async function copyDetails(button, kind) {
+  async function copyDetails(button, kind, pick) {
     const state = load();
     const held = detailsFor(state, kind);
     if (!held) return;
 
-    const payload = format(kind, detailedItems(state, held), "collection");
+    /* THE ARROW'S PICK WINS OVER THE HELD ONE, and that is decision 16's last row:
+       an arrow pressed on a button that is already armed COPIES, with the pick, and
+       does not re-fetch. It does not re-fetch because `DETAIL_FIELDS` asks for all
+       nine fields whatever any preset says and the selection is applied at render, so
+       a second request would return the same rows (§2.14).
+
+       `?? held.pick` AND NOT `held.pick ?? pick`: a plain `Copy` press arrives here
+       with nothing and must use what the press before it picked, while an arrow press
+       arrives with an id and must use that -- including when the id it names is the ★
+       preset, which is a way of changing your mind back. */
+    const payload = format(
+      kind,
+      detailedItems(state, held),
+      "collection",
+      pick ?? held.pick,
+    );
     if (!payload) return;
 
     try {
@@ -4786,16 +4931,60 @@ ${selectors.join(",\n")} {
     }
   }
 
-  // One control, two steps, and the state decides which -- the label says which
-  // one it is about to do, so there is nothing to remember (§3).
-  function onDetails(button) {
+  /* One control, two steps, and the state decides which -- the label says which one
+     it is about to do, so there is nothing to remember (§3).
+
+     `pick` IS ABSENT FOR A PRESS OF THE BUTTON AND PRESENT FOR A PICK FROM ITS ARROW,
+     and this is the whole of "the arrow does what its button does" for the two stepped
+     controls: the arrow calls THIS function, so it cannot walk a different ladder,
+     cannot skip the fetch the button would have done, and cannot arm the other button
+     -- which §2.15 had to reverse once from use, and a third control in the row is a
+     third chance to reintroduce (decision 16). */
+  function onDetails(button, pick) {
     if (fetchingDetails) return undefined;
     // The entry that owns the button decides which document comes out; the fetch
     // behind them is one and the same (§2.15).
     const kind = button.dataset.gtFormat;
     return detailsFor(load(), kind)
-      ? copyDetails(button, kind)
-      : fetchDetails(kind);
+      ? copyDetails(button, kind, pick)
+      : fetchDetails(kind, pick);
+  }
+
+  /* AND THE ARROW, WHICH IS THREE LINES BECAUSE THE RULE IS ONE SENTENCE (presets
+     ticket 04, decision 16). THE ARROW DOES WHAT ITS BUTTON DOES, with the pick
+     instead of the default -- so it calls the button's own function and nothing else.
+     🔗 Links copies at once; 📋 Details and 📊 Report fetch, and the `Copy` press that
+     follows uses the pick; either of them already armed copies without re-fetching.
+     None of those three behaviours is written here: they are `copyActive` and
+     `onDetails`, unchanged except for the argument.
+
+     WHICH OF THE TWO IS `needsDetails`, THE SAME FLAG THE FOOT'S BUILDER READS to
+     give each button its action. A literal here would be a second place that decides
+     which controls take two presses, and it would be the place that fell out of step.
+
+     THE KIND COMES OFF THE SELECT'S OWN ATTRIBUTE and is then range-checked against
+     `EXPORTS`, which is also what makes this listener safe to delegate: the foot holds
+     nothing but these three selects today, and an entry `EXPORTS` does not name gets
+     no gesture rather than a wrong one. */
+  function onFootArrow(node) {
+    const entry = EXPORTS.find((one) => one.kind === node.dataset[FOOT_ARROW_ATTR]);
+    const button = entry ? footButton(entry.kind) : null;
+    /* ONE GUARD FOR BOTH LOOKUPS, AND NEITHER OF THEM CAN BE NULL TODAY. It was two
+       guards until a mutation run said so: this listener is on the FOOT, the foot holds
+       nothing but these three selects, and each select's button is its own sibling --
+       so a `change` that gets here always names an entry and always has a button beside
+       it. Both were removable with nothing going red.
+
+       IT IS KEPT ANYWAY, FOR `shapeFor`'s OWN REASON, and one guard rather than two is
+       the difference from ticket 03's three deletions -- those each duplicated a guard
+       that already existed, where this is the only one. THIS IS THE COPY PATH: a
+       TypeError here is a copy that silently never happened, which is the failure
+       §2.8's scar is about. It is the range check the attribute needs as well, so a
+       control that one day lands in the foot gets no gesture rather than a wrong one. */
+    if (!button) return undefined;
+    return entry.needsDetails
+      ? onDetails(button, node.value)
+      : copyActive(button, entry.kind, node.value);
   }
 
   // -------------------------------------------------------------- the origins
@@ -4980,6 +5169,20 @@ ${selectors.join(",\n")} {
   const bandNoteId = (id) => `gt-cart-bandnote-${id}`;
   const BAND_KEY_ATTR = "gtBand";
 
+  /* THE FOOT'S THREE ARROWS, and they keep the split the two dropdowns above them
+     keep: AN ID IS FOR FINDING AND AN ATTRIBUTE IS FOR SAYING WHAT A CONTROL IS.
+     `renderFoot` finds each `<select>` by id to refill its options; the delegated
+     `change` listener is handed the node and reads the kind off the attribute.
+
+     THE ATTRIBUTE IS NOT `gtFormat`, WHICH THE BUTTONS WEAR. It could have been --
+     the value is the same kind -- and it would have made `footButton`'s
+     `[data-gt-format]` query return whichever of the button and the select came
+     first in the tree. That is a query answering correctly by document order, which
+     is the kind of thing that keeps working until somebody reorders the markup. Two
+     attributes, two disjoint sets of nodes, no order to depend on. */
+  const footArrowId = (kind) => `gt-cart-arrow-${kind}`;
+  const FOOT_ARROW_ATTR = "gtArrow";
+
   /* A FIELD ROW'S FOUR ATTRIBUTES. The first two say what the row IS, and they are
      on the row AND on its checkbox: the delegated `change` listener is handed the
      input and the delegated drag listeners are handed the row, and neither should
@@ -5094,6 +5297,43 @@ ${selectors.join(",\n")} {
   // step with the four rules above it: a fifth fixed part in this section makes it
   // stale and the clipping comes back silently. `css-smoke` counts the flex: none
   // list for exactly that reason.
+  //
+  /* AND THE FOOT IS TWO ROWS AT THE 300px FLOOR, WITH THE ARROWS. Presets ticket 04,
+     2026-09-07, and the two halves of this paragraph have DIFFERENT STANDING, which
+     is why they are written separately rather than reconciled.
+
+     THE `38` ABOVE IS A DERIVATION and it is one row of buttons. It was already
+     understated at 300px before the arrows existed -- six buttons do not fit on one
+     row at that width -- and it is deliberately left as it stands, because it is the
+     arithmetic this number was built from and correcting it into agreement would
+     erase the only record of how the number was reached.
+
+     THE TWO ROWS ARE A MEASUREMENT, taken on 2026-08-27 in the rig rather than
+     derived: 2 rows and 66px with the three arrows, and 2 rows and 66px WITHOUT
+     them. The arrows fit in slack the second row already had, so they cost nothing
+     here and `MIN_BLOCK` and this constant are both UNCHANGED by them. The record's
+     own arithmetic had predicted three rows and about 245px, and it was wrong -- its
+     per-button widths were too generous at the right font size, which is an argument
+     for measuring rather than for estimating more carefully (decision 23).
+
+     IT GENERALISES: 300px is `MIN_INLINE`, the drawer cannot be narrower, and flex
+     wrapping never needs more rows as width grows. So the worst case is the case that
+     was measured.
+
+     WHAT IS STILL OWED, AND IT IS OWED TO THE REAL DRAWER. That measurement was taken
+     twice in `paste-test.html` and withdrawn once, because the rig's foot had drifted
+     from this stylesheet in four values; and the second reading came from a rig drawer
+     300px wide where the real one is 298px inside its border. So the number this
+     comment rests on is a rig number, and §7 carries the browser step that closes it:
+     drag the real drawer to 300x215 and read the row count there. The reason it could
+     not be closed by the press of 2026-09-07 is that the settings panel replaces the
+     body AND THE FOOT WITH IT, so a press with the settings up cannot see these six
+     buttons at all.
+
+     THE ARROWS ARE NOT A FIFTH FIXED PART. They are inside the foot, which is already
+     one of the four, so the `flex: none` list this constant is checked against is the
+     same length it was -- which is exactly why they cost nothing. A part added BESIDE
+     the foot is the thing that makes this number stale. */
   const COLLECTION_FIXED_PX = 145;
 
   // The divider's travel. A fraction outside this cannot be dragged back, because
@@ -5275,15 +5515,20 @@ ${selectors.join(",\n")} {
      hand-edited blob, and a fresh sitting all land in the same place, and none of
      them needs a line of its own.
 
+     THAT `??` IS NOT WRITTEN HERE ANY MORE, AND THAT IS TICKET 04'S DOING. The
+     arrow's pick falls back by exactly the same sentence, so `pickedPreset` holds it
+     and this function is the same rule asked about a different id -- the panel asks
+     "which preset do these rows edit", the foot asks "which preset will this press
+     print", and neither can drift from the other because there is one `??`. It was
+     two identical expressions for a day, which is how long it took the second caller
+     to arrive.
+
      THE PRESETS ARE PASSED IN rather than read here, so a render performs ONE
      `loadPresets` and every control on the screen is drawn from the same read. Two
      reads a frame apart is the sort of pair that disagrees exactly once, in the
      frame where somebody deleted something. */
   function selectedPreset(tab, presets) {
-    const list = presets[tab.id];
-    return (
-      list.find((one) => one.id === presetSelection[tab.id]) ?? starPreset(list)
-    );
+    return pickedPreset(presets[tab.id], presetSelection[tab.id]);
   }
 
   /* EVERY EDIT ON AN EXPORT TAB GOES THROUGH HERE: a tick, a drag, a band, a shape,
@@ -5367,7 +5612,7 @@ ${selectors.join(",\n")} {
      configuration (decision 1) plus the selection being in memory (decision 9). What
      narrows it is the note at the foot of this block, which says both facts as two
      sentences because they are two facts, and -- from ticket 04 -- the armed button
-     carrying ★ or ▾.
+     carrying ★, or not.
 
      EVERYTHING HERE IS BUILT AND THEN HIDDEN OR SHOWN, never created on demand. The
      panel's build-once rule (decision 25) is the reason: an add arriving from the
@@ -6054,8 +6299,60 @@ ${selectors.join(",\n")} {
       if (spec.needsDetails) button.dataset.gtSteps = "true";
       // The label and the title are set by `render`, never here: a label written
       // once at construction keeps the ✅ for ever (§2.8).
-      foot.append(button);
+      if (!spec.arrow) {
+        foot.append(button);
+        continue;
+      }
+      /* AN ARROW EXACTLY WHERE THE ENTRY NAMES A LIST TO OFFER, and it is ALWAYS
+         DRAWN -- even for a list holding one preset (decision 18). An arrow that came
+         and went would change this row's width and its row count, which is the
+         reflow-under-the-pointer defect §2.14 spent a day removing from this very
+         row. So there is no `hidden` here and nothing in `render` that hides one.
+
+         A `<select>` CANNOT LIVE INSIDE A `<button>`, so the pair is a wrapper that
+         READS as one control: a shared border, a divider line, and the button's own
+         `min-inline-size: 11ch` untouched -- that reservation is what stops the label
+         ladder rearranging the row, and the mark the armed label now carries sits
+         inside it (decision 26).
+
+         THE CARET IS OURS AND THE OPTION LIST IS THE PLATFORM'S. The select is laid
+         over the caret at zero opacity, so what you see is a glyph in a box we paint
+         and what opens is a list the browser paints on top of the page, outside every
+         clip this drawer owns (decision 15). `aria-hidden` on the caret because the
+         select beside it is the control, and the caret is its decoration. */
+      const split = el("span", "gt-cart-split");
+      const arrow = el("span", "gt-cart-arrow");
+      const caret = el("span", null, "▾");
+      caret.setAttribute("aria-hidden", "true");
+      // NO OPTIONS HERE. A preset list is data that grows and shrinks, so `renderFoot`
+      // fills this and compares against what is on screen before it replaces anything
+      // -- the picker's own rule, and for its own reason: rebuilding the list on every
+      // render would close it under the pointer that opened it.
+      const list = select(
+        footArrowId(spec.kind),
+        `Export ${spec.label.split(" ").slice(1).join(" ")} with something other than its default`,
+        [],
+      );
+      list.dataset[FOOT_ARROW_ATTR] = spec.kind;
+      arrow.append(caret, list);
+      split.append(button, arrow);
+      foot.append(split);
     }
+
+    /* ONE DELEGATED `change` LISTENER FOR THE THREE ARROWS, ON THE FOOT AND NOT ON
+       THE DRAWER. `change` bubbles from every form control, a text input on blur
+       included, and the drawer holds the create field, the rename field and the
+       panel's twenty-odd controls. Ticket 03 found exactly that defect on the panel's
+       own listener -- the rename field's blur would have set the preset selection to
+       the name being typed -- and it was found by reading the listener rather than by
+       pressing anything, because a stub's blur synthesises no `change`.
+
+       THE FOOT HOLDS NOTHING BUT THESE THREE SELECTS, which is what makes this the
+       tight scope rather than a lucky one: the create field is a SIBLING of the foot,
+       not a child, so it cannot reach here even on blur. */
+    foot.addEventListener("change", (event) =>
+      guard(() => onFootArrow(event.target)),
+    );
 
     collection.append(collectionHead, itemList, chips, create, foot);
     body.append(live, divider, collection);
@@ -8016,7 +8313,7 @@ ${selectors.join(",\n")} {
     renderLiveList(state, scan);
     renderCollection(state);
     renderChips(state);
-    renderFoot(state);
+    renderFoot(state, prefs);
   }
 
   /**
@@ -8905,10 +9202,16 @@ ${selectors.join(",\n")} {
     }
   }
 
-  function renderFoot(state) {
+  function renderFoot(state, prefs) {
     const foot = document.getElementById(FOOT_ID);
     if (!foot) return;
     const empty = activeCollection(state).items.length === 0;
+    /* ONE `loadPresets` FOR THE WHOLE ROW, and `renderPrefs`' rule for its reason.
+       The two arrows that offer presets, the mark on the two armed labels and their
+       tooltips are all drawn from this one read, so none of them can name a preset
+       another of them has stopped naming. Two reads a frame apart is the pair that
+       disagrees exactly once, in the frame where somebody deleted something. */
+    const presets = loadPresets();
 
     for (const spec of EXPORTS) {
       const button = foot.querySelector(`[data-gt-format="${spec.kind}"]`);
@@ -8919,6 +9222,24 @@ ${selectors.join(",\n")} {
       button.textContent = spec.label;
       button.title = spec.title;
 
+      /* WHICH PRESET THIS BUTTON'S NEXT PRESS WOULD PRINT, resolved once and read
+         three times -- by the mark on the label, by the tooltip that names it, and by
+         the arrow's own displayed value. `null` on the four entries with no preset
+         list. Deriving it here rather than in each of the three is what makes decision
+         26's mark impossible to disagree with the pick: they are the same expression.
+
+         `held?.pick` IS THE WHOLE OF THE PICK'S REACH into this row. No pick, a pick
+         naming a preset that has been deleted, and a pick naming ★ all land on ★,
+         because `pickedPreset` is the same `??` the copy will perform (decision 17). */
+      const tab =
+        spec.arrow === "presets"
+          ? PRESET_LISTS.find((one) => one.fields === spec.fields)
+          : null;
+      // Asked for THIS button's kind, so a fetch armed by the other one leaves this
+      // label alone (§2.15, reversed 2026-08-21).
+      const held = spec.needsDetails ? detailsFor(state, spec.kind) : null;
+      const running = tab ? pickedPreset(presets[tab.id], held?.pick) : null;
+
       /* 📋 Details is the one control in the foot whose label is a LADDER rather
          than a name, and the whole ladder is derived from state here, for the same
          reason the ✅ is: a label written anywhere else would be a value that has
@@ -8926,9 +9247,6 @@ ${selectors.join(",\n")} {
          agreeing. The convention is the repo's own -- ⌫ becomes `Empty 3?` before
          it will empty anything (§3). */
       if (spec.needsDetails) {
-        // Asked for THIS button's kind, so a fetch armed by the other one leaves
-        // this label alone (§2.15, reversed 2026-08-21).
-        const held = detailsFor(state, spec.kind);
         const count = activeCollection(state).items.length;
         // THE ICON COMES FROM THE ENTRY'S OWN LABEL, not from a literal. It was a
         // literal 📋, which meant 📊 Report showed 📋 Fetching… -- a defect that
@@ -8939,10 +9257,68 @@ ${selectors.join(",\n")} {
           button.textContent = `${icon} ${STEP_LABELS.busy}`;
           button.title = "Asking Jira about every issue in this collection…";
         } else if (held) {
-          button.textContent = `${icon} ${STEP_LABELS.ready}`;
+          /* THE ARMED RUNG CARRIES A MARK, AND ONLY THE ARMED RUNG (decision 26,
+             added 2026-08-27 from the prototype). The label is the fetch ladder and
+             never a preset's name -- `📊 Report` → `📊 Fetching…` → `📊 Copy`, whatever
+             preset is in play -- so until this rung the control says nothing about
+             what it will produce. The user found that by pressing it: *"a plain report
+             press triggers the fetching, so it changes the button text to Fetching
+             regardless of the preset used."*
+
+             ★ FOR THE DEFAULT AND NOTHING FOR A PICK, and it cannot show the NAME:
+             the tooltip does that, and the 11ch box the two stepped buttons reserve is
+             what a name would overflow. What the mark carries is WHETHER YOU ARE ON
+             THE DEFAULT, which is the half you can get wrong without noticing.
+
+             IT WAS `▾` FOR A PICK UNTIL 2026-09-07, AND A PRESS IN REAL JIRA KILLED
+             THAT. The arrow beside this button draws a `▾` caret and it is ALWAYS
+             drawn (decision 18), so `📊 Copy ▾` put two carets side by side with one
+             of them inert. Reported in those words: *"it has an arrow next to it (so 2
+             arrows, 1 next to Copy and does nothing, and then the arrow to select
+             preset)"*. **The prototype had the identical collision and nobody saw it**
+             -- its `Foot labels` and `Arrow` switches are separate controls, so
+             decision 26 was settled by reading the LABEL rather than the pair. And
+             `▾` was already spoken for: the BADGE ends in one (`🛒 Scratch 3 ▾`), where
+             it means *this opens something*. Giving it a second meaning of *not the
+             default*, on a control that has a real caret glued to its edge, was
+             overloading the one glyph in this script that already had a job.
+
+             THE ABSENCE IS THE MARK NOW, and it is a stronger signal than a second
+             glyph would be at this size: presence versus absence beats one glyph
+             versus another, and it takes something OUT of a row that is two lines deep
+             at the 300px floor. `📊 Copy` cannot be confused with any other rung --
+             idle reads `📊 Report` and busy reads `📊 Fetching…` -- so the only thing
+             it can mean is armed, and not on ★. What it costs is stated rather than
+             hidden: somebody who has only ever seen one of the two states has nothing
+             on screen telling them the other exists. The tooltip names the preset
+             either way, which is where that belongs.
+
+             THE MARK APPEARS EXACTLY WHERE IT CAN VARY. At idle there is nothing to
+             disambiguate -- a pick exists only while a fetch is held, and picking from
+             the arrow IS the fetch -- so an idle button can only ever mean ★ and a
+             mark that cannot change is noise. `Fetching…` carries none either: you
+             have just picked, and `Fetching… ★` would overflow the box. The
+             consequence is deliberate: the idle foot is byte-identical to 1.6.0's, so
+             an install that never opens an arrow cannot tell the mark exists.
+
+             BY ID AND NOT BY THE FLAG. `running.star === true` would be the same
+             answer today and it would be resting on `oneStar` having repaired the
+             list; comparing against `starPreset` asks the question the mark actually
+             means -- is the preset this copy will use the ★ one. */
+          const star = starPreset(presets[tab.id]);
+          const onStar = running.id === star.id;
+          // The space rides with the star, so the label carries no trailing one --
+          // invisible on screen and a difference every harness comparison would see.
+          button.textContent = `${icon} ${STEP_LABELS.ready}${onStar ? " ★" : ""}`;
           // The count leaves the LABEL, whose width is fixed, and lands in the
-          // sentence, which has no width to keep.
-          button.title = `Copy ${count} item${count === 1 ? "" : "s"}. The next press fetches again, so nothing you paste is older than the press before it`;
+          // sentence, which has no width to keep -- and so does the preset's name,
+          // which is the half the mark cannot carry.
+          button.title =
+            `Copy ${count} item${count === 1 ? "" : "s"} using ` +
+            (onStar
+              ? `★ ${star.name}`
+              : `${running.name}, picked from the arrow. ★ ${star.name} is what a plain press uses`) +
+            ". The next press fetches again, so nothing you paste is older than the press before it";
         }
         // Nothing may fetch what it cannot store: the write-back is declined on
         // the two migration rows that refuse to write, so the request would be
@@ -8950,14 +9326,90 @@ ${selectors.join(",\n")} {
         // both write summaries, and one request at a time is enough.
         button.disabled =
           empty || refreshing || fetchingDetails || !state.writable;
-        continue;
+      } else {
+        // Disabled and dimmed while the collection is empty, the convention
+        // `jira-ux` already uses for the buttons that need a description. A copy of
+        // zero items must not write at all, and `key in ()` is not valid JQL, so the
+        // same rule serves both kinds of button (§2.8).
+        button.disabled = empty;
       }
-      // Disabled and dimmed while the collection is empty, the convention
-      // `jira-ux` already uses for the buttons that need a description. A copy of
-      // zero items must not write at all, and `key in ()` is not valid JQL, so the
-      // same rule serves both kinds of button (§2.8).
-      button.disabled = empty;
+
+      if (spec.arrow) {
+        renderFootArrow(spec, button, presets, tab, running, held, prefs);
+      }
     }
+  }
+
+  /* ONE BUTTON'S ARROW: what it offers, what it shows, whether it can be used, and
+     what it says it will do. All four derived, none of them written at a press
+     (presets ticket 04, decisions 15 to 19).
+
+     IT IS DISABLED EXACTLY WHEN ITS BUTTON IS, and that is read off the button rather
+     than recomputed -- one condition, so the pair cannot disagree. It matters more
+     than it looks: an arrow that stayed live on an empty collection would run a
+     gesture `format` refuses, which is a copy that never happened and no feedback at
+     all. That is the "I picked it and nothing happened" report decision 19 kept
+     `Edit presets…` out of this list to avoid, and it would arrive here instead.
+
+     THE OPTIONS ARE COMPARED AGAINST WHAT IS ON SCREEN AND NOT AGAINST A REMEMBERED
+     SIGNATURE, which is `renderPresetBlock`'s own rule and for its own reasons:
+     deriving it means there is no variable to reset when `ensureDrawer` builds a fresh
+     drawer, and rebuilding the list on every render would close it under the pointer
+     that opened it and throw the keyboard's position in it away. A preset list is
+     DATA that grows and shrinks, where the five shapes are vocabulary -- but both are
+     compared, because one code path is one code path.
+
+     ★ GOES IN THE OPTION TEXT because that is the one part of a native option that is
+     ours to write: the browser paints this list on top of the page and there is no
+     styling hook on it (decision 15). 🔗 Links' list carries no ★ -- its five shapes
+     are a vocabulary with no flag on them, and the shape a plain press uses is the one
+     the control is already showing. */
+  function renderFootArrow(spec, button, presets, tab, running, held, prefs) {
+    const node = document.getElementById(footArrowId(spec.kind));
+    if (!node) return;
+
+    const wanted = tab
+      ? sortedPresets(presets[tab.id]).map((one) => [
+          one.id,
+          `${one.star ? "★ " : ""}${one.name}`,
+        ])
+      : SHAPES.map((one) => [one.id, one.label]);
+    // `children` and not `options`, which is `renderPresetBlock`'s choice: one way of
+    // asking a dropdown what it holds is one way to get wrong.
+    const onScreen = [...node.children].map((one) => [one.value, one.textContent]);
+    if (JSON.stringify(wanted) !== JSON.stringify(onScreen)) {
+      node.replaceChildren(
+        ...wanted.map(([value, text]) => {
+          const option = el("option", null, text);
+          option.value = value;
+          return option;
+        }),
+      );
+    }
+    /* WHAT THE ARROW SHOWS IS WHAT THE NEXT PRESS WOULD USE, one rule for all three,
+       and AFTER the options always -- setting a value an option list does not carry
+       yet leaves the control showing whatever sat there before.
+
+       SO 🔗 LINKS' ARROW GOES BACK TO THE PREFERENCE AFTER A PICK, and that is the
+       rule rather than an oversight: its pick is spent by the copy it performs in the
+       same gesture, so leaving the picked shape on display would be a control claiming
+       a state the button does not have. The two stepped arrows keep showing a pick
+       because a pick is real state there -- it is held with the fetch until the copy
+       spends it. The cost is that a 🔗 Links pick reads as "snapping back", which is
+       the honest half: it is showing you what a plain press does. */
+    node.value = running ? running.id : prefs.lineShape;
+    node.disabled = button.disabled;
+
+    /* AND WHAT IT SAYS IT WILL DO, which is a function of the state for the same
+       reason the label is. An armed stepped button's arrow COPIES rather than fetches
+       (decision 16's last row), so a fixed sentence about fetching would be wrong at
+       exactly the moment somebody was deciding whether to press it. */
+    const star = tab ? starPreset(presets[tab.id]).name : null;
+    node.title = !tab
+      ? "Copy the collection now, with a line shape other than the one ⚙ 🔗 Links holds. Picking one copies at once — the arrow does what the button does"
+      : held
+        ? `Copy the items already in hand with a preset other than ★ ${star}. Picking one copies at once, and nothing is fetched again`
+        : `Ask Jira, then copy with a preset other than ★ ${star}. Picking one fetches, and the Copy press that follows uses it`;
   }
 
   // ------------------------------------------------------- the right-click menu
@@ -10822,6 +11274,104 @@ ${D} button.gt-cart-copy[data-gt-steps] {
 }
 ${D} button.gt-cart-copy:hover:not(:disabled) {
   background: var(--gt-cart-hover);
+}
+
+/* THE THREE ARROWS, and every declaration here is the prototype's, chosen by a press
+   on 2026-08-27 (presets ticket 04, decisions 15 and 18).
+
+   A NATIVE SELECT, LAID OVER A CARET OF OURS. Every container in this drawer is
+   overflow: clip, so a menu we drew ourselves would be silently gone -- the same
+   measurement that put the settings on their own screen and made the two band
+   dropdowns native. The browser paints an option list on top of the page, outside
+   every clip we own. What it costs is that the list cannot be styled at all, so the
+   star goes in the option's TEXT, which is the one part of a native option that is
+   ours to write.
+
+   THE PAIR READS AS ONE CONTROL because a select cannot live inside a button. The
+   wrapper is flex with align-items: stretch, so the arrow is exactly as tall as the
+   button beside it whatever the label ladder is saying, and the button's own 11ch
+   reservation is untouched -- that is what stops a changing label rearranging this
+   row, and the star or the caret the armed label now carries sits inside it.
+
+   THE BUTTON DROPS ITS RIGHT BORDER AND THE ARROW REPLACES IT, which is a defect that
+   already happened once and is the reason the arrow's border is written as a full
+   border here rather than three sides. The first quiet variant replaced the dropped
+   border with a TRANSPARENT one, and the button read as cut open: reported on
+   2026-08-27 in those words, "without border it looks strange, like if the button is
+   somewhat cut". The fix was the user's own.
+
+   AND THE LEFT BORDER IS THE DIVIDER, WHICH IS THE WHOLE CHOICE. Two looks were
+   pressed and they differed by exactly this one declaration -- whether the arrow
+   carries a border on the side it shares with the button. Without it the pair is one
+   continuous button with a caret at its right end, and it was reported as "too much
+   space to the left of the arrow", because the button's own 8px right padding then
+   sits between its label and a caret centred in its own box. THE DIVIDER WON: it is
+   the only thing on the control that says the caret does something other than what
+   the button does. Do not quietly remove it, and do not write it as
+   border-inline-start: 0 -- that is the variant that lost.
+
+   NO BACKTICKS IN THIS COMMENT. It is one template literal, and a backtick in a
+   comment ends it; that has cost a syntax error three times. */
+${D} span.gt-cart-split {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+}
+${D} span.gt-cart-split > button.gt-cart-copy {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  border-inline-end: 0;
+}
+${D} span.gt-cart-arrow {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 15px;
+  border: 1px solid var(--gt-cart-border);
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
+  background: var(--gt-cart-input-bg);
+  color: var(--gt-cart-text);
+  font-size: 9px;
+  cursor: pointer;
+}
+/* Transparent and over the whole box, so the pointer hits the select everywhere the
+   caret looks pressable and the browser still opens the list where it wants to. */
+${D} span.gt-cart-arrow select {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font: inherit;
+}
+/* THE HOVER EXCLUDES THE DEAD ONE IN ITS OWN SELECTOR, which is the shape
+   button.gt-cart-copy:hover uses one rule up and it is not a coincidence: a control
+   that lights under the pointer while it cannot be used promises something it does
+   not have. Written as an exclusion rather than as a more specific rule underneath,
+   because then there is no cascade to lose -- and this sheet's own history is a rule
+   that lost one and left the gear inert for two versions. */
+${D} span.gt-cart-arrow:hover:not(:has(select:disabled)) {
+  background: var(--gt-cart-hover);
+}
+/* AND AN ARROW WHOSE SELECT IS DISABLED IS DIMMED LIKE THE BUTTON BESIDE IT, because
+   half a control dimmed reads as broken rather than as off.
+
+   IT IS A :has() ON THE SELECT AND NOT A SECOND ATTRIBUTE WRITTEN FROM THE RENDER.
+   The select's own disabled state is the one value, and a data- attribute beside it
+   would be a copy that has to agree with it -- which is the pair this design deletes
+   everywhere else. The render sets one thing: select.disabled, off the button's own.
+
+   WHERE IT DEGRADES: a browser with no :has() drops these two rules and nothing else,
+   so a dead arrow does not dim and lights under the pointer. It cannot be PICKED
+   either way, because the select is genuinely disabled -- which is the half that
+   matters, and the reason this is worth the dependency. */
+${D} span.gt-cart-arrow:has(select:disabled) {
+  opacity: 0.45;
+  cursor: default;
 }
 ${D} button:disabled {
   opacity: 0.45;
