@@ -696,6 +696,17 @@ preference and both preset shapes on purpose**, and asserts that the two differ 
 it asserts anything about which was chosen. This is the third time in this file a check
 has had to be rewritten for passing on a fixture whose two sides agreed.
 
+**AND THE RIG WAS WRONG ABOUT THE ONE NUMBER IT WAS STILL TRUSTED FOR — pressed
+2026-09-08.** `paste-test.html` reported the foot as **two rows** at 300px, with the
+arrows and without, and it reported it twice: once before its foot was found to have
+drifted from the script in four values, and once after the fix. The real drawer takes
+**three**. The estimate the rig overturned had said three with the arrows and two
+without, so the arithmetic was right and the instrument was wrong — **three readings,
+three failures**, on the file that has also drifted from the script six times. What that
+costs is stated in ADR risk 10 and appendix C.3: `COLLECTION_FIXED_PX` and `MIN_BLOCK`
+are stale by roughly 50px, `css-smoke`'s own `COLLECTION_FIXED = 135` is stale with
+them, and no number for that floor is taken off this rig again.
+
 **And one committed file turned out to be invisible to `grep`.** `paste-test.html` used
 a literal NUL byte as a sort sentinel — the same string at runtime — which makes the
 whole file read as binary: `grep` prints *binary file matches* and no lines, and

@@ -5298,7 +5298,31 @@ ${selectors.join(",\n")} {
   // stale and the clipping comes back silently. `css-smoke` counts the flex: none
   // list for exactly that reason.
   //
-  /* AND THE FOOT IS TWO ROWS AT THE 300px FLOOR, WITH THE ARROWS. Presets ticket 04,
+  /* THIS NUMBER IS KNOWN STALE. Pressed in real Jira on 2026-09-08: at 300px wide the
+     foot takes THREE ROWS, not the two the paragraph below claims, so the `38` this
+     constant derives the foot from is short by roughly 57 and the 145 is short by about
+     50 -- with ONE collection, at any divider position. `MIN_BLOCK = 215` therefore
+     does not deliver risk 10's guarantee: at the floor the grip clamps to, foot buttons
+     are clipped, which is the 1.0.0 defect that whole risk exists to kill.
+
+     IT IS NOT REWRITTEN FROM THAT ARITHMETIC, and the reason is this comment's own
+     history: the number below was estimated, then measured on a rig, then withdrawn,
+     then re-measured on the same rig, and the real drawer has just contradicted it. A
+     third value derived rather than read would be the same mistake a fourth time. ADR
+     §7 step 42 carries the probe -- it reads the foot with the arrows and without, so
+     the arrows' own cost comes back separately.
+
+     WHAT IS ALSO KNOWN, AND IS A DIFFERENT NUMBER: with several collections and the
+     default divider that press needed 611px of drawer height before every foot button
+     appeared. That is the wrapped chips row this comment already warns about and risk
+     10 states without guarding; it is ACCEPTED, in the user's words -- "nobody will
+     resize the drawer so much". The floor is not covered by that, because 215 is where
+     the grip stops rather than somewhere you have to go looking for.
+
+     ---- what follows was written on 2026-09-07 and is kept because the strike is the
+     instructive part ----
+
+     AND THE FOOT IS TWO ROWS AT THE 300px FLOOR, WITH THE ARROWS. Presets ticket 04,
      2026-09-07, and the two halves of this paragraph have DIFFERENT STANDING, which
      is why they are written separately rather than reconciled.
 

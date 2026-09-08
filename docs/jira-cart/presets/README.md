@@ -222,7 +222,25 @@ written, and no user-written string reaches the clipboard.
     > `writeFirstRunPresets` runs at boot beside the collections' `writeFirstRun`, and
     > §2.4's *nothing is rewritten because you looked at it* is amended in place: the
     > READ still writes nothing, and the write is its own function called once.
-23. ~~**The foot may gain a row, and the floor is re-derived from a MEASUREMENT.** By
+23. > **READ THIS FIRST: THE STRIKE-THROUGH BELOW WAS RIGHT, AND THE MEASUREMENT THAT
+    > OVERTURNED IT WAS WRONG. Pressed in real Jira on 2026-09-08.** At 300px the foot
+    > takes **three rows**, exactly as the arithmetic predicted. The rig said two, twice,
+    > and this is the third time a number off `paste-test.html` has failed against the
+    > real drawer — after the fourth drift withdrew one reading and the unclosed CSS
+    > comment invalidated the next. **`MIN_BLOCK` and `COLLECTION_FIXED_PX` are stale**:
+    > the reserve derives the foot as one row at 38px where three rows need about 95, so
+    > it is short by roughly 50 **with one collection**. The values are NOT rewritten
+    > from that arithmetic — that is what this entry keeps getting wrong — and §7 step
+    > 42's probe is what closes them.
+    >
+    > **The same press produced a second number, and it is not the floor.** With several
+    > collections and the default divider, all six buttons needed **611px** of drawer
+    > height; dragging the divider brought it under 600. That is stated limit 5's
+    > territory and risk 10's unguarded chips row, and the user's judgement is recorded
+    > and accepted: *"nobody will resize the drawer so much."* The floor is not covered
+    > by that judgement, because 215 is where the grip **stops**.
+
+    ~~**The foot may gain a row, and the floor is re-derived from a MEASUREMENT.** By
     arithmetic the six buttons already come to roughly 452px of content against ~275px
     usable at the 300px floor, so the foot is already two rows; three arrows add ~60px
     and tip it to three, taking the drawer's minimum height from 215 to about 245.~~
@@ -251,7 +269,8 @@ written, and no user-written string reaches the clipboard.
     is two rows *with* the arrows and that it was measured. Writing down a floor that
     did not move is cheaper than a later session wondering whether it did.
 
-    > **DELIVERED AS A NON-CHANGE ON 2026-09-07, AND THE NUMBER IS STILL OWED.** Both
+    > **DELIVERED AS A NON-CHANGE ON 2026-09-07, AND THE NEXT DAY THE NUMBER CAME BACK
+    > AND SAID THE NON-CHANGE WAS WRONG — see the note at the top of this decision.** Both
     > constants are untouched and the comment above them now separates the two
     > standings by name: the `38` it derives the foot from is a **derivation**, and it
     > was already understated at 300px before the arrows existed — it is deliberately
@@ -431,7 +450,7 @@ written, and no user-written string reaches the clipboard.
 | [01](01-the-prototype.md) | The rig grows a presets variant, and four numbers come back | No script change at all | **BUILT AND PRESSED 2026-08-27.** It reversed decision 8, added 26, closed limit 2, and found the rig's fourth drift. **Two numbers owed on a re-press** |
 | [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | **BUILT 2026-08-28.** `store-smoke` 127 → 212, suite 1,489, `format-smoke` untouched. **It deferred half of decision 22** — see below — and it extracted the band pair rule instead of copying it |
 | [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `+ Create preset`, the per-tab restore | **BUILT 2026-09-06.** Suite 1,489 → 1,608. It landed **decision 22's other half**, found a **defect in ticket 02's lazy first run**, deleted **three lines** a mutation could not touch, and rewrote **six checks** that could not fail |
-| [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | **BUILT AND PRESSED 2026-09-07.** Suite 1,608 → 1,735. **42 mutations**: 34 on the feature with 0 survivors after three passes — the first pass had four, three real gaps and one line that was not doing anything — three on guards, all of which survived and were meant to, and five after the press. **The press reversed decision 26's `▾`**, which the prototype had been showing beside the arrow's own caret all along. The floor is recorded as **unmoved rather than re-derived**: it is still a rig number, and §7 step 42 is where it closes |
+| [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | **BUILT 2026-09-07, PRESSED 2026-09-07 AND 2026-09-08.** Suite 1,608 → 1,735. **42 mutations**: 34 on the feature with 0 survivors after three passes — the first pass had four, three real gaps and one line that was not doing anything — three on guards, all of which survived and were meant to, and five after the press. **The press reversed decision 26's `▾`**, which the prototype had been showing beside the arrow's own caret all along. **The second press overturned decision 23**: the foot is THREE rows at 300px, the rig had said two twice, and `MIN_BLOCK` and `COLLECTION_FIXED_PX` are marked stale rather than rewritten from arithmetic. Appendix C.3's probe closes them |
 | [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | |
 
 ### Ticket 01 is built and the four answers are still owed, 2026-08-27
@@ -791,6 +810,45 @@ was found by reading it. The sentinel is an escape now; the value is unchanged.
 
 **What ticket 04 did NOT do:** no version bump, no `MIN_BLOCK` change, no change to any
 stored shape, and nothing to §6. Ticket 05 owns all of those.
+
+### PRESSED AGAIN on 2026-09-08, and the foot is THREE rows
+
+**The one number ticket 04 left open came back, and it says the shipped floor is
+wrong.** At 300px wide the foot takes **three rows**, counted in the real drawer. So:
+
+- **Decision 23's measurement is overturned and its struck-through arithmetic was
+  right.** The estimate said *"the foot is already two rows; three arrows add ~60px and
+  tip it to three"*. That is what a browser does. The rig said two rows with the arrows
+  and two without — **twice** — and this is the third time a number off
+  `paste-test.html` has failed against the real drawer.
+- **`COLLECTION_FIXED_PX` and `MIN_BLOCK` are stale by about 50px.** The reserve derives
+  the foot as one row at 38px; three rows need about 95. That holds with **one**
+  collection at **any** divider position, so it is not the chips-row limit. `MIN_BLOCK =
+  215` therefore does not deliver risk 10's guarantee: at the floor the grip clamps to,
+  foot buttons are clipped — the 1.0.0 defect that risk exists to kill.
+- **Neither constant is rewritten from that arithmetic**, and the reason is this
+  decision's own history: estimated, measured on a rig, withdrawn, re-measured on the
+  same rig, contradicted by the real drawer. A third derived value would be the fourth
+  version of the same mistake. **ADR appendix C.3 carries the probe**, extended to flip
+  the arrows off and back so their own cost comes back as a delta.
+
+**AND A SECOND NUMBER, WHICH IS NOT THE FLOOR AND MUST NOT BE FILED AS IT.** With
+several collections and the default divider, that drawer needed **611px of height**
+before every foot button appeared, and dragging the divider brought it under 600. That
+is risk 10's wrapped chips row behaving exactly as risk 10 says it will, and the user's
+judgement is recorded and **accepted**: *"nobody will resize the drawer so much."*
+
+**The floor is not covered by that judgement**, and the difference is worth stating
+because the two numbers arrived in one sentence: 611px is a height you reach by dragging
+the drawer very small on purpose, while **215 is where the grip stops** — it is not
+somewhere you have to go looking for, it is where the drawer lands.
+
+**AND THE HARNESS'S OWN COPY OF THE NUMBER IS STALE TOO, which is the older failure
+underneath this one.** `css-smoke` holds `COLLECTION_FIXED = 135` as a literal, read off
+the same stylesheet by the same method as the constant it checks — so it can only ever
+catch the two moving apart, never both being wrong together. That is exactly the
+`store-smoke` `160`-against-`215` failure this directory already records. Both numbers
+move when C.3 lands, and the comment now says so where somebody will read it.
 
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.

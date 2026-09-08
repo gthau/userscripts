@@ -4888,8 +4888,36 @@ Notes on the controls:
     **All of these numbers are derived from the stylesheet, not measured in a
     browser.** A three-line probe would confirm them, and it is in appendix C.3.
 
-    > **Amended on 2026-09-07, 1.7.0: THE THREE ARROWS WERE WEIGHED AGAINST THIS FLOOR
-    > AND DID NOT MOVE IT.** Presets ticket 04, decision 23. The estimate said they
+    > **CONTRADICTED ON 2026-09-08 BY A PRESS IN REAL JIRA. THE AMENDMENT BELOW IT IS
+    > WRONG, and it is kept because what it got wrong is the instructive part.** At
+    > 300px wide the foot takes **three rows**, not two, counted in the real drawer. So
+    > the rig's reading was wrong for the third time, and **the arithmetic it overturned
+    > was right**: decision 23's struck-through estimate said *"the foot is already two
+    > rows; three arrows add ~60px and tip it to three"*, and that is what a browser
+    > does. A rig that has drifted from this stylesheet six times has now been wrong
+    > about the one number it was still trusted for.
+    >
+    > **THE CONSTANTS BELOW ARE THEREFORE KNOWN STALE, AND NOT BY A LITTLE.** The `135`
+    > derives the foot as `38` — one row. Three rows of 12px buttons need about 95px by
+    > the same arithmetic, so the reserve is short by roughly 50, **with one collection
+    > and at any divider position.** `MIN_BLOCK = 215` does not deliver this risk's own
+    > guarantee: at the floor the grip clamps to, foot buttons are clipped, which is the
+    > 1.0.0 defect this entry was written to kill. The replacements are not written here
+    > yet, because writing a floor from an estimate is the mistake this entry already
+    > records twice — §7 step 42's first item is the probe that closes it.
+    >
+    > **AND A SECOND NUMBER THE SAME PRESS PRODUCED, WHICH MUST NOT BE CONFUSED WITH THE
+    > FLOOR.** With several collections and the divider where it sits by default, that
+    > drawer needed **611px of height** at 300px wide before every foot button appeared,
+    > and dragging the divider brought it under 600. That is this risk's
+    > stated-and-unguarded limit doing exactly what it says — the reserve counts ONE row
+    > of chips and every extra row costs about 27px — and the user's judgement on it is
+    > recorded and accepted: *"nobody will resize the drawer so much."* **The floor is a
+    > different matter and is not covered by that**, because 215 is where the grip stops
+    > rather than somewhere you have to go looking for.
+
+    > **Amended on 2026-09-07, 1.7.0 — AND OVERTURNED THE NEXT DAY, see above: THE THREE
+    > ARROWS WERE WEIGHED AGAINST THIS FLOOR AND DID NOT MOVE IT.** Presets ticket 04, decision 23. The estimate said they
     > would: six buttons already wrap at 300px, so three more controls looked like a
     > third row and a floor of about 245. **Measured instead, and the foot is 2 rows
     > and 66px WITH the arrows and 2 rows and 66px without them** — they fit in slack
@@ -6151,14 +6179,17 @@ pass each, and they are cheap.
     `format-smoke` holds every byte a pick can produce. What is left is paint and
     layout, and both of them are things this effort has already been wrong about
     twice.
-    - **THE ROW COUNT AT THE FLOOR, WHICH IS THE NUMBER RISK 10 IS STILL OWED.** Drag
-      the drawer to its 300×215 minimum, with ⚙ **down**. Count the rows the foot
-      takes. The claim is **two**, and `MIN_BLOCK` staying 215 rests on it. **Do not
-      take this off the rig again**: `paste-test.html` reported it twice, it was
-      withdrawn once when that page's foot was found to have drifted from the script's
-      in four values, and the reading that stands came from a rig drawer 300px wide
-      where the real one is 298px inside its border. Step 27's re-run cannot answer
-      this and never could — ⚙ replaces the body **and the foot with it**.
+    - **THE ROW COUNT AT THE FLOOR — ANSWERED ON 2026-09-08, AND IT IS THREE.** The
+      claim was **two** and `MIN_BLOCK` staying 215 rested on it; the real drawer at
+      300px wide takes **three rows**, so both constants are stale and risk 10's
+      guarantee does not hold at the floor the grip clamps to. See risk 10's own note.
+      **What is still owed is the PIXEL height**, with the arrows and without, so the
+      two constants can be re-derived from a reading rather than from arithmetic —
+      **appendix C.3 carries the probe**, extended on 2026-09-08 to flip the arrows off
+      and back so their cost comes back as a delta measured in the same drawer. **Do not take it
+      off the rig**: `paste-test.html` reported two rows twice and was wrong both
+      times. Step 27's re-run cannot answer any of this and never could — ⚙ replaces
+      the body **and the foot with it**.
     - **THE LIST OPENS OUTSIDE THE CLIP, AT THAT SAME FLOOR.** Press one of the three
       arrows and check the option list is drawn **whole**, on top of the page, and not
       cut off at the drawer's edge. This is the entire argument for a native `<select>`
@@ -6937,7 +6968,34 @@ same direction.
 **Until it runs**, a row whose region cannot be identified appears with no label.
 That is the stated degradation, and it costs nothing else.
 
-### C.3 Probe 3 — the drawer's own fixed parts, measured rather than derived
+### C.3 Probe 3 — the drawer's own fixed parts, measured rather than derived. HALF RUN, AND THE HALF THAT RAN OVERTURNED THE NUMBER
+
+> **RUN IN PART ON 2026-09-08, BY COUNTING RATHER THAN BY PASTING, AND THE ANSWER IS
+> THAT THE DERIVATION IS WRONG.** At 300px wide the foot takes **three rows**, where
+> `COLLECTION_FIXED_PX` derives it as one at 38px. Three rows of 12px buttons need
+> about 95, so the 135 is short by roughly 57 and the reserve of 145 by about 50 —
+> **with one collection, at any divider position.** This is the "above 140" branch of
+> *what to do with the answer* below, by a wide margin, and it means `MIN_BLOCK = 215`
+> does not deliver risk 10's guarantee at the floor the grip clamps to.
+>
+> **The rig had answered this twice and was wrong twice.** `paste-test.html` reported
+> two rows with the arrows and two without; the estimate it overturned had said three
+> with and two without, and the estimate was right. **A third value derived rather than
+> read would be the same mistake a fourth time**, which is why the constants are marked
+> stale in the source and not yet rewritten.
+>
+> **What is still owed is the PIXELS**, and the snippet below is extended for it: it now
+> flips the arrows off and back, so the arrows' own cost comes back as a delta rather
+> than as a comparison with a remembered value from a different width. That flip is
+> `paste-test.html`'s one good idea about this measurement, and it is the part worth
+> keeping from it.
+>
+> **A SECOND NUMBER CAME BACK THE SAME DAY AND IS NOT THIS ONE.** With several
+> collections and the divider where it sits by default, that drawer needed **611px of
+> height** at 300px wide before every foot button appeared; dragging the divider brought
+> it under 600. That is the wrapped chips row this probe's last paragraph asks about, it
+> behaves as risk 10 says, and it is **accepted** — *"nobody will resize the drawer so
+> much."* The floor is a different question and is not covered by that judgement.
 
 **Why.** Risk 10 and §2.11 rule 7 both rest on one number: the collection section
 cannot shrink below **135 pixels**, so the reserve is 145 and the minimum height is
@@ -6949,14 +7007,31 @@ fractional line boxes up.
 **What to establish.** Open the drawer on any Jira page, then run this. It reports
 what each unshrinkable part actually occupies, and the sum.
 
+**Drag the drawer to 300px wide first**, and leave ⚙ **down** — the panel replaces the
+body and the foot with it, so nothing about the foot is on screen while it is up.
+
 ```js
 (() => {
-  const drawer = document.getElementById("gt-cart-drawer");
+  const $ = (id) => document.getElementById(id);
+  const drawer = $("gt-cart-drawer"), foot = $("gt-cart-foot");
   const section = drawer.querySelector(".gt-cart-collection");
-  const parts = [".gt-cart-section-head", ".gt-cart-chips", ".gt-cart-create", "#gt-cart-foot"];
-  const each = parts.map((sel) => [sel, section.querySelector(sel).getBoundingClientRect().height]);
-  console.log("head", document.getElementById("gt-cart-head").getBoundingClientRect().height);
-  console.log("live heading", drawer.querySelector(".gt-cart-live .gt-cart-section-head").getBoundingClientRect().height);
+  // OFFSETS AND NOT getBoundingClientRect: a rect is scaled by any zoom on an
+  // ancestor, and these have to be layout pixels to be comparable with a stylesheet.
+  const rows = () => new Set([...foot.children].map((n) => n.offsetTop)).size;
+  // THE ARROWS ARE FLIPPED OFF AND BACK, so their cost is a delta measured in this
+  // drawer at this width, rather than a comparison with a number remembered from
+  // another one. That is the one thing the rig got right about this measurement.
+  const arrows = [...foot.querySelectorAll(".gt-cart-arrow")];
+  const on = { rows: rows(), px: foot.offsetHeight };
+  arrows.forEach((a) => (a.style.display = "none"));
+  const off = { rows: rows(), px: foot.offsetHeight };
+  arrows.forEach((a) => (a.style.display = ""));
+
+  const parts = [".gt-cart-section-head", "#gt-cart-chips", ".gt-cart-create", "#gt-cart-foot"];
+  const each = parts.map((sel) => [sel, section.querySelector(sel).offsetHeight]);
+  console.log(`drawer ${drawer.offsetWidth} x ${drawer.offsetHeight}`);
+  console.log(`foot WITH arrows ${on.rows} rows, ${on.px}px — WITHOUT ${off.rows} rows, ${off.px}px — the arrows cost ${on.px - off.px}px`);
+  console.log("head", $("gt-cart-head").offsetHeight, "live heading", $("gt-cart-live-head").offsetHeight, "divider", $("gt-cart-divider").offsetHeight);
   console.table(Object.fromEntries(each));
   console.log("collection fixed total", each.reduce((n, [, h]) => n + h, 0) + 1);
 })();
@@ -6970,8 +7045,13 @@ time with **four collections**, so the chips row wraps: risk 10 states that this
 raises the floor by about 27 pixels a row and does not guard it, and this is the
 measurement that would say whether 27 is right.
 
-**Until it runs**, the numbers are reasoning rather than measurement, and they are
-conservative by five pixels in the direction that matters.
+~~**Until it runs**, the numbers are reasoning rather than measurement, and they are
+conservative by five pixels in the direction that matters.~~ **That last clause is
+false and was the whole problem.** They are not conservative in the direction that
+matters: they are about fifty pixels short of it, because the derivation counted the
+foot as one row when it has been two since the sixth button arrived and three since the
+arrows did. A number written as *conservative* stops being re-examined, which is how it
+survived from 1.0.0 to 1.7.0 with two efforts landing on top of it.
 
 ### C.4 Probe 4 — the `Team` field. CLOSED
 

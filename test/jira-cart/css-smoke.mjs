@@ -478,7 +478,24 @@ is("and it still names the collection's four",
      one row of chips        29   6 padding, 12px text at 1.4, 2+2 padding, 2 border
      the create field        35   6+6 padding, 12px input at 1.4, 4 padding, 2 border
      the foot                38   1 border, 6+6 padding, 12px buttons at 1.4, 6+2
+                                  *** KNOWN WRONG since 2026-09-08 -- see below ***
      the collection's own top border  1
+
+   THE FOOT'S 38 IS ONE ROW, AND THE REAL FOOT IS THREE. Pressed in real Jira on
+   2026-09-08 at 300px wide: the row wraps to three, so the foot is about 95px and
+   `COLLECTION_FIXED` here and `COLLECTION_FIXED_PX` in the script are both short by
+   roughly 50 -- with ONE collection, at any divider position. It has been short since
+   the sixth button made it two rows; the arrows made it three.
+
+   SO THE TWO CHECKS BELOW CURRENTLY PASS AGAINST A STALE NUMBER, AND THAT IS SAID HERE
+   RATHER THAN LEFT TO BE DISCOVERED. `COLLECTION_FIXED` is a literal in this harness,
+   derived from the same reading of the same sheet as the constant it is checking -- so
+   it can only ever catch the two moving APART, never both being wrong together. That
+   is the `store-smoke` failure this directory already records, where a `160` was
+   checked against a script that said `215` and the check was green because it was
+   measuring its own copy. It is left in place because "the two agree" is still worth
+   holding while the real number is taken; ADR appendix C.3 is the probe, and BOTH
+   numbers move when it lands.
 
    So the collection cannot shrink below 32+29+35+38+1 = 135, and with the divider
    taken out of the reserve the collection is left `reserved - 5`. The live section

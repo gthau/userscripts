@@ -25,14 +25,28 @@
 > entry at all** for *a plain press uses the ★ preset*, which was pressed in real Jira
 > and is the one claim in this feature no harness can reach.
 >
-> **THE FOOT'S ROW COUNT AT 300px IS STILL AN OPEN NUMBER, AND IT IS THE ONLY ONE.**
-> Decision 23 says `MIN_BLOCK` stays 215 and ticket 04 shipped that as a non-change, but
-> the measurement is a **rig** reading — taken twice in `paste-test.html`, withdrawn
-> once for drift, and re-taken from a rig drawer 300px wide where the real one is 298px
-> inside its border. Step 42's first item reads it in the real drawer. The same applies
-> to decision 26's *no jump* on `📋 Copy ★`, measured at the rig's 11px against the
-> script's 12px. **Take both before you write 1.7.0 down as finished**, and if either
-> comes back different, that is a change to `MIN_BLOCK` and not a note.
+> **THE FLOOR IS A CHANGE NOW, NOT A CONFIRMATION, AND IT IS THE ONE THING BLOCKING
+> 1.7.0.** Pressed 2026-09-08: the foot is **three rows** at 300px, not the two the rig
+> reported twice, so `MIN_BLOCK = 215` and `COLLECTION_FIXED_PX = 145` are stale by
+> roughly 50px **with one collection at any divider position** — and at the floor the
+> grip clamps to, foot buttons are clipped. That is risk 10's own defect, live.
+>
+> **DO NOT SHIP 1.7.0 WITHOUT RUNNING APPENDIX C.3.** It is a paste in the console at
+> 300px wide with ⚙ down, and it returns the pixel heights of every fixed part plus the
+> arrows' cost as a delta. Then move `COLLECTION_FIXED_PX`, `MIN_BLOCK` **and**
+> `css-smoke`'s own `COLLECTION_FIXED` literal together — that harness copy is stale by
+> the same amount and by the same method, so it cannot catch this on its own. **Do not
+> derive the replacements**: this number has been estimated, rig-measured, withdrawn,
+> rig-measured again and contradicted, and a value reasoned out would be the fourth
+> version of the same mistake.
+>
+> **The 611px in the same report is a DIFFERENT number and is accepted.** Several
+> collections plus the default divider; risk 10's unguarded chips row, behaving as
+> stated. The user's words: *"nobody will resize the drawer so much."* Do not fold it
+> into the floor.
+>
+> **And decision 26's *no jump* on `📋 Copy ★` is still a rig reading**, taken at 11px
+> against a rule written for 12px. Step 42 carries it. Cheap to check while C.3 is open.
 >
 > **AND EVERY CHECK 02–04 ADDED IS ALREADY PROVEN ABLE TO FAIL**: 8 mutations at ticket
 > 02, 40 over seven passes at 03, and 34 over three passes at 04, all with 0 survivors,
