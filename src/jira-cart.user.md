@@ -7010,10 +7010,44 @@ what each unshrinkable part actually occupies, and the sum.
 **Drag the drawer to 300px wide first**, and leave ⚙ **down** — the panel replaces the
 body and the foot with it, so nothing about the foot is on screen while it is up.
 
+> **RUN ONCE WITH ⚙ UP, ON 2026-09-08, AND IT REPORTED A TABLE OF ZEROS AS THOUGH IT
+> WERE DATA.** `head 35` and every other part `0`, because the head is the only part of
+> the drawer that is not inside `div#gt-cart-body` — and `foot 1 rows, 0px`, because a
+> hidden element's children all report `offsetTop: 0` and the row-count Set collapses
+> to one. **One row is a plausible answer**, so the output looked like a reading. The
+> snippet now refuses and names the reason instead, which is the guard it should have
+> carried from the start: this record's recurring failure is the measurement that is
+> secretly about itself, and the rig has produced three of them.
+>
+> It also reports the width in **both boxes** now. That run said `302`, and the record
+> had already spent a paragraph guessing whether the real drawer is 298 or 300 inside
+> its border — `offsetWidth` counts the 1px border each side, so the question is
+> answered by printing `getComputedStyle().width` beside it rather than by inference.
+
 ```js
 (() => {
   const $ = (id) => document.getElementById(id);
   const drawer = $("gt-cart-drawer"), foot = $("gt-cart-foot");
+
+  /* IT REFUSES BEFORE IT REPORTS, AND THAT GUARD IS THE PART THIS PROBE WAS MISSING.
+     Run on 2026-09-08 with the settings panel UP, it returned "1 row, 0px" and a table
+     of zeros -- because everything it measures except the head is inside
+     `div#gt-cart-body`, which the panel hides with `display: none`, and a hidden
+     element's offsets are 0. ONE ROW IS A PLAUSIBLE ANSWER, so that output read as
+     data and was not: it is this record's own recurring failure, the measurement that
+     is really about itself. A probe whose wrong answer looks like a right one has to
+     say so itself, because the person reading the console cannot. */
+  const why = !drawer
+    ? "the drawer is not on the page -- open the Cart"
+    : drawer.offsetWidth === 0
+      ? "the drawer is closed -- press the badge"
+      : $("gt-cart-body")?.hidden !== false
+        ? "the SETTINGS PANEL is up, and it hides the body and the foot with it -- press ⚙ to go back to the collection"
+        : foot.offsetHeight === 0
+          ? "the foot has no height, so something else is hiding it -- do not read the numbers below"
+          : null;
+  if (why) return console.error("C.3 measured nothing: " + why);
+
   const section = drawer.querySelector(".gt-cart-collection");
   // OFFSETS AND NOT getBoundingClientRect: a rect is scaled by any zoom on an
   // ancestor, and these have to be layout pixels to be comparable with a stylesheet.
@@ -7027,11 +7061,22 @@ body and the foot with it, so nothing about the foot is on screen while it is up
   const off = { rows: rows(), px: foot.offsetHeight };
   arrows.forEach((a) => (a.style.display = ""));
 
-  const parts = [".gt-cart-section-head", "#gt-cart-chips", ".gt-cart-create", "#gt-cart-foot"];
-  const each = parts.map((sel) => [sel, section.querySelector(sel).offsetHeight]);
-  console.log(`drawer ${drawer.offsetWidth} x ${drawer.offsetHeight}`);
+  /* THE WIDTH IS REPORTED IN BOTH BOXES, AND WHETHER IT IS AT THE FLOOR. The wrap is
+     decided by the CONTENT width, which is what `min-inline-size: 300px` names, while
+     `offsetWidth` includes the 1px border each side -- so 302 and 300 are the same
+     drawer and the record has already spent one paragraph guessing which. And a
+     reading taken 40px above the floor answers about a width nobody is clamped to. */
+  const box = getComputedStyle(drawer);
+  const content = Math.round(parseFloat(box.width));
+  console.log(
+    `drawer ${drawer.offsetWidth}px outer / ${content}px content x ${drawer.offsetHeight}px` +
+      ` -- box-sizing ${box.boxSizing}` +
+      (content <= 300 ? " -- AT THE 300px FLOOR" : " -- NOT at the floor: drag it narrower"),
+  );
   console.log(`foot WITH arrows ${on.rows} rows, ${on.px}px — WITHOUT ${off.rows} rows, ${off.px}px — the arrows cost ${on.px - off.px}px`);
   console.log("head", $("gt-cart-head").offsetHeight, "live heading", $("gt-cart-live-head").offsetHeight, "divider", $("gt-cart-divider").offsetHeight);
+  const parts = [".gt-cart-section-head", "#gt-cart-chips", ".gt-cart-create", "#gt-cart-foot"];
+  const each = parts.map((sel) => [sel, section.querySelector(sel).offsetHeight]);
   console.table(Object.fromEntries(each));
   console.log("collection fixed total", each.reduce((n, [, h]) => n + h, 0) + 1);
 })();
