@@ -4888,46 +4888,51 @@ Notes on the controls:
     **All of these numbers are derived from the stylesheet, not measured in a
     browser.** A three-line probe would confirm them, and it is in appendix C.3.
 
-    > **CONTRADICTED ON 2026-09-08 BY A PRESS IN REAL JIRA. THE AMENDMENT BELOW IT IS
-    > WRONG, and it is kept because what it got wrong is the instructive part.** At
-    > 300px wide the foot takes **three rows**, not two, counted in the real drawer. So
-    > the rig's reading was wrong for the third time, and **the arithmetic it overturned
-    > was right**: decision 23's struck-through estimate said *"the foot is already two
-    > rows; three arrows add ~60px and tip it to three"*, and that is what a browser
-    > does. A rig that has drifted from this stylesheet six times has now been wrong
-    > about the one number it was still trusted for.
+    > **CLOSED ON 2026-09-08 BY A MEASUREMENT IN THE REAL DRAWER, AND THE FLOOR MOVED:
+    > `MIN_BLOCK` IS 283 AND THE RESERVE IS 208.** Appendix C.3's probe, at 300px
+    > content width with ⚙ down. Both amendments below it are superseded and are kept
+    > because what they got wrong is the instructive part.
     >
-    > **THE CONSTANTS BELOW ARE THEREFORE KNOWN STALE, AND NOT BY A LITTLE. Measured on
-    > 2026-09-08 by appendix C.3's probe, at 300px content width with ⚙ down:** the foot
-    > is **95px over three rows** with the arrows and **67px over two** without them, so
-    > the arrows cost **28px** where the rig said 0. The `135` derives the foot as `38`,
-    > which is ONE row — so **it has been short by 29 since the sixth button arrived at
-    > 1.5.0**, before the arrows existed, and nothing noticed for two efforts. A section
-    > heading measured 38 against a derived 32; the create field and the divider were
-    > exact.
+    > **The foot is 95px over THREE ROWS**, where this entry derives it as one row at
+    > 38px. Without the arrows it is 67px over two — so **the arrows cost 28px, and the
+    > rig had reported 0px twice.** The struck-through estimate decision 23 overturned
+    > was right about the row count all along.
     >
-    > **What that costs at the floor, from the reading rather than from the sheet:** at
-    > `MIN_BLOCK = 215` the body is 180, rule 7 gives the live section 35 and the divider
-    > 5, and the collection is left 140 where its fixed parts need about 197. **Roughly
-    > 57px is clipped — two foot rows.** That is the 1.0.0 defect this entry was written
-    > to kill, live and shipped.
+    > **AND IT WAS ALREADY WRONG BEFORE THIS EFFORT BEGAN.** Two rows is what the foot
+    > has been since the sixth button arrived at 1.5.0, so `COLLECTION_FIXED_PX` was
+    > short by 29 through the whole of the configurability effort. **At the shipped
+    > 215 the collection was left 140px for the 198 its parts need — about 57px, or two
+    > foot rows, was clipped.** That is this entry's own 1.0.0 defect, live and shipped
+    > for two versions.
     >
-    > **The replacements are still not written here**, and one part is why: the reserve
-    > is derived for ONE row of chips and the drawer that was measured had three, so its
-    > 82px answers about a drawer nobody is clamped to. C.3's probe is extended to flip
-    > the extra chips off and back the way it already flips the arrows, which also
-    > returns **this risk's own never-measured "about 27px per extra row"**. §7 step 42's
-    > first item carries it.
+    > **What the parts actually measure**, against what this entry derived: the section
+    > heading **38** (derived 32), one row of chips **29** (derived 29 — the only part
+    > the derivation got right), the create field **35** and the divider **5** (both
+    > exact), the foot **95** (derived 38). The live section's own heading is **38**,
+    > where the arithmetic used 26.
     >
-    > **AND A SECOND NUMBER THE SAME PRESS PRODUCED, WHICH MUST NOT BE CONFUSED WITH THE
-    > FLOOR.** With several collections and the divider where it sits by default, that
-    > drawer needed **611px of height** at 300px wide before every foot button appeared,
-    > and dragging the divider brought it under 600. That is this risk's
-    > stated-and-unguarded limit doing exactly what it says — the reserve counts ONE row
-    > of chips and every extra row costs about 27px — and the user's judgement on it is
-    > recorded and accepted: *"nobody will resize the drawer so much."* **The floor is a
-    > different matter and is not covered by that**, because 215 is where the grip stops
-    > rather than somewhere you have to go looking for.
+    > **THE 68px COST WAS TAKEN ON PURPOSE**, by the user on 2026-09-08. The drawer now
+    > stops shrinking 68px sooner than it did. The alternative weighed was hiding the
+    > three arrows at narrow widths to keep the foot at two rows; it was **declined**,
+    > because controls that come and go change the row's width and its row count, which
+    > is the reflow-under-the-pointer defect §2.14 spent a day removing from this very
+    > row (presets decision 18).
+    >
+    > **The wrapped chips row is still stated and still unguarded, and now it is
+    > measured: each extra row costs ~27px**, which is what this entry always said it
+    > was. With several collections that drawer needed 611px before every foot button
+    > appeared. Accepted, in the user's words — *"nobody will resize the drawer so
+    > much."* The floor is not covered by that judgement, because `MIN_BLOCK` is where
+    > the grip **stops** rather than somewhere you have to go looking for.
+    >
+    > **AND THE HARNESS COULD NOT HAVE CAUGHT ANY OF IT, so that is fixed too.**
+    > `css-smoke` held its own copy of the reserve, derived from the same reading of the
+    > same sheet — so the two could only ever be caught drifting apart, never both wrong
+    > together. Proof: raising the script's constants to the measured values turned
+    > nothing in that file red. It now holds the **measurement's provenance** instead —
+    > the floor was read against a foot of six buttons and three arrows, and it goes red
+    > when that count moves, with *re-run appendix C.3* as the instruction. A seventh
+    > export replays the 1.5.0 regression and is caught.
 
     > **Amended on 2026-09-07, 1.7.0 — AND OVERTURNED THE NEXT DAY, see above: THE THREE
     > ARROWS WERE WEIGHED AGAINST THIS FLOOR AND DID NOT MOVE IT.** Presets ticket 04, decision 23. The estimate said they
@@ -6192,16 +6197,15 @@ pass each, and they are cheap.
     `format-smoke` holds every byte a pick can produce. What is left is paint and
     layout, and both of them are things this effort has already been wrong about
     twice.
-    - **THE ROW COUNT AT THE FLOOR — ANSWERED ON 2026-09-08, AND IT IS THREE.** The
-      claim was **two** and `MIN_BLOCK` staying 215 rested on it; the real drawer at
-      300px wide takes **three rows**, so both constants are stale and risk 10's
-      guarantee does not hold at the floor the grip clamps to. See risk 10's own note.
-      **What is still owed is the PIXEL height**, with the arrows and without, so the
-      two constants can be re-derived from a reading rather than from arithmetic —
-      **appendix C.3 carries the probe**, extended on 2026-09-08 to flip the arrows off
-      and back so their cost comes back as a delta measured in the same drawer. **Do not take it
-      off the rig**: `paste-test.html` reported two rows twice and was wrong both
-      times. Step 27's re-run cannot answer any of this and never could — ⚙ replaces
+    - **THE ROW COUNT AT THE FLOOR — RUN AND CLOSED ON 2026-09-08. IT IS THREE, AND
+      THE FLOOR MOVED.** Appendix C.3's probe was run in the real drawer at 300px
+      content width with ⚙ down. The foot is **95px over three rows** with the arrows
+      and **67px over two** without, so **the arrows cost 28px** where the rig reported
+      0 twice. `MIN_BLOCK` is **283** and `COLLECTION_FIXED_PX` is **208**; both were
+      short, and the foot's part of the reserve had been short since 1.5.0. Risk 10
+      carries the whole reading. **Nothing here is owed any more** — `css-smoke` now
+      holds the measurement's provenance, so a seventh foot control goes red and says
+      to re-run the probe. Step 27's re-run never could have answered this: ⚙ replaces
       the body **and the foot with it**.
     - **THE LIST OPENS OUTSIDE THE CLIP, AT THAT SAME FLOOR.** Press one of the three
       arrows and check the option list is drawn **whole**, on top of the page, and not
@@ -6981,7 +6985,7 @@ same direction.
 **Until it runs**, a row whose region cannot be identified appears with no label.
 That is the stated degradation, and it costs nothing else.
 
-### C.3 Probe 3 — the drawer's own fixed parts, measured rather than derived. HALF RUN, AND THE HALF THAT RAN OVERTURNED THE NUMBER
+### C.3 Probe 3 — the drawer's own fixed parts, measured rather than derived. RUN AND CLOSED, 2026-09-08
 
 > **RUN FOR REAL ON 2026-09-08, AT 300px CONTENT WIDTH WITH ⚙ DOWN, AND EVERY PART
 > EXCEPT ONE IS NOW READ RATHER THAN DERIVED.** The reading, in layout pixels:
@@ -7013,13 +7017,19 @@ That is the stated degradation, and it costs nothing else.
 > parts need about 197. **So roughly 57px is clipped, which is two foot rows.** That is
 > the 1.0.0 defect risk 10 exists to kill, live and shipped.
 >
-> **ONE PART IS STILL NOT READ, and the probe is extended for it rather than filled in
-> by arithmetic.** The floor is derived for ONE row of chips and the drawer that was
-> measured had three, so its 82px answers about a drawer nobody is clamped to. The
-> snippet now flips the extra chips off and back, exactly as it flips the arrows — so
-> one-row chips comes back measured, and **risk 10's never-measured "about 27px per
-> extra row" comes back as a delta in the same breath.** Nothing is written to any
-> constant until that lands.
+> **THE ONE PART THAT LOOKED UNREAD WAS ALREADY IN THE READING.** The floor is derived
+> for ONE row of chips and the drawer measured had three at 82px, so a second run was
+> asked for and **should not have been**: the chips box is `padding: 6px 10px 0` with
+> `gap: 4px`, both exact in the sheet, so `82 = 6 + 3p + 2×4` gives a pill of 22.67 and
+> **one row of 28.67 — which rounds to the 29 the derivation already had.** That is
+> arithmetic over a measurement, not a derivation, and it is the same shape of sum the
+> rest of this probe reports. The per-extra-row cost falls out of it as **26.67px**,
+> which is risk 10's long-stated *about 27* measured at last.
+>
+> **THE CONSTANTS ARE WRITTEN, THEREFORE**: `COLLECTION_FIXED_PX` **208**, `MIN_BLOCK`
+> **283**, and `css-smoke`'s own two copies moved with them. The chips flip stays in the
+> snippet anyway — it costs two lines, it makes the one-row figure a reading rather than
+> a sum, and the next person to run this will have a different number of collections.
 >
 > **The rig had answered this twice and was wrong twice.** `paste-test.html` reported
 > two rows with the arrows and two without; the estimate it overturned had said three
@@ -7168,8 +7178,8 @@ raises the floor by about 27 pixels a row and does not guard it, and this is the
 measurement that would say whether 27 is right.
 
 ~~**Until it runs**, the numbers are reasoning rather than measurement, and they are
-conservative by five pixels in the direction that matters.~~ **That last clause is
-false and was the whole problem.** They are not conservative in the direction that
+conservative by five pixels in the direction that matters.~~ **IT RAN ON 2026-09-08 AND
+THAT LAST CLAUSE WAS FALSE, which was the whole problem.** They are not conservative in the direction that
 matters: they are about fifty pixels short of it, because the derivation counted the
 foot as one row when it has been two since the sixth button arrived and three since the
 arrows did. A number written as *conservative* stops being re-examined, which is how it

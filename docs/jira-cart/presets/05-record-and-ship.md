@@ -25,25 +25,19 @@
 > entry at all** for *a plain press uses the ★ preset*, which was pressed in real Jira
 > and is the one claim in this feature no harness can reach.
 >
-> **THE FLOOR IS A CHANGE NOW, NOT A CONFIRMATION, AND IT IS THE ONE THING BLOCKING
-> 1.7.0.** Pressed 2026-09-08: the foot is **three rows** at 300px, not the two the rig
-> reported twice, so `MIN_BLOCK = 215` and `COLLECTION_FIXED_PX = 145` are stale by
-> roughly 50px **with one collection at any divider position** — and at the floor the
-> grip clamps to, foot buttons are clipped. That is risk 10's own defect, live.
->
-> **DO NOT SHIP 1.7.0 WITHOUT RUNNING APPENDIX C.3.** It is a paste in the console at
-> 300px wide with ⚙ down, and it returns the pixel heights of every fixed part plus the
-> arrows' cost as a delta. Then move `COLLECTION_FIXED_PX`, `MIN_BLOCK` **and**
-> `css-smoke`'s own `COLLECTION_FIXED` literal together — that harness copy is stale by
-> the same amount and by the same method, so it cannot catch this on its own. **Do not
-> derive the replacements**: this number has been estimated, rig-measured, withdrawn,
-> rig-measured again and contradicted, and a value reasoned out would be the fourth
-> version of the same mistake.
+> **THE FLOOR IS DONE AND 1.7.0 IS NO LONGER BLOCKED ON IT.** Measured in the real
+> drawer on 2026-09-08 and written: `MIN_BLOCK` **283**, `COLLECTION_FIXED_PX` **208**,
+> and `css-smoke`'s `COLLECTION_FIXED` **198** and `LIVE_HEAD` **38** moved with them.
+> The foot is three rows and 95px at 300px; the arrows cost 28px where the rig said 0;
+> the number had been wrong since 1.5.0 and about 57px was being clipped at the shipped
+> floor. The user took the 68px cost knowingly. **Nothing here is owed** — risk 10,
+> §7 step 42 and appendix C.3 all carry the reading, and `css-smoke` holds its
+> provenance so a seventh foot control goes red.
 >
 > **The 611px in the same report is a DIFFERENT number and is accepted.** Several
 > collections plus the default divider; risk 10's unguarded chips row, behaving as
-> stated. The user's words: *"nobody will resize the drawer so much."* Do not fold it
-> into the floor.
+> stated, and the per-row cost is now measured at ~27px. The user's words: *"nobody will
+> resize the drawer so much."* Do not fold it into the floor.
 >
 > **And decision 26's *no jump* on `📋 Copy ★` is still a rig reading**, taken at 11px
 > against a rule written for 12px. Step 42 carries it. Cheap to check while C.3 is open.

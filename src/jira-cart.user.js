@@ -5278,87 +5278,63 @@ ${selectors.join(",\n")} {
   // the chips, the create field and the foot -- so below it something must be
   // clipped whatever the basis does.
   const MIN_INLINE = 300;
-  const MIN_BLOCK = 215;
+  /* 283 SINCE 2026-09-08, AND IT WAS 215 FROM 1.0.0 UNTIL THEN. MEASURED IN THE REAL
+     DRAWER by appendix C.3's probe, at 300px content width with ⚙ down, after the rig
+     had answered the same question twice and been wrong both times.
 
-  // What the collection section cannot shrink below, PLUS the 5px divider that
-  // comes out of the same reserve, and the live section's basis yields to the sum
-  // (see the stylesheet). Its parts, read off the rules below: the section heading
-  // 32, one row of chips 29, the create field 35, the foot 38, and its own top
-  // border 1 -- 135. With the divider that is 140, and the last five are headroom
-  // for the fractional line boxes those numbers round off.
-  //
-  // ONE ROW OF CHIPS. Enough collections wrap that row, and every extra row asks
-  // for about 27 pixels more, which this number does not know about: the floor for
-  // "nothing is clipped" then rises with it. That is stated in risk 10 rather than
-  // guarded, because the alternative is sizing a fixed part from its own content,
-  // which is defect 2 of §2.11 in a new costume.
-  //
-  // IT IS A MAGIC NUMBER, and the only one in the layout. It has to be kept in
-  // step with the four rules above it: a fifth fixed part in this section makes it
-  // stale and the clipping comes back silently. `css-smoke` counts the flex: none
-  // list for exactly that reason.
-  //
-  /* THIS NUMBER IS KNOWN STALE. Pressed in real Jira on 2026-09-08: at 300px wide the
-     foot takes THREE ROWS, not the two the paragraph below claims, so the `38` this
-     constant derives the foot from is short by roughly 57 and the 145 is short by about
-     50 -- with ONE collection, at any divider position. `MIN_BLOCK = 215` therefore
-     does not deliver risk 10's guarantee: at the floor the grip clamps to, foot buttons
-     are clipped, which is the 1.0.0 defect that whole risk exists to kill.
+     215 DID NOT DELIVER WHAT THIS NUMBER IS FOR. It is meant to be the height at which
+     BOTH sections' fixed parts fit, and at 215 the collection was left 140px for the
+     ~198 its parts need -- so about 57px was clipped, which is two rows of the foot.
+     That is the 1.0.0 defect risk 10 exists to kill, shipped and live.
 
-     IT IS NOT REWRITTEN FROM THAT ARITHMETIC, and the reason is this comment's own
-     history: the number below was estimated, then measured on a rig, then withdrawn,
-     then re-measured on the same rig, and the real drawer has just contradicted it. A
-     third value derived rather than read would be the same mistake a fourth time. ADR
-     §7 step 42 carries the probe -- it reads the foot with the arrows and without, so
-     the arrows' own cost comes back separately.
+     WHAT IT IS BUILT FROM, all read rather than derived: 2 drawer borders + 35 head +
+     208 reserve (`COLLECTION_FIXED_PX`) + 38 the live section's own heading. The old
+     value used 26 for that heading and 145 for the reserve, and both were understated.
 
-     WHAT IS ALSO KNOWN, AND IS A DIFFERENT NUMBER: with several collections and the
-     default divider that press needed 611px of drawer height before every foot button
-     appeared. That is the wrapped chips row this comment already warns about and risk
-     10 states without guarding; it is ACCEPTED, in the user's words -- "nobody will
-     resize the drawer so much". The floor is not covered by that, because 215 is where
-     the grip stops rather than somewhere you have to go looking for.
+     THE COST WAS TAKEN ON PURPOSE, by the user on 2026-09-08: the drawer stops
+     shrinking 68px sooner than it did. The alternative on the table was hiding the
+     three arrows at narrow widths to keep the foot at two rows, and it was declined --
+     controls that come and go change the row's width and its row count, which is the
+     reflow-under-the-pointer defect §2.14 spent a day removing from this very row
+     (presets decision 18). */
+  const MIN_BLOCK = 283;
 
-     ---- what follows was written on 2026-09-07 and is kept because the strike is the
-     instructive part ----
+  /* WHAT THE COLLECTION SECTION CANNOT SHRINK BELOW, PLUS the 5px divider that comes
+     out of the same reserve, and the live section's basis yields to the sum (see the
+     stylesheet).
 
-     AND THE FOOT IS TWO ROWS AT THE 300px FLOOR, WITH THE ARROWS. Presets ticket 04,
-     2026-09-07, and the two halves of this paragraph have DIFFERENT STANDING, which
-     is why they are written separately rather than reconciled.
+     208 SINCE 2026-09-08, AND IT WAS 145 FROM 1.0.0 UNTIL THEN. Every part below is
+     MEASURED in the real drawer by appendix C.3's probe, at 300px content width with ⚙
+     down, and the values it replaced were derived off this stylesheet and never
+     checked in a browser:
 
-     THE `38` ABOVE IS A DERIVATION and it is one row of buttons. It was already
-     understated at 300px before the arrows existed -- six buttons do not fit on one
-     row at that width -- and it is deliberately left as it stands, because it is the
-     arithmetic this number was built from and correcting it into agreement would
-     erase the only record of how the number was reached.
+       the section heading      38   derived 32
+       one row of chips         29   derived 29 -- the one part the derivation got right
+       the create field         35   derived 35 -- exact
+       the foot                 95   derived 38, and the foot is THREE ROWS at 300px
+       its own top border        1
+                               ---
+                               198   plus 5 divider and 5 headroom = 208
 
-     THE TWO ROWS ARE A MEASUREMENT, taken on 2026-08-27 in the rig rather than
-     derived: 2 rows and 66px with the three arrows, and 2 rows and 66px WITHOUT
-     them. The arrows fit in slack the second row already had, so they cost nothing
-     here and `MIN_BLOCK` and this constant are both UNCHANGED by them. The record's
-     own arithmetic had predicted three rows and about 245px, and it was wrong -- its
-     per-button widths were too generous at the right font size, which is an argument
-     for measuring rather than for estimating more carefully (decision 23).
+     THE FOOT WAS ALREADY UNDERSTATED BEFORE THE ARROWS EXISTED, and that is the part
+     worth carrying. The derivation counts ONE row. The foot has been TWO rows and 67px
+     since the sixth button arrived at 1.5.0, so this number was short by 29 through the
+     whole configurability effort with nothing catching it. The three arrows took it to
+     three rows and 95px -- they cost 28px, where the rig had reported 0.
 
-     IT GENERALISES: 300px is `MIN_INLINE`, the drawer cannot be narrower, and flex
-     wrapping never needs more rows as width grows. So the worst case is the case that
-     was measured.
+     ONE ROW OF CHIPS, STILL. Enough collections wrap that row, and each extra row was
+     measured at ~27px, which this number does not know about: the floor for "nothing is
+     clipped" rises with it. That stays stated in risk 10 rather than guarded, and the
+     user accepted it on 2026-09-08 in those terms -- "nobody will resize the drawer so
+     much". The floor is a different matter, because MIN_BLOCK is where the grip STOPS
+     rather than somewhere you have to go looking for.
 
-     WHAT IS STILL OWED, AND IT IS OWED TO THE REAL DRAWER. That measurement was taken
-     twice in `paste-test.html` and withdrawn once, because the rig's foot had drifted
-     from this stylesheet in four values; and the second reading came from a rig drawer
-     300px wide where the real one is 298px inside its border. So the number this
-     comment rests on is a rig number, and §7 carries the browser step that closes it:
-     drag the real drawer to 300x215 and read the row count there. The reason it could
-     not be closed by the press of 2026-09-07 is that the settings panel replaces the
-     body AND THE FOOT WITH IT, so a press with the settings up cannot see these six
-     buttons at all.
-
-     THE ARROWS ARE NOT A FIFTH FIXED PART. They are inside the foot, which is already
-     one of the four, so the `flex: none` list this constant is checked against is the
-     same length it was -- which is exactly why they cost nothing. A part added BESIDE
-     the foot is the thing that makes this number stale. */
-  const COLLECTION_FIXED_PX = 145;
+     IT IS NO LONGER A MAGIC NUMBER, BUT IT IS STILL A HAND-MAINTAINED ONE, and what
+     makes it stale is a change to what the foot or the collection HOLDS. `css-smoke`
+     counts the `flex: none` list for that reason, and since 2026-09-08 it also counts
+     the FOOT'S OWN CONTROLS against the number this measurement was taken with -- a
+     seventh button is what silently invalidated this once already. */
+  const COLLECTION_FIXED_PX = 208;
 
   // The divider's travel. A fraction outside this cannot be dragged back, because
   // the section it collapsed would have no grab area left.

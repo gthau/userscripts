@@ -222,8 +222,20 @@ written, and no user-written string reaches the clipboard.
     > `writeFirstRunPresets` runs at boot beside the collections' `writeFirstRun`, and
     > §2.4's *nothing is rewritten because you looked at it* is amended in place: the
     > READ still writes nothing, and the write is its own function called once.
-23. > **READ THIS FIRST: THE STRIKE-THROUGH BELOW WAS RIGHT, AND THE MEASUREMENT THAT
-    > OVERTURNED IT WAS WRONG. Pressed in real Jira on 2026-09-08.** At 300px the foot
+23. > **CLOSED ON 2026-09-08: THE FLOOR MOVED. `MIN_BLOCK` IS 283 AND THE RESERVE IS
+    > 208, both measured in the real drawer.** The strike-through below was right and
+    > the rig measurement that overturned it was wrong — twice.
+    >
+    > **The arrows cost 28px, not 0**: the foot is 95px over three rows with them and
+    > 67px over two without. And the number was *already* wrong before this effort — the
+    > foot has been two rows since the sixth button arrived at 1.5.0, so at the shipped
+    > 215 about 57px was being clipped. **The 68px cost of raising the floor was taken
+    > on purpose by the user**, over the alternative of hiding the arrows at narrow
+    > widths, which was declined because controls that come and go make the row jump
+    > (decision 18). `css-smoke` now holds the measurement's provenance, so a seventh
+    > foot control goes red and says to re-run the probe.
+    >
+    > **The original note, kept:** pressed in real Jira on 2026-09-08. At 300px the foot
     > takes **three rows**, exactly as the arithmetic predicted. The rig said two, twice,
     > and this is the third time a number off `paste-test.html` has failed against the
     > real drawer — after the fourth drift withdrew one reading and the unclosed CSS
@@ -450,7 +462,7 @@ written, and no user-written string reaches the clipboard.
 | [01](01-the-prototype.md) | The rig grows a presets variant, and four numbers come back | No script change at all | **BUILT AND PRESSED 2026-08-27.** It reversed decision 8, added 26, closed limit 2, and found the rig's fourth drift. **Two numbers owed on a re-press** |
 | [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | **BUILT 2026-08-28.** `store-smoke` 127 → 212, suite 1,489, `format-smoke` untouched. **It deferred half of decision 22** — see below — and it extracted the band pair rule instead of copying it |
 | [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `+ Create preset`, the per-tab restore | **BUILT 2026-09-06.** Suite 1,489 → 1,608. It landed **decision 22's other half**, found a **defect in ticket 02's lazy first run**, deleted **three lines** a mutation could not touch, and rewrote **six checks** that could not fail |
-| [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | **BUILT 2026-09-07, PRESSED 2026-09-07 AND 2026-09-08.** Suite 1,608 → 1,735. **42 mutations**: 34 on the feature with 0 survivors after three passes — the first pass had four, three real gaps and one line that was not doing anything — three on guards, all of which survived and were meant to, and five after the press. **The press reversed decision 26's `▾`**, which the prototype had been showing beside the arrow's own caret all along. **The second press overturned decision 23**: the foot is THREE rows at 300px, the rig had said two twice, and `MIN_BLOCK` and `COLLECTION_FIXED_PX` are marked stale rather than rewritten from arithmetic. Appendix C.3's probe closes them |
+| [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | **BUILT 2026-09-07, PRESSED 2026-09-07 AND 2026-09-08.** Suite 1,608 → 1,735. **42 mutations**: 34 on the feature with 0 survivors after three passes — the first pass had four, three real gaps and one line that was not doing anything — three on guards, all of which survived and were meant to, and five after the press. **The press reversed decision 26's `▾`**, which the prototype had been showing beside the arrow's own caret all along. **The second press overturned decision 23 and the third closed it**: the foot is THREE rows at 300px where the rig said two twice, the arrows cost 28px and not 0, and the number had been wrong since 1.5.0. `MIN_BLOCK` 215 → **283** and `COLLECTION_FIXED_PX` 145 → **208**, measured. `css-smoke` holds the provenance now |
 | [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | |
 
 ### Ticket 01 is built and the four answers are still owed, 2026-08-27
@@ -876,11 +888,26 @@ two** without. So:
 - A section heading measured **38** against a derived 32. The create field and the
   divider were exact.
 
-**One part is still unread and no constant is written yet.** The reserve is derived for
-ONE row of chips; the drawer measured had three (82px), which is the accepted
-wrapped-chips case and not the floor. The probe now flips the extra chips off and back
-the way it flips the arrows, so one-row chips comes back measured — and **risk 10's
-never-measured 27px per extra row comes back with it.**
+**And the part that looked unread was already in the reading.** The reserve is derived
+for ONE row of chips and the drawer measured had three at 82px, so a second run was
+asked for — **wrongly**. The chips box is `padding: 6px 10px 0` with `gap: 4px`, both
+exact in the sheet, so `82 = 6 + 3p + 2×4` gives one row of 28.67, which rounds to the
+29 the derivation already had. Risk 10's long-stated *about 27px per extra row* falls
+out of the same sum at **26.67**, measured at last.
+
+**So the constants are written:** `COLLECTION_FIXED_PX` 145 → **208**, `MIN_BLOCK`
+215 → **283**, and `css-smoke`'s `COLLECTION_FIXED` 135 → **198** and `LIVE_HEAD`
+26 → **38** with them. The user took the 68px cost knowingly, over hiding the arrows at
+narrow widths — declined, because a control that comes and goes makes the row jump
+(decision 18).
+
+**AND THE HARNESS COULD NOT HAVE CAUGHT ANY OF THIS, WHICH IS NOW FIXED.** Raising the
+script's two constants to the measured values turned **nothing** in `css-smoke` red,
+because its copy of the number was derived from the same reading of the same sheet.
+That file has no layout and can never count rows, so it holds the measurement's
+**provenance** instead: the floor was read against a foot of six buttons and three
+arrows, and it goes red when that moves. **A seventh export replays the 1.5.0
+regression and is caught** — six mutations run, all six caught.
 
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.

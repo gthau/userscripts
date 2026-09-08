@@ -466,42 +466,48 @@ is("and it still names the collection's four",
    ["h2.gt-cart-section-head", "div.gt-cart-chips", "div.gt-cart-create", `div#${ids.FOOT_ID}`]
      .map((one) => fixedParts.includes(`aside#gt-cart-drawer ${one}`)), [true, true, true, true]);
 
-/* The arithmetic behind risk 10's fix, re-derived here so that changing either
-   number without the other fails loudly. All four sub-heights are read off the
-   rules in this same sheet:
+/* The arithmetic behind risk 10's fix. EVERY NUMBER BELOW IS NOW A MEASUREMENT taken
+   in the real drawer on 2026-09-08 by ADR appendix C.3's probe, at 300px content width
+   with the settings panel down -- they were derived off this stylesheet from 1.0.0
+   until then, and the derivation was wrong:
 
-     drawer borders          2   1px top + 1px bottom
-     head                   35   6+6 padding, 1px border, 22px icon buttons
-     divider                 5   block-size, flex: none
-     live section heading   26   6+4 padding, 11px text at line-height 1.4
-     collection heading     32   6+4 padding, and its 22px ⌫ and ↻
-     one row of chips        29   6 padding, 12px text at 1.4, 2+2 padding, 2 border
-     the create field        35   6+6 padding, 12px input at 1.4, 4 padding, 2 border
-     the foot                38   1 border, 6+6 padding, 12px buttons at 1.4, 6+2
-                                  *** KNOWN WRONG since 2026-09-08 -- see below ***
-     the collection's own top border  1
+                          derived   MEASURED
+     drawer borders           2        2     1px top + 1px bottom
+     head                    35       35     exact
+     divider                  5        5     exact
+     live section heading    26       38
+     collection heading      32       38
+     one row of chips        29       29     the one part the derivation got right
+     the create field        35       35     exact
+     the foot                38       95     AND THE FOOT IS THREE ROWS AT 300px
+     collection top border    1        1
 
-   THE FOOT'S 38 IS ONE ROW, AND THE REAL FOOT IS THREE. Pressed in real Jira on
-   2026-09-08 at 300px wide: the row wraps to three, so the foot is about 95px and
-   `COLLECTION_FIXED` here and `COLLECTION_FIXED_PX` in the script are both short by
-   roughly 50 -- with ONE collection, at any divider position. It has been short since
-   the sixth button made it two rows; the arrows made it three.
+   THE FOOT IS THE WHOLE STORY. The derivation counts ONE row. The foot has been TWO
+   rows and 67px since the sixth button arrived at 1.5.0, and the three arrows of 1.7.0
+   took it to three and 95px -- so they cost 28px, where `paste-test.html` reported 0
+   twice. At the old MIN_BLOCK of 215 the collection was left 140px for the 198 its
+   parts need, so roughly 57px was clipped: two foot rows, which is the 1.0.0 defect
+   risk 10 exists to kill.
 
-   SO THE TWO CHECKS BELOW CURRENTLY PASS AGAINST A STALE NUMBER, AND THAT IS SAID HERE
-   RATHER THAN LEFT TO BE DISCOVERED. `COLLECTION_FIXED` is a literal in this harness,
-   derived from the same reading of the same sheet as the constant it is checking -- so
-   it can only ever catch the two moving APART, never both being wrong together. That
-   is the `store-smoke` failure this directory already records, where a `160` was
-   checked against a script that said `215` and the check was green because it was
-   measuring its own copy. It is left in place because "the two agree" is still worth
-   holding while the real number is taken; ADR appendix C.3 is the probe, and BOTH
-   numbers move when it lands.
+   AND THIS FILE COULD NOT HAVE CAUGHT ANY OF IT, WHICH IS WHY THE CHECK BELOW CHANGED
+   SHAPE. `COLLECTION_FIXED` was a literal here derived from the same reading of the
+   same sheet as the constant it checks, so `reserved - 5 >= COLLECTION_FIXED` passed
+   with BOTH numbers wrong together -- it could only ever catch them drifting apart.
+   That is the `store-smoke` failure this directory already records, where a copied
+   `160` was checked against a script that said `215`. Proof: raising the script's two
+   constants to the measured values on 2026-09-08 turned nothing in this file red.
 
-   So the collection cannot shrink below 32+29+35+38+1 = 135, and with the divider
+   THERE IS NO LAYOUT HERE, so this file can never compute the row count itself and must
+   not pretend to. What it CAN do is hold the measurement's own PROVENANCE -- the
+   arithmetic still has to agree, and the inputs the reading was taken against have to
+   be the inputs that are still there. That second half is the new check, and it is the
+   one that would have fired at 1.5.0.
+
+   So the collection cannot shrink below 38+29+35+95+1 = 198, and with the divider
    taken out of the reserve the collection is left `reserved - 5`. The live section
    keeps `body - reserved`, and it must not go below its own heading either -- or
    the yield has only moved the clipping from one section to the other. */
-const DRAWER_BORDERS = 2, HEAD = 35, DIVIDER = 5, LIVE_HEAD = 26, COLLECTION_FIXED = 135;
+const DRAWER_BORDERS = 2, HEAD = 35, DIVIDER = 5, LIVE_HEAD = 38, COLLECTION_FIXED = 198;
 const reserved = Number(css.match(/calc\(100% - (\d+)px\)/)?.[1] ?? 0);
 const minBlock = Number(src.match(/const MIN_BLOCK = (\d+);/)?.[1] ?? 0);
 const bodyAtMin = minBlock - DRAWER_BORDERS - HEAD;
@@ -510,6 +516,33 @@ is("the reserve covers the collection's fixed parts, divider included",
    reserved - DIVIDER >= COLLECTION_FIXED, true);
 is("and MIN_BLOCK leaves the live section its own heading, so nothing is clipped either side",
    bodyAtMin - reserved >= LIVE_HEAD, true);
+/* ---- THE FLOOR'S PROVENANCE, AND IT IS THE CHECK THAT WOULD HAVE FIRED AT 1.5.0.
+
+   The two numbers above are a MEASUREMENT, and a measurement is only true of the thing
+   it was taken against. `MIN_BLOCK` and `COLLECTION_FIXED_PX` were read in a drawer
+   whose foot held SIX BUTTONS AND THREE ARROWS. Add a seventh export and the foot
+   wraps further, the reserve is short again, and nothing in this file would notice --
+   which is not a hypothetical: that is exactly what happened when the sixth button
+   arrived at 1.5.0 and the number stayed at 145 through two whole efforts.
+
+   THIS FILE HAS NO LAYOUT, so it cannot count rows and must not pretend to. What it
+   can do is hold the INPUTS the reading was taken against, and go red when they move.
+   The reader then has one instruction and it is in the failure: re-run appendix C.3.
+
+   Counted off `EXPORTS`, which is the one place the foot's contents are decided, so
+   this cannot drift from the row it is about. */
+const exportsBlock = src.slice(
+  src.indexOf("const EXPORTS = ["),
+  src.indexOf("\n  ];", src.indexOf("const EXPORTS = [")),
+);
+const footButtons = (exportsBlock.match(/^\s{6}kind: /gm) || []).length;
+const footArrows = (exportsBlock.match(/^\s{6}arrow: /gm) || []).length;
+console.log(`     the floor was measured against ${footButtons} foot buttons and ${footArrows} arrows`);
+is("the foot still holds the six buttons the floor was measured against",
+   footButtons, 6);
+is("and the three arrows, which cost 28px of it",
+   footArrows, 3);
+
 // The floor has to be in the SHEET, not only in the grip's clamp: a 70vh cap on a
 // short window went under MIN_BLOCK and brought the clipping back. A
 // min-block-size beats a max-block-size, so this is what makes the guarantee hold
