@@ -4897,14 +4897,27 @@ Notes on the controls:
     > does. A rig that has drifted from this stylesheet six times has now been wrong
     > about the one number it was still trusted for.
     >
-    > **THE CONSTANTS BELOW ARE THEREFORE KNOWN STALE, AND NOT BY A LITTLE.** The `135`
-    > derives the foot as `38` — one row. Three rows of 12px buttons need about 95px by
-    > the same arithmetic, so the reserve is short by roughly 50, **with one collection
-    > and at any divider position.** `MIN_BLOCK = 215` does not deliver this risk's own
-    > guarantee: at the floor the grip clamps to, foot buttons are clipped, which is the
-    > 1.0.0 defect this entry was written to kill. The replacements are not written here
-    > yet, because writing a floor from an estimate is the mistake this entry already
-    > records twice — §7 step 42's first item is the probe that closes it.
+    > **THE CONSTANTS BELOW ARE THEREFORE KNOWN STALE, AND NOT BY A LITTLE. Measured on
+    > 2026-09-08 by appendix C.3's probe, at 300px content width with ⚙ down:** the foot
+    > is **95px over three rows** with the arrows and **67px over two** without them, so
+    > the arrows cost **28px** where the rig said 0. The `135` derives the foot as `38`,
+    > which is ONE row — so **it has been short by 29 since the sixth button arrived at
+    > 1.5.0**, before the arrows existed, and nothing noticed for two efforts. A section
+    > heading measured 38 against a derived 32; the create field and the divider were
+    > exact.
+    >
+    > **What that costs at the floor, from the reading rather than from the sheet:** at
+    > `MIN_BLOCK = 215` the body is 180, rule 7 gives the live section 35 and the divider
+    > 5, and the collection is left 140 where its fixed parts need about 197. **Roughly
+    > 57px is clipped — two foot rows.** That is the 1.0.0 defect this entry was written
+    > to kill, live and shipped.
+    >
+    > **The replacements are still not written here**, and one part is why: the reserve
+    > is derived for ONE row of chips and the drawer that was measured had three, so its
+    > 82px answers about a drawer nobody is clamped to. C.3's probe is extended to flip
+    > the extra chips off and back the way it already flips the arrows, which also
+    > returns **this risk's own never-measured "about 27px per extra row"**. §7 step 42's
+    > first item carries it.
     >
     > **AND A SECOND NUMBER THE SAME PRESS PRODUCED, WHICH MUST NOT BE CONFUSED WITH THE
     > FLOOR.** With several collections and the divider where it sits by default, that
@@ -6970,13 +6983,43 @@ That is the stated degradation, and it costs nothing else.
 
 ### C.3 Probe 3 — the drawer's own fixed parts, measured rather than derived. HALF RUN, AND THE HALF THAT RAN OVERTURNED THE NUMBER
 
-> **RUN IN PART ON 2026-09-08, BY COUNTING RATHER THAN BY PASTING, AND THE ANSWER IS
-> THAT THE DERIVATION IS WRONG.** At 300px wide the foot takes **three rows**, where
-> `COLLECTION_FIXED_PX` derives it as one at 38px. Three rows of 12px buttons need
-> about 95, so the 135 is short by roughly 57 and the reserve of 145 by about 50 —
-> **with one collection, at any divider position.** This is the "above 140" branch of
-> *what to do with the answer* below, by a wide margin, and it means `MIN_BLOCK = 215`
-> does not deliver risk 10's guarantee at the floor the grip clamps to.
+> **RUN FOR REAL ON 2026-09-08, AT 300px CONTENT WIDTH WITH ⚙ DOWN, AND EVERY PART
+> EXCEPT ONE IS NOW READ RATHER THAN DERIVED.** The reading, in layout pixels:
+>
+> | Part | Derived | **Measured** |
+> | --- | --- | --- |
+> | the head | 35 | **35** — exact |
+> | a section heading | 32 | **38** |
+> | one row of chips | 29 | *not yet read — this drawer wrapped to three rows, 82px* |
+> | the create field | 35 | **35** — exact |
+> | the foot, **with** the arrows | 38 | **95, three rows** |
+> | the foot, **without** the arrows | 38 | **67, two rows** |
+> | the divider | 5 | **5** — exact |
+>
+> **THE FOOT WAS ALREADY UNDERSTATED BEFORE THE ARROWS EXISTED, AND THAT IS THE FINDING
+> THIS PROBE WAS FOR.** The derivation says 38, which is ONE row; the foot has been TWO
+> rows and 67px since the sixth button arrived, so this number has been short by 29
+> since 1.5.0 and nothing noticed. The arrows took it to three rows and 95px.
+>
+> **SO DECISION 23 IS WRONG ON BOTH HALVES, and its struck-through arithmetic was
+> right on the half that mattered.** The rig said the arrows cost **0px**; they cost
+> **28px**, which is a whole row. The estimate had said *"the foot is already two rows;
+> three arrows add ~60px and tip it to three"* — the 60 was too generous and the ROW
+> COUNT was correct. A rig reading beat a correct estimate for eleven days.
+>
+> **WHAT IS CLIPPED AT THE FLOOR TODAY, arithmetic from the reading rather than from
+> the stylesheet.** At `MIN_BLOCK = 215` the body is 180; rule 7 gives the live section
+> `min(62%, 180 − 145) = 35`, the divider 5, and the collection 140 — where its fixed
+> parts need about 197. **So roughly 57px is clipped, which is two foot rows.** That is
+> the 1.0.0 defect risk 10 exists to kill, live and shipped.
+>
+> **ONE PART IS STILL NOT READ, and the probe is extended for it rather than filled in
+> by arithmetic.** The floor is derived for ONE row of chips and the drawer that was
+> measured had three, so its 82px answers about a drawer nobody is clamped to. The
+> snippet now flips the extra chips off and back, exactly as it flips the arrows — so
+> one-row chips comes back measured, and **risk 10's never-measured "about 27px per
+> extra row" comes back as a delta in the same breath.** Nothing is written to any
+> constant until that lands.
 >
 > **The rig had answered this twice and was wrong twice.** `paste-test.html` reported
 > two rows with the arrows and two without; the estimate it overturned had said three
@@ -7027,7 +7070,7 @@ body and the foot with it, so nothing about the foot is on screen while it is up
 ```js
 (() => {
   const $ = (id) => document.getElementById(id);
-  const drawer = $("gt-cart-drawer"), foot = $("gt-cart-foot");
+  const drawer = $("gt-cart-drawer"), foot = $("gt-cart-foot"), chips = $("gt-cart-chips");
 
   /* IT REFUSES BEFORE IT REPORTS, AND THAT GUARD IS THE PART THIS PROBE WAS MISSING.
      Run on 2026-09-08 with the settings panel UP, it returned "1 row, 0px" and a table
@@ -7051,21 +7094,39 @@ body and the foot with it, so nothing about the foot is on screen while it is up
   const section = drawer.querySelector(".gt-cart-collection");
   // OFFSETS AND NOT getBoundingClientRect: a rect is scaled by any zoom on an
   // ancestor, and these have to be layout pixels to be comparable with a stylesheet.
-  const rows = () => new Set([...foot.children].map((n) => n.offsetTop)).size;
-  // THE ARROWS ARE FLIPPED OFF AND BACK, so their cost is a delta measured in this
-  // drawer at this width, rather than a comparison with a number remembered from
-  // another one. That is the one thing the rig got right about this measurement.
+  // ROWS ARE COUNTED BY DISTINCT offsetTop, which is what wrapping actually is.
+  const rowsOf = (box) => new Set([...box.children].map((n) => n.offsetTop)).size;
+
+  /* TWO FLIPS, AND BOTH ARE THE SAME IDEA: hide part of a wrapping row, read the box,
+     put it back. So each cost comes back as a DELTA measured in this drawer at this
+     width, rather than as a comparison with a number remembered from another one.
+     That is the one thing `paste-test.html` got right about this measurement.
+
+     THE ARROWS, because decision 23 claimed they cost 0px and the whole floor rested
+     on it. THE CHIPS, because the reserve is derived for ONE row and a drawer with
+     several collections wraps them -- so reading the row as it stands answers about a
+     drawer nobody is clamped to, and it is also the only way to measure what risk 10
+     states without guarding: about 27px per extra row. Neither flip writes anything,
+     and neither touches a collection. */
   const arrows = [...foot.querySelectorAll(".gt-cart-arrow")];
-  const on = { rows: rows(), px: foot.offsetHeight };
+  const footOn = { rows: rowsOf(foot), px: foot.offsetHeight };
   arrows.forEach((a) => (a.style.display = "none"));
-  const off = { rows: rows(), px: foot.offsetHeight };
+  const footOff = { rows: rowsOf(foot), px: foot.offsetHeight };
   arrows.forEach((a) => (a.style.display = ""));
+
+  const pills = [...chips.children];
+  const chipsNow = { rows: rowsOf(chips), px: chips.offsetHeight, pills: pills.length };
+  pills.slice(1).forEach((c) => (c.style.display = "none"));
+  const chipsOne = chips.offsetHeight;
+  pills.slice(1).forEach((c) => (c.style.display = ""));
+  const perExtraRow =
+    chipsNow.rows > 1 ? (chipsNow.px - chipsOne) / (chipsNow.rows - 1) : null;
 
   /* THE WIDTH IS REPORTED IN BOTH BOXES, AND WHETHER IT IS AT THE FLOOR. The wrap is
      decided by the CONTENT width, which is what `min-inline-size: 300px` names, while
      `offsetWidth` includes the 1px border each side -- so 302 and 300 are the same
-     drawer and the record has already spent one paragraph guessing which. And a
-     reading taken 40px above the floor answers about a width nobody is clamped to. */
+     drawer and the record spent one paragraph guessing which. And a reading taken 40px
+     above the floor answers about a width nothing clamps to. */
   const box = getComputedStyle(drawer);
   const content = Math.round(parseFloat(box.width));
   console.log(
@@ -7073,12 +7134,28 @@ body and the foot with it, so nothing about the foot is on screen while it is up
       ` -- box-sizing ${box.boxSizing}` +
       (content <= 300 ? " -- AT THE 300px FLOOR" : " -- NOT at the floor: drag it narrower"),
   );
-  console.log(`foot WITH arrows ${on.rows} rows, ${on.px}px — WITHOUT ${off.rows} rows, ${off.px}px — the arrows cost ${on.px - off.px}px`);
+  console.log(`foot   WITH arrows ${footOn.rows} rows, ${footOn.px}px — WITHOUT ${footOff.rows} rows, ${footOff.px}px — the arrows cost ${footOn.px - footOff.px}px`);
+  console.log(`chips  as they stand ${chipsNow.rows} rows (${chipsNow.pills} collections), ${chipsNow.px}px — ONE row ${chipsOne}px` +
+      (perExtraRow === null ? " — only one row, so no per-row cost to read" : ` — each extra row costs ${perExtraRow}px`));
   console.log("head", $("gt-cart-head").offsetHeight, "live heading", $("gt-cart-live-head").offsetHeight, "divider", $("gt-cart-divider").offsetHeight);
-  const parts = [".gt-cart-section-head", "#gt-cart-chips", ".gt-cart-create", "#gt-cart-foot"];
-  const each = parts.map((sel) => [sel, section.querySelector(sel).offsetHeight]);
-  console.table(Object.fromEntries(each));
-  console.log("collection fixed total", each.reduce((n, [, h]) => n + h, 0) + 1);
+
+  const heights = {
+    "section heading": section.querySelector(".gt-cart-section-head").offsetHeight,
+    "chips (ONE row)": chipsOne,
+    "create field": section.querySelector(".gt-cart-create").offsetHeight,
+    foot: foot.offsetHeight,
+    "own top border": 1,
+  };
+  console.table(heights);
+  /* THE TWO TOTALS ARE REPORTED SEPARATELY BECAUSE THEY ANSWER DIFFERENT QUESTIONS.
+     The ONE-ROW total is the floor, and it is what `COLLECTION_FIXED_PX` and
+     `css-smoke`'s `COLLECTION_FIXED` are. The as-it-stands total is the wrapped-chips
+     case, which risk 10 states and does not guard and the user has accepted -- it must
+     not be filed as the floor. */
+  const fixedOne = Object.values(heights).reduce((n, h) => n + h, 0);
+  console.log(`COLLECTION FIXED at one row of chips: ${fixedOne}  (script holds 135 inside COLLECTION_FIXED_PX = 145; css-smoke holds 135)`);
+  console.log(`  the same with the chips as they stand: ${fixedOne - chipsOne + chipsNow.px}  -- the ACCEPTED case, not the floor`);
+  console.log(`MIN_BLOCK implied, head + live heading + divider + that: ${$("gt-cart-head").offsetHeight + $("gt-cart-live-head").offsetHeight + $("gt-cart-divider").offsetHeight + fixedOne}  (script holds 215)`);
 })();
 ```
 

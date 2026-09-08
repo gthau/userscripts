@@ -850,6 +850,38 @@ catch the two moving apart, never both being wrong together. That is exactly the
 `store-smoke` `160`-against-`215` failure this directory already records. Both numbers
 move when C.3 lands, and the comment now says so where somebody will read it.
 
+### MEASURED on 2026-09-08, and the arrows cost a row after all
+
+Appendix C.3's probe, run at 300px content width with ⚙ down. **The first attempt
+returned a table of zeros with the panel UP and it looked like data** — `head 35`,
+everything else `0`, `foot 1 rows` — so the probe refuses now and names the reason.
+That is recorded because one row is a plausible answer and somebody could have written
+the constant from it.
+
+**The reading:** the foot is **95px over three rows** with the arrows and **67px over
+two** without. So:
+
+- **The arrows cost 28px, not 0.** Decision 23's rig measurement is wrong on both
+  halves, and its struck-through estimate was right about the row count: *"the foot is
+  already two rows; three arrows add ~60px and tip it to three."* The 60 was generous;
+  the tipping was real.
+- **The derivation has been wrong since 1.5.0, before this effort existed.** It counts
+  the foot as ONE row at 38px. The foot has been two rows and 67px since the sixth
+  button arrived, so `COLLECTION_FIXED_PX` has been short by 29 through the whole of
+  the configurability effort and nothing caught it — the harness's own copy of the
+  number is derived by the same method, so it could only ever catch the two drifting
+  apart.
+- **About 57px is clipped at the floor today**, which is two foot rows: at
+  `MIN_BLOCK = 215` the collection is left 140 and needs about 197.
+- A section heading measured **38** against a derived 32. The create field and the
+  divider were exact.
+
+**One part is still unread and no constant is written yet.** The reserve is derived for
+ONE row of chips; the drawer measured had three (82px), which is the accepted
+wrapped-chips case and not the floor. The probe now flips the extra chips off and back
+the way it flips the arrows, so one-row chips comes back measured — and **risk 10's
+never-measured 27px per extra row comes back with it.**
+
 **Take them one per session.** Each ticket file is the session prompt. Read the ADR
 sections it names before anything else.
 
