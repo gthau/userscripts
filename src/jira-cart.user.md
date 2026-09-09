@@ -1,9 +1,34 @@
 # ADR: Jira Cart userscript
 
-- **Status:** Accepted. **Version 1.6.0 implements the whole of section 2 and has
+- **Status:** Accepted. **Version 1.7.0 implements the whole of section 2 and has
   been checked against it.** A version number here means *the spec is built and
   checked*, not *nothing is left to want* — §6 will always hold open items, so
   waiting for an empty §6 would mean never reaching any of them.
+  **1.7.0 MAKES THE CONFIGURABLE EXPORTS INTO NAMED PRESETS (§2.4, §2.8, §2.9,
+  §2.14, §2.15).** Each of 📋 Details and 📊 Report owns a list of named presets —
+  the fields, their order, the line shape and, for 📊 Report, its two headings —
+  and one per list carries a **★**, which is what a plain press uses. Each
+  link-bearing button gains an **arrow**, a native dropdown, that runs the same
+  gesture with a different choice: a preset for the two stepped buttons, one of the
+  five line shapes for 🔗 Links. It is a minor version because it breaks nothing:
+  the first run builds one `Standard` preset per list from the 1.6.0 preferences,
+  so both buttons print exactly what they printed before, byte for byte, and
+  **§2.4's `v` is untouched** — the presets are a fourth key, and a new key is
+  never a migration, so there is no `.bak` write. §2.8's finding is unmoved: a
+  preset is a filter over a fixed renderer, `detailChip` is still the one place
+  styling is written, and no user-written string reaches the clipboard (§6 items 10
+  and 16).
+  **A FIFTH EFFORT REVERSED FOUR DECISIONS BY PRESSING RATHER THAN READING, and its
+  record is [`docs/jira-cart/presets/`](../docs/jira-cart/presets/).** `+ Create
+  preset` replaced `Save as new…` on the first press of the prototype; the armed
+  mark was `▾` and a press in real Jira found it collided with the arrow's own
+  caret, so it is `★` and its absence now; and the floor **moved**, which two rig
+  readings had twice said it would not. `MIN_BLOCK` went from 215 to **283** and
+  the collection reserve from 145 to **208**, measured in the real drawer: the
+  three arrows cost a row, and the foot's part of the reserve had in fact been
+  short since the sixth button arrived at 1.5.0 (risk 10, appendix C.3). Five
+  tickets decided it, one per session, and the first was a prototype because the
+  effort before it had four decisions reversed the same way.
   **1.6.0 ADDS THE FIRST DRAG THAT COMES INTO THE CART: an issue is added by dropping
   it (§2.9.3).** Three sources — a live-list row, a row of the collection, or any issue
   link Jira drew on the page — and two targets: a collection's **chip**, which appends
@@ -124,8 +149,9 @@
   exports of 1.2.0 were folded in between 2026-08-22 and 2026-08-25, and §2.7.1 —
   the copy button — was added on 2026-08-25, and **the ninth view was named the
   same day** (§2.1). §2.9.1 was added on 2026-08-25, and §2.9.2 and §2.9.3 on
-  2026-08-26 — the three drag sections, in the order they shipped
-- **Applies to:** `src/jira-cart.user.js` (version 1.6.0)
+  2026-08-26 — the three drag sections, in the order they shipped; and the export
+  presets of 1.7.0 were folded in between 2026-08-27 and 2026-09-09
+- **Applies to:** `src/jira-cart.user.js` (version 1.7.0)
 - **Decided by:** ten tickets, all closed. They are named below and are not
   in this repository. **§2.14 was decided by a grilling session and six real
   pastes instead**, because the question it answers — what a detailed list looks
@@ -5206,6 +5232,14 @@ These are not gaps in the design. Each was named, and each was left.
    collection *leave* by drag; it does not reorder or group anything. The array the
    item drag writes is still the only order there is, and it is still what every
    export emits — including the one that now leaves by hand rather than by clipboard.
+   **1.7.0 MOVES THE GROUP-BY HALF ONE STEP AND LEAVES THE REST HERE — noted
+   2026-09-09.** The report's banding is now a property of a **named preset** rather
+   than of one shared setting (§2.15, presets), so *which* grouping a plain press
+   prints is a thing the user builds and stars, and a second grouping is a second
+   preset rather than a re-edit. That is one more reason the collection's own array
+   still means what it always meant: §2.15 groups a *document built from* the
+   collection, and moving that grouping onto a preset changes nothing about the
+   order inside every band, which is still the collection's own (§2.9.1).
 8. **Capture from Bitbucket and Confluence.** Out of scope for this effort, and
    **intended future work rather than a hypothetical** — the user's instruction.
    The store already reaches both, because it is per-script; Confluence Cloud also
@@ -5238,6 +5272,19 @@ These are not gaps in the design. Each was named, and each was left.
     script wrote. **The day a preference reaches `detailChip`, this item is the one
     to reopen first**, and §4's column-picker row says the same thing from the other
     side.
+    > **STILL OPEN, AND STRENGTHENED A SECOND TIME BY 1.7.0 — amended 2026-09-09.**
+    > The presets effort is the second time this repository made an export more
+    > configurable, and it needed no template either. A preset is *named*
+    > configuration over the same fixed renderer: it chooses which of eight fields
+    > print, in what order, and how the head of the line is written, and it does not
+    > reach a byte of what a field looks like. `detailChip` keeps its one enforcement
+    > point, so §2.14's five paste rules are still written once; no user-typed string
+    > reaches the clipboard — only the preset's NAME is user-typed, and a name is
+    > never emitted; and the reachable outputs are still a finite set `format-smoke`
+    > asserts byte for byte, now over every preset a pick can name. Two efforts have
+    > now answered *configurable exports* without a template, and the line each held
+    > is §2.8's: a preference — or a preset — may say which fields and in what order,
+    > never what a field looks like.
 11. **Two questions the prototypes could not answer by use:** whether the
     right-click preference is ever switched on, and whether the section divider is
     ever dragged. Both shipped because the cost of having them is one CSS rule and
@@ -5273,6 +5320,13 @@ These are not gaps in the design. Each was named, and each was left.
     where Excel and Sheets differ from every other target the Cart writes to, and no
     paste has ever been made into either. **That is the part to measure first**, and
     appendix A.9 is the model for how.
+    **CHEAPER AGAIN SINCE 1.7.0 — noted 2026-09-09.** A preset already carries an
+    **ordered field selection**, which is most of what a table needs — the columns
+    and their left-to-right order — under a name. So a table export could read a
+    preset's fields rather than a fourth prefs list, and the day it is built the
+    decision *which columns* is one the user already makes. The unbuilt part is
+    unchanged and unchanged in kind: the `<table>` renderer, and a paste into a real
+    spreadsheet to see what survives.
 15. **The report: grouped by priority, then by team. BUILT on 2026-08-20 — see
     §2.15.** The item keeps its number because §2.14 and appendix C cite it. What
     follows is the record of what was open while it was, and the order in its own
@@ -5336,8 +5390,11 @@ These are not gaps in the design. Each was named, and each was left.
     > paid instead is stated limit 3 of that record: changing your line shape
     > everywhere means editing every preset, and nothing reports which one you missed.
     > `Issue reference` is no longer pinned and no longer shared — 🔗 Links keeps a
-    > preference of its own (§2.9, amended 2026-09-06). **This item is answered rather
-    > than open; ticket 05 owns rewriting it in place.**
+    > preference of its own (§2.9, amended 2026-09-06). **This item is answered, not
+    > open — closed with 1.7.0 on 2026-09-09.** The original text above is kept whole,
+    > because the answer went *against* its recommendation and the recommendation is
+    > the part a revisit has to weigh: **if limit 3 ever bites, the nullable is the
+    > fix and this item is its design**, ready to lift as it stands.
 17. **The settings panel's taxonomy: `Appearance` is a peer of two export tabs.
     Named as a cost and accepted on 2026-08-24, recorded here on 2026-08-25 so it is
     not rediscovered as a defect** (§2.9, decisions 18 and 29). The bar reads
@@ -5367,9 +5424,12 @@ These are not gaps in the design. Each was named, and each was left.
     > an outlier than it was: three tabs named after buttons in the foot and one named
     > after a kind of setting. **The two-level structure this item held in reserve is
     > therefore not bought, and the item stays open with one more tab against it.** It
-    > cost nothing measurable: four full labels fit at the 300px floor, measured on
-    > 2026-08-27. The full amendment is in §2.9, with this item's own words quoted.
-    > **Ticket 05 owns rewriting this item in place.**
+    > cost nothing measurable: four full labels fit at the 300px floor, measured on the
+    > rig on 2026-08-27 and confirmed in real Jira on 2026-09-07 (§7 step 27). The full
+    > amendment is in §2.9, with this item's own words quoted. **Recorded closed to
+    > 1.7.0's changes on 2026-09-09, and still open as a taxonomy question:** the day a
+    > setting arrives that is neither appearance nor one export, the two-level structure
+    > is what starts paying for itself, and this item is its argument.
 18. **Two copy receipts that behave differently, and 1.3.0 left them that way on
     purpose.** The foot's `✅` is written straight onto the button by `flash`, so an
     unrelated re-render can clear it early — §2.8 says so about itself and calls the
@@ -5427,27 +5487,38 @@ These are not gaps in the design. Each was named, and each was left.
     to the Cart — and a private type whose shape Atlassian can change without telling
     anyone is exactly the kind of thing principle 4 says must degrade to nothing rather
     than to something wrong.
-
-
----
-
-## 7. How to test
+21. **Preset reordering, and a cap on how many a list holds. Deferred on 2026-09-09,
+    with 1.7.0.** A preset list is displayed **sorted by name** (presets decision 12),
+    so there is no order for a user to maintain and nothing to drag: the position of a
+    preset carries no meaning, which is the same shape of choice as the collection
+    array holding no active pointer (§2.4). So *reordering* is not a deferred feature so
+    much as a non-question while the sort stands, and it would arrive only if the sort
+    were ever the wrong answer — which is decision 12's own struck alternative, creation
+    order, kept there against exactly that day. **A cap is deferred for the plainer
+    reason: nobody has built enough presets for one to matter.** The list is the whole
+    export configuration under names the user typed, and a person with fifty of them has
+    a different problem than a cap solves. If the sort ever becomes the wrong answer,
+    the two reopen together, because a hand-chosen order is what a reordering UI and a
+    cap both assume.
 
 There is no test system in this repository. Use these steps in a browser, with
 `jira-ux-improvements` and `jira-backlog-sprints` also installed.
 
-**What is confirmed outside a browser, and by what.** Eight Node harnesses hold
-**1,375 checks at 1.6.0**, against 372 at 1.0.0: the pure helpers, the store and every
+**What is confirmed outside a browser, and by what.** Nine Node harnesses hold
+**1,737 checks at 1.7.0**, against 372 at 1.0.0: the pure helpers, the store and every
 preference it clamps, the (row, key) group, the six formats and the API's response
 validation, the whole script against a fake DOM, the generated stylesheet's cascade,
-and the script run twice over one store. They pull the real functions out of the file
-by brace matching, so they cannot drift from it and a rename breaks them loudly.
+the script run twice over one store, and — since 2026-08-27 — the two committed HTML
+rigs, compared property by property against the script's own rules. They pull the real
+functions out of the file by brace matching, so they cannot drift from it and a rename
+breaks them loudly.
 **372 at 1.0.0, 485 at 1.1.0, 1,089 at 1.2.0, 1,137 at 1.3.0, 1,279 at 1.5.0, 1,375 at
-1.6.0** — 1.2.0 more than
+1.6.0, 1,737 at 1.7.0** — 1.2.0 more than
 doubled them, and almost all of the 604 it added are in two files: `format-smoke` holds every
 byte each setting can reach, and `boot-smoke` drives the ⚙ screen's own controls.
-That ratio is what a configurable output costs to keep checkable: the outputs are
-still a finite set, and asserting them means asserting all of them.
+That ratio is what a configurable output costs to keep checkable, and 1.7.0 spent it
+again — presets are a finite set of reachable outputs, so asserting them means
+asserting all of them.
 
 **1.6.0's 96 checks were mutated the same way, in three runs: 14 single edits, 0
 survived.** Nine against behaviour — the move that does not remove, the marker that does
@@ -5508,9 +5579,9 @@ replaced by something else.
 | 13 (reload), 16 | **Mechanism confirmed outside a browser** | The script run TWICE over one store: a drawer left open comes back open with its size, and a stale tab that adds one item does not write away the five it never saw. **All six are there** |
 | 1, 5, 7 | **Needs a live visit to each of the nine views** | Nothing but Jira has nine views |
 | 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
-| 42 | **UNRUN, and it holds the number risk 10 is owed** | The three arrows, 1.7.0. Every gesture is driven by `boot-smoke` and every byte a pick can produce is held by `format-smoke`; what is left is the paint and the layout. **Its first item is the foot's row count at the 300×215 floor**, which decision 23's `MIN_BLOCK stays 215` rests on and which has only ever been read off `paste-test.html` — twice, withdrawn once. Step 27's re-run of 2026-09-07 **cannot** answer it: ⚙ replaces the body and the foot with it. The other items are the native list opening outside the drawer's clip, whether the caret is noticed at rest, whether `📋 Copy ★` moves the row, whether a dead arrow looks dead, and the end-to-end paste |
-| 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its three labels do not wrap inside 300px; the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
-| the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the three tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching five keys and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
+| 42 | **PART RUN: the number is closed and the paint is not** | The three arrows, 1.7.0. Every gesture is driven by `boot-smoke` and every byte a pick can produce is held by `format-smoke`. **The foot's row count at the 300×215 floor is RUN AND CLOSED, 2026-09-08: it is THREE, so the arrows cost a row and the floor moved — `MIN_BLOCK` 215 → 283, `COLLECTION_FIXED_PX` 145 → 208 (risk 10, appendix C.3).** A preset's output pasting into Outlook, Teams light and Teams dark was **confirmed 2026-09-09**, and the Jira editor's markdown-only fallback recorded with it; the plain-press-uses-★ path was confirmed 2026-09-07 (step 27a). **What is still UNRUN is the paint**: the native list opening outside the drawer's clip, whether the caret is noticed at rest, whether `📋 Copy ★` moves the row, whether a dead arrow looks dead, the arrow-pick end-to-end diff, and ★ moved in another tab. Step 27's re-run could not answer the count: ⚙ replaces the body and the foot with it |
+| 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its labels do not wrap inside 300px — three at 2026-08-25, and **four since 1.7.0, confirmed 2026-09-07** (step 27); the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
+| the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the four tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching the selected preset's own settings and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
 | 30 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira. Whole** | The line shapes, used rather than read. The pinned `Issue reference` row is above the tab bar with its five options; **all five shapes were pressed on all three exports** and each line's head took the shape chosen; and **the pinned row and its dropdown fit and read at the drawer's 300px floor**, which is the one thing no harness here can see — its widest label is shorter than `Automatic (side by side when wide)`, and that reasoning now has a press behind it. The harness holds the rest: every shape's bytes in both flavours with a summary and without, that the shape table names the same ids as the preference's own vocabulary, and that a stored shape is read **at the press** rather than held in a variable. **The shapes themselves were pasted on 2026-08-24** (appendix A.9.1). And **`Restore export defaults` puts the dropdown back**, pressed the same day — the half worth running separately, because it is a render reading storage rather than a value the handler wrote, which is what a fake DOM models least well |
 | 31, less its third and sixth items | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The field lists, used rather than read. The panel draws both lists, a tick takes, and **a row drags at the drawer's 300×215 floor** — which is the press decision 26 had been answered without, and it came back working, so nobody had to widen the drawer to reorder a list. **A drop from one list towards the other was refused**, which is the one behaviour in this effort that no harness can see at all: it is the platform's own refusal standing because `dragover` declines to `preventDefault`, so there is nothing in the file to assert about. And the two selections a click can now reach that 1.1.0 could not produce were both emitted — **every field unticked**, which gives the issue reference alone with no em dash, and **`Team` ticked**, which reaches 📋 Details for the first time. Team needed no separate paste check: it takes `detailChip`'s default branch, the same plain grey span assignee and fix version have used since A.9 pasted them |
 | 31, item 3 | **CONFIRMED IN A BROWSER, 2026-08-25, and half of it RETIRED to the harness** | Ticking, unticking and reordering were exercised repeatedly and reported **working well** — which is the ergonomic half of decision 26, and the opposite of the *fiddly* the decision was hedging against. The item's other half, that 🔗 Links is unaffected, **left this step**: it is bytes with no paint in it, so `format-smoke` holds it instead — a wild selection and an empty one, with all four unconfigurable exports required to come out byte-identical. Worth knowing why that check is not redundant: every other Links, Names, Keys and JQL check in the file runs with the DEFAULTS in place, so they say *these bytes are 1.1.0's* and never *these bytes do not move when a preference moves* |
@@ -5671,27 +5742,27 @@ pass each, and they are cheap.
     see.** Drag the drawer down to its 300×215 minimum and press ⚙. The panel must
     **scroll** rather than clip — put the pointer in it and turn the wheel, and check
     that the bottom of the last tab's content is reachable. The tab bar must stay put
-    while it scrolls, and its three labels must not wrap inside 300px. Press ⚙ again:
-    the two sections and all six foot buttons must come back with nothing clipped,
-    which is risk 10's arithmetic meeting a real layout on the other screen.
-    > **RE-RUN AT 1.7.0, AND IT IS FOUR LABELS NOW — CONFIRMED IN A BROWSER ON
-    > 2026-09-07, in real Jira.** The bar is `Appearance` · `🔗 Links` · `📋 Details` ·
-    > `📊 Report`, and **the four full labels do not wrap at the 300px floor**. That
-    > had been answered off the RIG on 2026-08-27 and stood on a byte-identical
-    > comparison of the tab rules; it now stands on the real drawer, which is what this
-    > step exists for. **The export tabs also grew a preset block**, and it holds at the
-    > floor too: the picker with `★`, `✎` and `✕` in one row, and the rename field able
-    > to take that row's place with nothing clipped.
-    >
-    > **This step cannot say anything about the FOOT and never could**: ⚙ replaces the
-    > body and the foot with it, so at the floor with the settings up the six buttons
-    > are not on screen. The foot's own floor is the presets effort's ticket 04.
-    >
-    > Ticket 05 of that effort owns folding this note into the step text, and owes one
-    > step this section has no entry for at all: **a plain press uses the ★ preset** —
-    > move ★, close ⚙, press 📋 Details and 📊 Report, and check the paste came out in
-    > the new preset's shape. That was pressed on 2026-09-07 and it is the only claim
-    > in the feature that no harness here can reach.
+    while it scrolls. Since 1.7.0 the bar is `Appearance` · `🔗 Links` · `📋 Details` ·
+    `📊 Report`, and its **four full labels must not wrap** inside 300px — answered off
+    the rig on 2026-08-27 and **confirmed in real Jira on 2026-09-07**, where they hold
+    and the export tabs' preset block holds with them: the picker with `★`, `✎` and `✕`
+    in one row, and the rename field able to take that row's place with nothing clipped.
+    Press ⚙ again: the two sections and all six foot buttons must come back with nothing
+    clipped, which is risk 10's arithmetic meeting a real layout on the other screen.
+    **This step says nothing about the FOOT at the floor and never could**: ⚙ replaces
+    the body and the foot with it, so at the floor with the settings up the six buttons
+    are not on screen. The foot's own floor is step 42.
+27a. **A PLAIN PRESS USES THE ★ PRESET, which is the one claim in this feature no
+    harness here can reach (decision 1, §2.14).** `format-smoke` asserts that `format`
+    reads the ★ preset of the right list — but it asserts it about a pure function with
+    a shimmed store, over a list where the ★ is neither first in the array nor first by
+    name. What this step presses is the whole path. Open ⚙ → `📋 Details`, move ★ to a
+    preset in a visibly different shape, close ⚙, and press 📋 Details plainly: the
+    paste must come out in the **new** ★ preset's shape. Then the same for 📊 Report.
+    **PRESSED IN REAL JIRA on 2026-09-07** — ★ moved in the panel, ⚙ closed, a real
+    fetch against a real collection, a real clipboard write, and a paste in the new
+    preset's shape. This is *presets ARE the export configuration* confirmed at the only
+    scope that counts, and nothing under `test/` can stand in for it.
 28. **The ⚙ says which screen you are on, and the head agrees with it.** Press ⚙: the
     button must stay lit while the panel is up — not only while it has the focus —
     and the head must read `⚙ Settings`. Click elsewhere in the drawer: the button
@@ -6232,6 +6303,25 @@ pass each, and they are cheap.
       Then press 📋 Details plainly and paste again: it must be ★'s. Nothing under
       `test/` can reach this — the harness asserts a pure function with a shimmed store,
       and what this presses is a real fetch, a real clipboard write and a real paste.
+    - **A PRESET'S OUTPUT PASTED WHERE IT IS READ — CONFIRMED 2026-09-09.** The pick
+      changes which fields print, in what order, and the head shape; it changes no byte
+      of what a field *looks like*, so §2.14's four chip rules ride on appendix A.9's
+      own pastes rather than being re-measured. Paste a preset's 📋 Details output into
+      **Outlook with *keep source formatting***, **Teams light** and **Teams dark**: in
+      each the status must read as a pill, the metadata must be visibly quieter than the
+      summary, an issue's two fix versions must be comma-separated, and the parent link
+      must not be brighter than the issue's key — **all held**, on the picked preset's
+      fields in its order. **The Jira rich-text editor is the honest exception:** it
+      takes the **markdown** flavour, not the HTML, so the status arrives as bold text
+      rather than a coloured pill — the markdown-only behaviour §2.8 already names,
+      seen for a preset's output and recorded rather than treated as a defect.
+    - **★ MOVED IN ANOTHER TAB WHILE THIS ONE HAS ⚙ OPEN ON THE SAME LIST.** Open ⚙ →
+      `📊 Report` in two tabs. In one, move ★ to a different preset. The other's panel
+      must catch up on the cross-tab signal — the ★ in its picker moving to match —
+      without a reload, because a preset change costs a re-render and nothing else
+      (§2.4, and the *settled by fact* note). Then close ⚙ in the first tab and press
+      📊 Report plainly: it must print the preset that is ★ **now**, resolved at the
+      press. `tabs-smoke` holds the bus; whether the open panel repaints is the paint.
 
 ---
 

@@ -25,7 +25,7 @@ August 2026.
 | `build-prompts.md` | The session prompts that drove the three build sessions, L1 to L3, with the guards each one carried |
 | `prompts-configurability.md` | The prompt for the configurability effort, written at the end of the 1.1.0 session by the person who built it, so it names the traps from the inside. **Run on 2026-08-21/22**, and left exactly as written, with a note on what it predicted and what it did not |
 | `configurability/` | **The 1.2.0 effort.** The decisions that prompt produced, and the **six implementation tickets** it broke them into — all six landed between 2026-08-22 and 2026-08-25. Start at its README: it marks each ticket done and, beside it, what changed once the ticket met real code |
-| `presets/` | **THE LIVE ONE. The 1.7.0 effort, opened 2026-08-27.** Export presets: named field/heading/head arrangements per export, chosen at the press by an arrow beside the button. Its README holds the 25 decisions, the eight stated limits, and **five tickets** — the first of which is a prototype, because the effort before it had four decisions reversed by somebody pressing a control |
+| `presets/` | **The 1.7.0 effort, opened 2026-08-27 and SHIPPED 2026-09-09.** Export presets: named field/heading/head arrangements per export, chosen at the press by an arrow beside the button. Its README holds the 25 decisions, the eight stated limits, and **five tickets** — the first of which is a prototype, because the effort before it had four decisions reversed by somebody pressing a control. It was the live record through the effort; with 1.7.0 shipped it is a second frozen record beside `configurability/` |
 
 `part1.js` to `part6.js` were left in scratch and not committed: they are version
 0.1.0 written in six chunks, superseded by the 4,826-line file in `src/`.
@@ -80,11 +80,12 @@ ADR is the decision of record, these are the dated evidence, and where they disa
 the ADR wins. 1.1.0 was one session and left nothing here, which was right for one
 session.
 
-**`presets/` is the live one**, and it is the first effort in this repository whose
-**first ticket is a prototype** rather than a piece of the build. That ordering is
-`configurability/`'s own finding applied rather than admired: four of its decisions
-were reversed by pressing a control and a fifth option was asked for by a real paste,
-and none of the five came from re-reading a design.
+**`presets/` was the live one through the effort, and 1.7.0 shipped it on 2026-09-09**
+— so it is a second frozen record now, beside `configurability/`. It is the first
+effort in this repository whose **first ticket is a prototype** rather than a piece of
+the build. That ordering is `configurability/`'s own finding applied rather than
+admired: four of its decisions were reversed by pressing a control and a fifth option
+was asked for by a real paste, and none of the five came from re-reading a design.
 
 **What it adds to the lessons below.** The map effort settled its questions by
 research and argument. 1.1.0 could not, and this one could not either: **four

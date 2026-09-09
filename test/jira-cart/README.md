@@ -354,11 +354,14 @@ be cut off by the `overflow: clip` on every container in the drawer — so **the
 list is painted by the browser, on top of the page, outside every clip we own.** That
 is the entire argument for the control (presets decision 15), and no fake DOM can watch
 a list open. `boot-smoke` holds what the list CONTAINS and what picking from it does;
-whether it is drawn whole at the 300×215 floor is ADR §7 **step 42**. Two more things
-in that step are the same kind of claim: whether the caret is **noticed at rest** — the
-failure a beta tester hit with the ⚙ at 1.1.0 — and whether the row count of the foot
-is really **two** at the floor, which `MIN_BLOCK` staying 215 rests on and which has
-only ever been read off `paste-test.html`.
+whether it is drawn whole at the 300×215 floor is ADR §7 **step 42**, and it is still
+UNRUN. Another item in that step is the same kind of claim: whether the caret is
+**noticed at rest** — the failure a beta tester hit with the ⚙ at 1.1.0. The foot's
+**row count** at the floor was the third — and it is now CLOSED: measured in the real
+drawer on 2026-09-08 at **three** rows, so `MIN_BLOCK` moved from 215 to 283 and the
+number the rig had read off `paste-test.html` twice was wrong (risk 10, appendix C.3).
+This file cannot count rows and never could, so it holds the floor's **provenance**
+instead — see *The floor, 2026-09-08* below.
 
 **THIS SENTENCE USED TO SAY "NOTHING HERE CAN DRIVE A DRAG", AND 1.4.0 DISPROVED
 IT.** It is left in that form because the correction is the useful part. The claim

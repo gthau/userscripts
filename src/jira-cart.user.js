@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.6.0
+// @version      1.7.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Drag the drawer's rows to set the order a paste comes out in, or drag one straight into Slack or an editor. Drop an issue on a collection's chip to file it there without leaving the one you are in -- from the live list, from the collection, or straight off the page. Drag the whole collection by its heading or its chip to send every link at once -- into Teams, a Jira comment, or the browser's tab strip to open them all. Or press the 🔗 beside a key to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -92,23 +92,39 @@
  *   nothing waits for it.
  * - A ⚙ in the drawer's head, which since 1.2.0 opens a whole SETTINGS SCREEN
  *   rather than a strip: it replaces the two sections and the foot, and the head
- *   reads `⚙ Settings` while it is up. Press it again to go back.
- * - THREE THINGS ABOUT THE EXPORTS ARE YOURS TO SET, and the defaults are exactly
- *   what 1.1.0 emitted, so an existing user sees no change until they ask for
- *   one:
- *     - `Issue reference` — one of five named shapes for how an issue is written
- *       at the head of a line, from the markdown link 1.1.0 shipped to the plain
- *       `KEY: Summary - url` a destination that does not render markdown wants.
- *       It governs 🔗 Links, 📋 Details and 📊 Report together.
- *     - Which fields 📋 Details and 📊 Report print, and in what order. Each
- *       has its own ordered list over the same eight fields, on its own tab, with
- *       a checkbox per field and a drag to reorder. Zero ticked is allowed — the
- *       line is then the issue reference alone.
- *     - How 📊 Report is banded: `Group by` and `Then by`, over seven fields,
- *       where 1.1.0 could only do priority and then team.
- *   ↺ `Restore export defaults` puts all five back. The appearance switches —
- *   sections, corner, the `🔗` beside the `+`, and the right-click menu, which
- *   still ships off — are on their own tab and it leaves them alone.
+ *   reads `⚙ Settings` while it is up. Press it again to go back. Since 1.7.0 it
+ *   has FOUR tabs: `Appearance`, `🔗 Links`, `📋 Details` and `📊 Report`.
+ * - SINCE 1.7.0, 📋 Details AND 📊 Report EACH OWN A LIST OF NAMED PRESETS, and a
+ *   preset is the whole export configuration under a name you typed: which of the
+ *   eight fields it prints and in what order, how it writes the head of a line,
+ *   and — 📊 Report only — its two headings. One preset per list carries a ★, and
+ *   THAT is what a plain press of the button uses. Build one with `+ Create
+ *   preset` (the name is committed first, and it starts from the shipped
+ *   defaults), rename it in place, delete it (armed first, and never the last
+ *   one), and move the ★ with a press. The list sorts by name, and there is no
+ *   Save button: every edit writes into the selected preset as you make it.
+ * - AND EACH LINK-BEARING BUTTON GAINED AN ARROW beside it, a native dropdown that
+ *   runs the same gesture with a different choice: on 📋 Details and 📊 Report one
+ *   of that button's presets, and on 🔗 Links one of the five line shapes. Pick a
+ *   preset and 📋/📊 fetch, so the `Copy` that follows uses your pick; 🔗 Links
+ *   copies at once. An armed `Copy` reads `📋 Copy ★` when it will use the default
+ *   and `📋 Copy` when it will use something you picked, and the preset's name is
+ *   in the tooltip. The arrow is always there, even on a list of one.
+ * - THE DEFAULTS ARE EXACTLY WHAT 1.6.0 EMITTED: each list ships one `Standard`
+ *   preset, marked ★, carrying the fields, order, head and headings the previous
+ *   version used — so an existing user sees no change until they build a preset.
+ *   `Issue reference` is one of five named shapes for how an issue is written at
+ *   the head of a line, from the markdown link 1.1.0 shipped to the plain
+ *   `KEY: Summary - url` a destination that does not render markdown wants — and
+ *   since 1.7.0 it belongs to the selected PRESET on 📋 Details and 📊 Report, and
+ *   to 🔗 Links as that button's own setting, one per tab rather than one pinned
+ *   control governing all three.
+ *   ↺ `Restore export defaults` reaches the tab you are on: on the two export tabs
+ *   it puts the SELECTED preset's fields, order, head and headings back, leaving
+ *   its name, its ★ and your other presets alone; on 🔗 Links it resets that
+ *   dropdown. The appearance switches — sections, corner, the `🔗` beside the `+`,
+ *   and the right-click menu, which still ships off — are on their own tab and it
+ *   leaves them alone.
  * - If you do switch the right-click menu on, it now has THREE entries: add or
  *   remove, `Open link in new tab`, and `Copy link to KEY`. The last two are
  *   the two things the interception takes away, given back.

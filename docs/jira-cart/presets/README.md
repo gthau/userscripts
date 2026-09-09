@@ -1,10 +1,14 @@
 # Export presets — the decision record and the five tickets
 
-> **This directory is LIVE.** It is the working record of the effort that follows
-> 1.2.0's configurable exports. `docs/jira-cart/configurability/` is the frozen
-> record of that one; read it for the arguments this effort inherits, and note that
-> **four of its decisions were reversed by pressing a control** and a fifth option
-> was asked for by a real paste. None of the five came from re-reading a design.
+> **SHIPPED as 1.7.0 on 2026-09-09. This directory is now a frozen record**, beside
+> `docs/jira-cart/configurability/`. It was the live working record of the effort that
+> follows 1.2.0's configurable exports; all five tickets have landed and ticket 05
+> folded the effort into the ADR. `configurability/` is the frozen record of the 1.2.0
+> effort; read it for the arguments this one inherits, and note that **four of its
+> decisions were reversed by pressing a control** and a fifth option was asked for by a
+> real paste. None of the five came from re-reading a design — and this effort added a
+> fifth of its own reversed the same way (decision 26's `▾`) and a sixth number the rig
+> got wrong (the floor).
 >
 > The ADR, [`src/jira-cart.user.md`](../../../src/jira-cart.user.md), remains the
 > decision of record. Nothing here overrides it. Each ticket says which ADR
@@ -463,7 +467,7 @@ written, and no user-written string reaches the clipboard.
 | [02](02-the-presets-store.md) | The fourth key exists before anything reads it | New store, first-run build, `store-smoke`. No visible change | **BUILT 2026-08-28.** `store-smoke` 127 → 212, suite 1,489, `format-smoke` untouched. **It deferred half of decision 22** — see below — and it extracted the band pair rule instead of copying it |
 | [03](03-the-settings-screen.md) | Four tabs, and presets are managed in them | The picker, ★, rename, delete, `+ Create preset`, the per-tab restore | **BUILT 2026-09-06.** Suite 1,489 → 1,608. It landed **decision 22's other half**, found a **defect in ticket 02's lazy first run**, deleted **three lines** a mutation could not touch, and rewrote **six checks** that could not fail |
 | [04](04-the-arrows.md) | Three arrows, and the export path reads a preset | The selects, the pick, the floor re-derivation | **BUILT 2026-09-07, PRESSED 2026-09-07 AND 2026-09-08.** Suite 1,608 → 1,735. **42 mutations**: 34 on the feature with 0 survivors after three passes — the first pass had four, three real gaps and one line that was not doing anything — three on guards, all of which survived and were meant to, and five after the press. **The press reversed decision 26's `▾`**, which the prototype had been showing beside the arrow's own caret all along. **The second press overturned decision 23 and the third closed it**: the foot is THREE rows at 300px where the rig said two twice, the arrows cost 28px and not 0, and the number had been wrong since 1.5.0. `MIN_BLOCK` 215 → **283** and `COLLECTION_FIXED_PX` 145 → **208**, measured. `css-smoke` holds the provenance now |
-| [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | |
+| [05](05-record-and-ship.md) | The version, the record | 1.7.0, ADR amendments, §6, §7, the READMEs | **RECORD AND SHIP, 2026-09-09. No script behaviour and no new check.** `@version` 1.7.0, the docblock's user-facing list rewritten for presets, §3 checked; the ADR folded — Status block, §6 items 10/16/17/7/14 and new item 21, §7 step 27 (four labels), new step 27a, and step 42's remaining browser bullets; both READMEs closed. **Suite green and recounted at 1,737** — the arrows landed it at 1,735 and the 2026-09-08 floor close added `css-smoke`'s two provenance checks (105 → 107). Collections `v` untouched; no `.bak` |
 
 ### Ticket 01 is built and the four answers are still owed, 2026-08-27
 
