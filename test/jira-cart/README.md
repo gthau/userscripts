@@ -354,9 +354,12 @@ be cut off by the `overflow: clip` on every container in the drawer — so **the
 list is painted by the browser, on top of the page, outside every clip we own.** That
 is the entire argument for the control (presets decision 15), and no fake DOM can watch
 a list open. `boot-smoke` holds what the list CONTAINS and what picking from it does;
-whether it is drawn whole at the 300×215 floor is ADR §7 **step 42**, and it is still
-UNRUN. Another item in that step is the same kind of claim: whether the caret is
-**noticed at rest** — the failure a beta tester hit with the ⚙ at 1.1.0. The foot's
+whether it is drawn whole is ADR §7 **step 42** — pressed in normal use on 2026-09-10,
+where the list opened and picked, and the 300×215 floor version accepted unseen there
+because a native `<select>` is browser-painted and escapes every clip by construction.
+Another item in that step is the same kind of claim: whether the caret is
+**noticed at rest** — the failure a beta tester hit with the ⚙ at 1.1.0, and it was
+found and used in that same press. The foot's
 **row count** at the floor was the third — and it is now CLOSED: measured in the real
 drawer on 2026-09-08 at **three** rows, so `MIN_BLOCK` moved from 215 to 283 and the
 number the rig had read off `paste-test.html` twice was wrong (risk 10, appendix C.3).

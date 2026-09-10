@@ -5579,7 +5579,7 @@ replaced by something else.
 | 13 (reload), 16 | **Mechanism confirmed outside a browser** | The script run TWICE over one store: a drawer left open comes back open with its size, and a stale tab that adds one item does not write away the five it never saw. **All six are there** |
 | 1, 5, 7 | **Needs a live visit to each of the nine views** | Nothing but Jira has nine views |
 | 2, 4, 8, 9, 11, 12, 13 (the drag) | **Needs a browser** | Another script's toolbar, a filter, reflow, destructive virtualisation, a React remount, the browser's own middle-click and Ctrl-click, and a pointer on the grip — **including the new 215px floor**, which is where risk 10's arithmetic meets a real layout |
-| 42 | **PART RUN: the number is closed and the paint is not** | The three arrows, 1.7.0. Every gesture is driven by `boot-smoke` and every byte a pick can produce is held by `format-smoke`. **The foot's row count at the 300×215 floor is RUN AND CLOSED, 2026-09-08: it is THREE, so the arrows cost a row and the floor moved — `MIN_BLOCK` 215 → 283, `COLLECTION_FIXED_PX` 145 → 208 (risk 10, appendix C.3).** A preset's output pasting into Outlook, Teams light and Teams dark was **confirmed 2026-09-09**, and the Jira editor's markdown-only fallback recorded with it; the plain-press-uses-★ path was confirmed 2026-09-07 (step 27a). **What is still UNRUN is the paint**: the native list opening outside the drawer's clip, whether the caret is noticed at rest, whether `📋 Copy ★` moves the row, whether a dead arrow looks dead, the arrow-pick end-to-end diff, the picked preset deleted between the fetch and the copy, and ★ moved in another tab. Step 27's re-run could not answer the count: ⚙ replaces the body and the foot with it |
+| 42 | **RUN AND CLOSED: the number 2026-09-08, the paint 2026-09-10** | The three arrows, 1.7.0. Every gesture is driven by `boot-smoke` and every byte a pick can produce is held by `format-smoke`. **The foot's row count at the 300×215 floor is RUN AND CLOSED, 2026-09-08: it is THREE, so the arrows cost a row and the floor moved — `MIN_BLOCK` 215 → 283, `COLLECTION_FIXED_PX` 145 → 208 (risk 10, appendix C.3).** A preset's output pasting into Outlook, Teams light and Teams dark was **confirmed 2026-09-09**, and the Jira editor's markdown-only fallback recorded with it; the plain-press-uses-★ path was confirmed 2026-09-07 (step 27a). **The paint was pressed in real Jira on 2026-09-10 and regular use is good** — the list opens and picks, the caret is found, the armed label holds, an arrow-pick pastes right. The bullets a normal-use press cannot reach — the floor list-open, the floor `📋 Copy ★`, a dead arrow on an empty collection, ★ moved in a second tab, and the delete-between guard — were **accepted unseen** the same day rather than pressed (the delete-between declined by name, decision 17). Step 27's re-run could not answer the count: ⚙ replaces the body and the foot with it |
 | 27, 28, 29 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira** | The ⚙ screen, used rather than read. The panel **scrolls at the 300×215 floor instead of clipping**, which is the one thing no harness here can see and the whole reason a strip became a screen; the tab bar stays put while it scrolls and its labels do not wrap inside 300px — three at 2026-08-25, and **four since 1.7.0, confirmed 2026-09-07** (step 27); the two sections and all six foot buttons come back with nothing clipped; the ⚙ stays lit while the panel is up rather than only while it holds the focus, and the head renames both ways; and an add made **from the page while the panel is up** lands with the panel still open on the same tab. **§2.9's remaining `:focus-visible` contingency is left standing rather than struck** — nothing reported a blue ring on the closing click, and nothing reporting it is not the same as looking for it |
 | the state half of 27, 28 and 29 | **Confirmed outside a browser as well** | ⚙ hides the body and the foot with it and says so on `aria-pressed`, the head renames both ways, the four tabs and the remembered tab, an unrecognised tab id landing on the first, the two-press restore reaching the selected preset's own settings and no others, and the add-while-open landing without closing the panel. The browser pass above is what says the result is also PAINTED |
 | 30 | **CONFIRMED IN A BROWSER, 2026-08-25, in real Jira. Whole** | The line shapes, used rather than read. The pinned `Issue reference` row is above the tab bar with its five options; **all five shapes were pressed on all three exports** and each line's head took the shape chosen; and **the pinned row and its dropdown fit and read at the drawer's 300px floor**, which is the one thing no harness here can see — its widest label is shorter than `Automatic (side by side when wide)`, and that reasoning now has a press behind it. The harness holds the rest: every shape's bytes in both flavours with a summary and without, that the shape table names the same ids as the preference's own vocabulary, and that a stored shape is read **at the press** rather than held in a variable. **The shapes themselves were pasted on 2026-08-24** (appendix A.9.1). And **`Restore export defaults` puts the dropdown back**, pressed the same day — the half worth running separately, because it is a render reading storage rather than a value the handler wrote, which is what a fake DOM models least well |
@@ -6268,6 +6268,16 @@ pass each, and they are cheap.
     `format-smoke` holds every byte a pick can produce. What is left is paint and
     layout, and both of them are things this effort has already been wrong about
     twice.
+
+    **PRESSED IN REAL JIRA ON 2026-09-10, AND THE STEP CLOSES.** Regular use is good,
+    confirmed by the user: the arrows open and pick, the caret is found, the armed
+    `★`/no-`★` label holds, and an arrow-pick pastes in the picked preset's shape — all
+    at normal width. The bullets a normal-use press cannot reach — the floor-only
+    list-open and `📋 Copy ★`, a dead arrow on an empty collection, ★ moved in a second
+    tab, and the delete-between guard — were **accepted unseen** the same day rather
+    than pressed: each is reachable, each is low-risk, and each is held by a harness as
+    far as a harness can reach. Nothing here is UNRUN any more; each bullet below carries
+    its own standing.
     - **THE ROW COUNT AT THE FLOOR — RUN AND CLOSED ON 2026-09-08. IT IS THREE, AND
       THE FLOOR MOVED.** Appendix C.3's probe was run in the real drawer at 300px
       content width with ⚙ down. The foot is **95px over three rows** with the arrows
@@ -6278,31 +6288,40 @@ pass each, and they are cheap.
       holds the measurement's provenance, so a seventh foot control goes red and says
       to re-run the probe. Step 27's re-run never could have answered this: ⚙ replaces
       the body **and the foot with it**.
-    - **THE LIST OPENS OUTSIDE THE CLIP, AT THAT SAME FLOOR.** Press one of the three
-      arrows and check the option list is drawn **whole**, on top of the page, and not
-      cut off at the drawer's edge. This is the entire argument for a native `<select>`
-      (decision 15), and a menu of our own is what it is measured against. Check it on
-      the **bottom** corner in particular, where the list has to open upwards.
-    - **THE CARET IS NOTICED AT REST**, which is stated limit 6 and the thing that beat
-      a beta tester at 1.1.0: ⚙ was a 13px grey glyph in a transparent box and it was
-      not found. Look at the foot **before** you know where the arrows are. The divider
-      is what was chosen to answer this, on a press of both candidates on 2026-08-27.
-    - **`📋 Copy ★` DOES NOT MOVE THE ROW**, which is decision 26's own measurement and
-      the one it was taken at 11px against a `min-inline-size: 11ch` written for 12px.
-      A `ch` is the width of a `0` in the inherited font, and the rig inherits IBM Plex
-      Sans where the drawer inherits Jira's stack — so **should is not a measurement**.
-      Arm 📋 Details and watch the row: nothing beside it may shift. Then pick from the
-      arrow so its star drops and it reads `📋 Copy`, and watch again.
-    - **A DEAD ARROW LOOKS DEAD.** Empty the collection. All six buttons dim; the three
-      arrows must dim with them and must **not** light up under the pointer. This is
-      one `:has()` rule, and a browser without `:has()` drops it — the arrow still
-      cannot be picked, but it will look live.
-    - **AND THE END-TO-END CLAIM, WHICH IS THE POINT OF THE FEATURE.** With two presets
-      on 📋 Details in visibly different shapes, pick the non-★ one from the arrow, let
-      it fetch, press `Copy`, and **paste**. The document must be the picked preset's.
-      Then press 📋 Details plainly and paste again: it must be ★'s. Nothing under
-      `test/` can reach this — the harness asserts a pure function with a shimmed store,
-      and what this presses is a real fetch, a real clipboard write and a real paste.
+    - **THE LIST OPENS OUTSIDE THE CLIP — CONFIRMED IN NORMAL USE 2026-09-10, THE FLOOR
+      CASE ACCEPTED.** Press one of the three arrows and check the option list is drawn
+      **whole**, on top of the page, and not cut off at the drawer's edge. This is the
+      entire argument for a native `<select>` (decision 15), and a menu of our own is
+      what it is measured against. Check it on the **bottom** corner in particular, where
+      the list has to open upwards. Regular use picks from the arrows, so the list drew
+      whole and was usable at normal width; the floor version — bottom corner, upward at
+      300×215 — is accepted unseen, because a native `<select>`'s list is browser-painted
+      and escapes every clip we own by construction.
+    - **THE CARET IS NOTICED AT REST — CONFIRMED 2026-09-10**, which is stated limit 6
+      and the thing that beat a beta tester at 1.1.0: ⚙ was a 13px grey glyph in a
+      transparent box and it was not found. Look at the foot **before** you know where
+      the arrows are. The divider is what was chosen to answer this, on a press of both
+      candidates on 2026-08-27, and regular use in real Jira found and used the arrows.
+    - **`📋 Copy ★` DOES NOT MOVE THE ROW — CONFIRMED AT NORMAL WIDTH 2026-09-10, THE
+      FLOOR CASE ACCEPTED**, which is decision 26's own measurement and the one it was
+      taken at 11px against a `min-inline-size: 11ch` written for 12px. A `ch` is the
+      width of a `0` in the inherited font, and the rig inherits IBM Plex Sans where the
+      drawer inherits Jira's stack — so **should is not a measurement**. Arm 📋 Details
+      and watch the row: nothing beside it may shift. Then pick from the arrow so its
+      star drops and it reads `📋 Copy`, and watch again. Held at normal width; the floor
+      `11ch`-at-12px case is accepted unseen.
+    - **A DEAD ARROW LOOKS DEAD — ACCEPTED UNSEEN 2026-09-10.** Empty the collection.
+      All six buttons dim; the three arrows must dim with them and must **not** light up
+      under the pointer. This is one `:has()` rule, and a browser without `:has()` drops
+      it — the arrow still cannot be picked, but it will look live. Reachable only by
+      emptying the collection and not pressed; `css-smoke` holds the `:has()` rule.
+    - **AND THE END-TO-END CLAIM, WHICH IS THE POINT OF THE FEATURE — CONFIRMED
+      2026-09-10.** With two presets on 📋 Details in visibly different shapes, pick the
+      non-★ one from the arrow, let it fetch, press `Copy`, and **paste**. The document
+      must be the picked preset's. Then press 📋 Details plainly and paste again: it must
+      be ★'s. Nothing under `test/` can reach this — the harness asserts a pure function
+      with a shimmed store, and what this presses is a real fetch, a real clipboard write
+      and a real paste. The user pressed it in real Jira and it held.
     - **A PRESET'S OUTPUT PASTED WHERE IT IS READ — CONFIRMED 2026-09-09.** The pick
       changes which fields print, in what order, and the head shape; it changes no byte
       of what a field *looks like*, so §2.14's four chip rules ride on appendix A.9's
@@ -6315,27 +6334,30 @@ pass each, and they are cheap.
       takes the **markdown** flavour, not the HTML, so the status arrives as bold text
       rather than a coloured pill — the markdown-only behaviour §2.8 already names,
       seen for a preset's output and recorded rather than treated as a defect.
-    - **THE PICKED PRESET DELETED BETWEEN THE FETCH AND THE COPY, IN ONE TAB — SEEN
-      RATHER THAN ASSERTED (decision 17, §2.8).** `boot-smoke` drives this guard, and
-      this is the one place it can be *watched* instead: the fetch, the delete and the
-      real clipboard write are the browser's, and a fake DOM stands in for none of
-      them. Arm 📊 Report **from the arrow** on a non-★ preset — the fetch runs and the
-      armed rung reads `📊 Copy` with no star — then open ⚙, which hides the foot,
-      delete the preset you picked, and close ⚙. Watch the foot come back: the armed
-      rung now reads `📊 Copy ★`, because the pick names a preset that is gone and
-      falls to ★ **in the same render** that changes what the press will do
-      (decision 26). Press `Copy`. It must **still write**, and the paste must be
-      **★**'s shape — a pick that names nothing is a fallback and not an error,
-      resolved at the press and never snapshotted. **Reachable with one pair of hands**,
-      which is the whole reason this is a guard rather than a two-tab story — the
-      cross-tab case is the bullet below.
-    - **★ MOVED IN ANOTHER TAB WHILE THIS ONE HAS ⚙ OPEN ON THE SAME LIST.** Open ⚙ →
-      `📊 Report` in two tabs. In one, move ★ to a different preset. The other's panel
-      must catch up on the cross-tab signal — the ★ in its picker moving to match —
-      without a reload, because a preset change costs a re-render and nothing else
-      (§2.4, and the *settled by fact* note). Then close ⚙ in the first tab and press
-      📊 Report plainly: it must print the preset that is ★ **now**, resolved at the
-      press. `tabs-smoke` holds the bus; whether the open panel repaints is the paint.
+    - **THE PICKED PRESET DELETED BETWEEN THE FETCH AND THE COPY, IN ONE TAB — DECLINED
+      2026-09-10 (decision 17, §2.8).** `boot-smoke` drives this guard, and this is the
+      one place it could be *watched* instead: the fetch, the delete and the real
+      clipboard write are the browser's, and a fake DOM stands in for none of them. Arm
+      📊 Report **from the arrow** on a non-★ preset — the fetch runs and the armed rung
+      reads `📊 Copy` with no star — then open ⚙, which hides the foot, delete the preset
+      you picked, and close ⚙. Watch the foot come back: the armed rung now reads
+      `📊 Copy ★`, because the pick names a preset that is gone and falls to ★ **in the
+      same render** that changes what the press will do (decision 26). Press `Copy`. It
+      must **still write**, and the paste must be **★**'s shape — a pick that names
+      nothing is a fallback and not an error, resolved at the press and never
+      snapshotted. **Reachable with one pair of hands**, which is the whole reason this
+      is a guard rather than a two-tab story — the cross-tab case is the bullet below.
+      **The user declined to press it, 2026-09-10:** nobody deletes a preset in ⚙
+      between arming a fetch and pressing `Copy`, so it is accepted unseen — the guard
+      stands and `boot-smoke` drives it.
+    - **★ MOVED IN ANOTHER TAB WHILE THIS ONE HAS ⚙ OPEN ON THE SAME LIST — ACCEPTED
+      UNSEEN 2026-09-10.** Open ⚙ → `📊 Report` in two tabs. In one, move ★ to a
+      different preset. The other's panel must catch up on the cross-tab signal — the ★
+      in its picker moving to match — without a reload, because a preset change costs a
+      re-render and nothing else (§2.4, and the *settled by fact* note). Then close ⚙ in
+      the first tab and press 📊 Report plainly: it must print the preset that is ★
+      **now**, resolved at the press. `tabs-smoke` holds the bus; whether the open panel
+      repaints is the paint. Reachable only with two tabs and not pressed.
 
 ---
 
