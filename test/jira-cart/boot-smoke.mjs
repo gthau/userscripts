@@ -280,7 +280,18 @@ const rows = () => byId.get("gt-cart-live-list").children.filter((k) => k.classL
 const toggleOf = (row) => row.children.find((k) => k.classList.includes("gt-cart-row-body"));
 const keyOf = (row) => row.children.find((k) => k.classList.includes("gt-cart-row-key"));
 const items = () => byId.get("gt-cart-item-list").children.filter((k) => k.classList.includes("gt-cart-item"));
-const copy = (kind) => byId.get("gt-cart-foot").children.find((k) => k.attrs["data-gt-format"] === kind);
+/* THE SIX BUTTONS, AND THREE OF THEM ARE A LEVEL DEEPER SINCE TICKET 04. A
+   `<select>` cannot live inside a `<button>`, so 🔗 Links, 📋 Details and 📊 Report
+   are each wrapped in a `span.gt-cart-split` holding the button and its arrow. One
+   level and not a tree walk, because one level is the structure the stylesheet paints
+   and a walk would keep passing if the markup grew a third. */
+const copy = (kind) =>
+  byId
+    .get("gt-cart-foot")
+    .children.flatMap((k) => [k, ...k.children])
+    .find((k) => k.attrs["data-gt-format"] === kind);
+// The arrow beside one of those three, found by id the way the script finds it.
+const arrow = (kind) => byId.get(`gt-cart-arrow-${kind}`);
 const errors = () => logs.filter(([l]) => l === "error").map(([, m]) => m);
 
 dispatch(badge, "click");
@@ -533,8 +544,15 @@ await settle();
 // The COUNT IS NOT IN THE LABEL: it was the widest label in the foot and the tick
 // the narrowest, so pressing the button rearranged the wrapping row and pressing it
 // again put it back. The count is in the sentence instead, which has no width.
-is("one of two answered, and the button armed", details().textContent, "📋 Copy");
-is("the count moved to the tooltip", /^Copy 2 items\./.test(details().title), true);
+/* AND THE ARMED RUNG CARRIES ★, which is the third rung of the label ladder and
+   presets decision 26. `★` means this copy will use the ★ preset; `▾` means it will
+   use something picked from the arrow. Nothing has been picked here, so it is ★. */
+is("one of two answered, and the button armed", details().textContent, "📋 Copy ★");
+is("the count moved to the tooltip", /^Copy 2 items using ★ /.test(details().title), true);
+// THE NAME IS IN THE TOOLTIP AND NEVER IN THE LABEL: the label has 11ch reserved and
+// a name would overflow it, so the mark carries WHETHER you are on the default and
+// the sentence carries which one that is.
+is("and the tooltip names the preset the mark cannot", /★ Standard\./.test(details().title), true);
 // THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS. This was the other way round
 // until 2026-08-21 -- one press armed both, on the reasoning that the held result
 // describes the collection rather than a button -- and the user pressed one and
@@ -575,7 +593,7 @@ is("THE HELD FETCH IS SPENT BY THE COPY, so no paste is older than the press bef
 network.body = ANSWER;
 dispatch(copy("report"), "click");
 await settle();
-is("pressing Report arms Report", copy("report").textContent, "📊 Copy");
+is("pressing Report arms Report", copy("report").textContent, "📊 Copy ★");
 is("with ITS OWN icon, derived from its label rather than hardcoded",
   copy("report").textContent.startsWith("📊"), true);
 is("and Details stays idle this time", details().textContent, "📋 Details");
@@ -592,7 +610,7 @@ is("and it is grouped: a priority band, then a team", (() => {
 network.body = ANSWER;
 dispatch(details(), "click");
 await settle();
-is("armed again", details().textContent, "📋 Copy");
+is("armed again", details().textContent, "📋 Copy ★");
 dispatch(items()[1].children.find((k) => k.classList.includes("gt-cart-x")), "click");
 flush();
 is("removing an item dropped the held fetch", details().textContent, "📋 Details");
@@ -834,24 +852,37 @@ is("and each carries what storage says",
   [false, "auto", "bottom-right"]);
 is("the right-click switch ships OFF", byId.get("gt-cart-pref-right-click").checked, false);
 
-/* ---- `Issue reference` IS PINNED ABOVE THE BAR (decision 29). It governs all
-   three exports, so a tab that owned it would tell a small lie about its scope --
-   which is the only reason this screen has three tabs and not four. */
-const shapeSelect = () => byId.get("gt-cart-pref-shape");
-is("the line-shape control is on the settings screen", !!shapeSelect(), true);
-is("and it is pinned, not filed under one of the three tabs",
-  ["appearance", "details", "report"]
-    .some((id) => shapeSelect().closest(`#gt-cart-tabpanel-${id}`) === tabPanel(id)), false);
-// BUILT FROM `SHAPES`, so a shape added or dropped there moves this dropdown with
-// it. A second list of names here is a value that can disagree with the bytes.
+/* ---- `Issue reference` MOVED INTO A TAB OF ITS OWN AT 1.7.0, and `pinned` stopped
+   existing. It was pinned ABOVE the bar because it governed all three exports, so a
+   tab that owned it would have told a small lie about its scope (decision 29) -- and
+   the position itself carried the word "shared". Once a preset always names its own
+   shape (presets decision 5) it governs 🔗 Links alone, so the pinned position would
+   have been the lie. There are three of these dropdowns now, one per export tab, and
+   only this one writes the preference. */
+const shapeSelect = (tab) => byId.get(`gt-cart-pref-shape-${tab}`);
+is("every export tab carries an Issue reference row, and the appearance tab does not",
+  ["appearance", "links", "details", "report"].map((id) => !!shapeSelect(id)),
+  [false, true, true, true]);
+is("and each is filed under its own tab, none of them above the bar",
+  ["links", "details", "report"]
+    .map((id) => shapeSelect(id).closest(`#gt-cart-tabpanel-${id}`) === tabPanel(id)),
+  [true, true, true]);
+is("nothing is pinned above the bar any more",
+  byId.get("gt-cart-prefs").querySelectorAll(".gt-cart-group").length, 0);
+// BUILT FROM `SHAPES`, so a shape added or dropped there moves all three dropdowns
+// with it. A second list of names here is a value that can disagree with the bytes.
 is("its options are the shape table, in the shape table's order",
-  shapeSelect().children.map((option) => option.value),
+  shapeSelect("links").children.map((option) => option.value),
   ["markdown", "markdown-key", "key-summary-url", "key-url", "url"]);
 is("and they are shown by their labels, not their ids",
-  shapeSelect().children.map((option) => option.textContent),
+  shapeSelect("links").children.map((option) => option.textContent),
   ["Markdown link on the key", "Markdown link, no summary", "Key, summary, then the URL",
    "Key and URL, no summary", "URL only"]);
-is("it carries what storage says", shapeSelect().value, "markdown");
+is("and the two preset ones are built from the same table",
+  ["details", "report"].map((id) => shapeSelect(id).children.map((o) => o.value)),
+  [["markdown", "markdown-key", "key-summary-url", "key-url", "url"],
+   ["markdown", "markdown-key", "key-summary-url", "key-url", "url"]]);
+is("it carries what storage says", shapeSelect("links").value, "markdown");
 // THE LAST PLACEHOLDER WENT AT 1.2.0. `Nothing to configure here yet.` stood in for
 // each group until the ticket that filled it arrived; ticket 03 took the pinned
 // group's and ticket 04 took both export tabs', so the class is gone from the script
@@ -861,15 +892,20 @@ is("it carries what storage says", shapeSelect().value, "markdown");
 is("no placeholder note is left anywhere on the settings screen",
   byId.get("gt-cart-prefs").querySelectorAll(".gt-cart-note").length, 0);
 
-shapeSelect().value = "key-summary-url";
-dispatch(shapeSelect(), "change");
+shapeSelect("links").value = "key-summary-url";
+dispatch(shapeSelect("links"), "change");
 flush();
-is("choosing a shape writes the preference", prefsOf().lineShape, "key-summary-url");
+is("choosing 🔗 Links' shape writes the preference", prefsOf().lineShape, "key-summary-url");
 is("and the control still says what storage says after the render it caused",
-  shapeSelect().value, "key-summary-url");
+  shapeSelect("links").value, "key-summary-url");
+// AND IT REACHES NO PRESET. The three dropdowns look identical and write to two
+// different places, which is exactly the kind of thing that is wrong for a version
+// before anybody notices.
+is("and it does not touch either export tab's dropdown",
+  ["details", "report"].map((id) => shapeSelect(id).value), ["markdown", "markdown"]);
 // Back to the default, so nothing below this line is reading a shape it did not set.
-shapeSelect().value = "markdown";
-dispatch(shapeSelect(), "change");
+shapeSelect("links").value = "markdown";
+dispatch(shapeSelect("links"), "change");
 flush();
 is("and back again", prefsOf().lineShape, "markdown");
 
@@ -877,17 +913,25 @@ is("and back again", prefsOf().lineShape, "markdown");
 // open/closed set to store and a tab added later is visible the moment it exists
 // (decision 20). That is the whole difference from the collapsible layout the
 // prototype tried and use reversed.
+const TABS = ["appearance", "links", "details", "report"];
 is("the bar is a real tablist", byId.get("gt-cart-tabs").attrs.role, "tablist");
-is("with three tabs, and each one is a tab", 
-  byId.get("gt-cart-tabs").children.map((b) => b.attrs.role), ["tab", "tab", "tab"]);
-is("Appearance beside the two exports it is a peer of",
+is("with FOUR tabs since 1.7.0, and each one is a tab",
+  byId.get("gt-cart-tabs").children.map((b) => b.attrs.role), ["tab", "tab", "tab", "tab"]);
+/* AT FULL LABEL LENGTH, WHICH IS A MEASUREMENT AND NOT A PREFERENCE. Ticket 01
+   pressed the four-label bar at the 300px floor on 2026-08-27 and they fit without
+   wrapping, so the bar did not have to shorten a label the way the rig's own `tabs4`
+   variant did -- and A.9's finding that a word survives where a dim pictograph does
+   not never had to be spent. `rig-smoke` holds the tab rules the rig measured that
+   against, property by property, because the first foot measurement was withdrawn
+   when the rig turned out to have drifted from the script. */
+is("Appearance beside the three exports it is a peer of, at full label length",
   byId.get("gt-cart-tabs").children.map((b) => b.textContent),
-  ["Appearance", "📋 Details", "📊 Report"]);
+  ["Appearance", "🔗 Links", "📋 Details", "📊 Report"]);
 is("a fresh install opens on the first tab",
-  ["appearance", "details", "report"].map((id) => tabButton(id).attrs["aria-selected"]),
-  ["true", "false", "false"]);
+  TABS.map((id) => tabButton(id).attrs["aria-selected"]),
+  ["true", "false", "false", "false"]);
 is("and exactly one panel is on screen",
-  ["appearance", "details", "report"].map((id) => tabPanel(id).hidden), [false, true, true]);
+  TABS.map((id) => tabPanel(id).hidden), [false, true, true, true]);
 // ON THE TABS THAT HOLD EXPORT SETTINGS AND NOWHERE ELSE (decision 22). On the
 // appearance tab it is an offer to reset something you are not looking at.
 is("the restore is not offered on the appearance tab", restoreButton().hidden, true);
@@ -896,11 +940,11 @@ is("the restore is not offered on the appearance tab", restoreButton().hidden, t
 dispatch(tabButton("details"), "click");
 flush();
 is("switching tab writes the preference", prefsOf().settingsTab, "details");
-is("the bar says which one", 
-  ["appearance", "details", "report"].map((id) => tabButton(id).attrs["aria-selected"]),
-  ["false", "true", "false"]);
-is("and the panels swapped", 
-  ["appearance", "details", "report"].map((id) => tabPanel(id).hidden), [true, false, true]);
+is("the bar says which one",
+  TABS.map((id) => tabButton(id).attrs["aria-selected"]),
+  ["false", "false", "true", "false"]);
+is("and the panels swapped",
+  TABS.map((id) => tabPanel(id).hidden), [true, true, false, true]);
 is("the restore appears on a tab that holds export settings", restoreButton().hidden, false);
 is("and it is an offer before it is a question", restoreButton().textContent, "↺ Restore export defaults");
 
@@ -922,8 +966,32 @@ const fieldIds = (tab) => fieldRows(tab).map((row) => row.attrs["data-gt-field"]
 const fieldRow = (tab, id) => fieldRows(tab).find((row) => row.attrs["data-gt-field"] === id);
 const fieldBox = (tab, id) => fieldRow(tab, id).querySelector("input");
 const fieldNote = (tab, id) => fieldRow(tab, id).querySelector(".gt-cart-field-note").textContent;
-const ticked = (key) => prefsOf()[key].filter((one) => one.on).map((one) => one.id);
 const CATALOGUE = ["type", "status", "priority", "assignee", "team", "fixv", "remaining", "parent"];
+
+/* ---- WHERE THE PANEL'S ROWS READ AND WRITE, SINCE 1.7.0: THE SELECTED PRESET.
+
+   The four export keys left the preferences with ticket 03 (decision 22), so every
+   helper below that used to reach into `prefsOf()` reaches into a preset instead.
+   WHICH preset is read off the PICKER rather than assumed to be the ★ one -- those
+   are two different questions (stated limit 1), and a harness that assumed they
+   agreed could not see the section that presses the picker.
+
+   `setPreset` is another tab's write, aimed at the preset this panel is editing: it
+   pokes the store and lets the next render read it back out, which is exactly what
+   `setPrefs` does one key over. */
+const presetsOf = () => JSON.parse(store["gt-jira-cart.presets"]);
+const presetPicker = (tab) => byId.get(`gt-cart-preset-${tab}`);
+const editedPreset = (tab) => presetsOf()[tab].find((one) => one.id === presetPicker(tab).value);
+const starOf = (tab) => presetsOf()[tab].find((one) => one.star);
+const ticked = (tab) => editedPreset(tab).fields.filter((one) => one.on).map((one) => one.id);
+const bandsOf = (tab) => [editedPreset(tab).band1, editedPreset(tab).band2];
+const setPreset = (tab, patch) => {
+  const all = presetsOf();
+  const at = all[tab].findIndex((one) => one.id === presetPicker(tab).value);
+  all[tab][at] = { ...all[tab][at], ...patch };
+  store["gt-jira-cart.presets"] = JSON.stringify(all);
+  rerender();
+};
 
 is("each export tab carries a field list", 
   ["details", "report"].map((tab) => !!byId.get(`gt-cart-fields-${tab}`)), [true, true]);
@@ -953,12 +1021,17 @@ is("team is off in both: a NEW FIELD ARRIVES OFF where a new tab arrives visible
 // Every row is a drag target that names the preference a drop writes. The row and
 // its checkbox both carry it, because the delegated `change` listener is handed the
 // input and the delegated drag listeners are handed the row.
-is("every row is draggable and names the key it writes",
+/* AND `data-gt-list` HOLDS THE TAB ID, WHERE IT HELD THE PREFERENCE KEY UNTIL 1.7.0.
+   The old reasoning was right and its premise expired: what a click or a drop does is
+   write a preference, so the row carried the key's name. A click writes A PRESET now
+   -- the selected preset of this tab's list -- so it carries the tab, which is what
+   `PRESET_LISTS` and the picker are keyed by. */
+is("every row is draggable and names the list it writes",
   fieldRows("details").map((row) => `${row.attrs.draggable}:${row.attrs["data-gt-list"]}`),
-  CATALOGUE.map(() => "true:detailsFields"));
+  CATALOGUE.map(() => "true:details"));
 is("and so does every checkbox inside one",
   fieldRows("report").map((row) => row.querySelector("input").attrs["data-gt-list"]),
-  CATALOGUE.map(() => "reportFields"));
+  CATALOGUE.map(() => "report"));
 
 // A FIELD THAT IS ALSO A HEADING IS MARKED, NOT VETOED (decision 8). A field that
 // appeared only in a heading would be a field whose meaning depends on the row's
@@ -1032,7 +1105,7 @@ is("and None is never greyed, because it is not a field",
 // THE GREYED ONE FOLLOWS BAND 1, because it is derived on every render rather than
 // written when the dropdown changed -- a flag would disagree the moment another tab
 // moved the band.
-setPrefs({ reportBand1: "fixv", reportBand2: "team" });
+setPreset("report", { band1: "fixv", band2: "team" });
 is("the greyed option follows `Group by` when it moves",
   optionsOf("reportBand2"), ["none", ...BAND_IDS.filter((id) => id !== "fixv")]);
 is("and `Group by` is still ungreyed all the way across",
@@ -1043,12 +1116,12 @@ is("and `Group by` is still ungreyed all the way across",
 // it is one press and nothing is thrown away. It is the only place on this screen
 // where a press moves a control other than the one pressed, and what band 2 receives
 // is not a value nobody chose: it is the one band 1 just gave up.
-setPrefs({ reportBand1: "priority", reportBand2: "team" });
+setPreset("report", { band1: "priority", band2: "team" });
 bandSelect("reportBand1").value = "team";
 dispatch(bandSelect("reportBand1"), "change");
 flush();
 is("moving `Group by` onto `Then by`'s field SWAPS the two, in one press",
-  [prefsOf().reportBand1, prefsOf().reportBand2], ["team", "priority"]);
+  bandsOf("report"), ["team", "priority"]);
 is("and both controls say so after the render it caused",
   [bandSelect("reportBand1").value, bandSelect("reportBand2").value], ["team", "priority"]);
 is("the greying swapped with them", optionsOf("reportBand2"),
@@ -1060,25 +1133,24 @@ is("and the `also a heading` marks are still the same two fields, in the new ord
 bandSelect("reportBand1").value = "priority";
 dispatch(bandSelect("reportBand1"), "change");
 flush();
-is("pressing it again swaps them back", [prefsOf().reportBand1, prefsOf().reportBand2],
-  ["priority", "team"]);
+is("pressing it again swaps them back", bandsOf("report"), ["priority", "team"]);
 // AN ORDINARY CHANGE IS STILL ONE KEY. The swap must not fire when there is nothing
 // to swap with, or every press would move both controls.
 bandSelect("reportBand1").value = "type";
 dispatch(bandSelect("reportBand1"), "change");
 flush();
 is("an ordinary change leaves the other band exactly alone",
-  [prefsOf().reportBand1, prefsOf().reportBand2], ["type", "team"]);
+  bandsOf("report"), ["type", "team"]);
 // Back to the shipped pair, so the section below is a real change rather than a write
 // of the value that was already there -- see this repo's test README on why a check
 // that cannot fail is worse than no check.
-setPrefs({ reportBand1: "priority", reportBand2: "team" });
+setPreset("report", { band1: "priority", band2: "team" });
 
 // ---- CHOOSING A BAND IS A WRITE, and the marks beside it follow.
 bandSelect("reportBand1").value = "type";
 dispatch(bandSelect("reportBand1"), "change");
 flush();
-is("choosing a band writes the preference", prefsOf().reportBand1, "type");
+is("choosing a band writes it into the selected preset", bandsOf("report")[0], "type");
 is("and the control still says what storage says after the render it caused",
   bandSelect("reportBand1").value, "type");
 // THE MARK IS A FUNCTION OF THE STORED BANDS, which is why moving a band moves it
@@ -1092,7 +1164,7 @@ is("and 📋 Details still marks nothing, because a band belongs to one export",
 bandSelect("reportBand2").value = "none";
 dispatch(bandSelect("reportBand2"), "change");
 flush();
-is("None on band 2 writes it too", prefsOf().reportBand2, "none");
+is("None on band 2 writes it too", bandsOf("report")[1], "none");
 is("and the field it used to band stops being marked",
   fieldIds("report").filter((id) => fieldNote("report", id)), ["type"]);
 
@@ -1111,13 +1183,13 @@ is("a fix-version band says out loud that the report has more lines than issues"
   "An issue with two fix versions is listed under both, so this report has more lines than issues.");
 is("and the note appears for band 1 as well, because it describes the pair",
   (() => {
-    setPrefs({ reportBand1: "fixv", reportBand2: "none" });
+    setPreset("report", { band1: "fixv", band2: "none" });
     return bandNote();
   })(),
   "An issue with two fix versions is listed under both, so this report has more lines than issues.");
 // ANOTHER TAB'S WRITE LANDS ON THESE CONTROLS without either of them knowing about
 // it, because every render reads storage -- the same treatment the line shape gets.
-setPrefs({ reportBand1: "assignee", reportBand2: "category" });
+setPreset("report", { band1: "assignee", band2: "category" });
 is("a band written from outside this panel lands on both dropdowns and clears the note",
   [bandSelect("reportBand1").value, bandSelect("reportBand2").value, bandNote()],
   ["assignee", "category", ""]);
@@ -1125,7 +1197,7 @@ is("and the marks moved with it, status because the band is its CATEGORY",
   fieldIds("report").filter((id) => fieldNote("report", id)), ["status", "assignee"]);
 
 // Back to the shipped pair, so nothing below reads a band it did not set.
-setPrefs({ reportBand1: "priority", reportBand2: "team" });
+setPreset("report", { band1: "priority", band2: "team" });
 is("and back to the pair 1.1.0 emitted",
   [bandSelect("reportBand1").value, bandSelect("reportBand2").value], ["priority", "team"]);
 
@@ -1134,13 +1206,13 @@ const teamBox = fieldBox("details", "team");
 teamBox.checked = true;
 dispatch(teamBox, "change");
 flush();
-is("ticking a field writes the preference", ticked("detailsFields"),
+is("ticking a field writes it into the selected preset", ticked("details"),
   ["type", "status", "priority", "assignee", "team", "fixv", "remaining", "parent"]);
 is("and the box still says what storage says after the render it caused",
   fieldBox("details", "team").checked, true);
 // ONE CATALOGUE, TWO SELECTIONS: what is duplicated is the selection, and it costs a
 // second list of checkboxes and nothing else.
-is("the OTHER list was not touched by it", ticked("reportFields"),
+is("the OTHER list was not touched by it", ticked("report"),
   ["type", "status", "assignee", "fixv", "remaining", "parent"]);
 
 // A TICK IS NOT A REORDER. The entry keeps its place, which is the whole reason the
@@ -1150,10 +1222,10 @@ const priorityBox = fieldBox("details", "priority");
 priorityBox.checked = false;
 dispatch(priorityBox, "change");
 flush();
-is("unticking writes too", ticked("detailsFields"),
+is("unticking writes too", ticked("details"),
   ["type", "status", "assignee", "team", "fixv", "remaining", "parent"]);
 is("AND THE FIELD KEEPS ITS PLACE rather than being sent to the end",
-  prefsOf().detailsFields.map((one) => one.id), CATALOGUE);
+  editedPreset("details").fields.map((one) => one.id), CATALOGUE);
 is("so the row is still where it was, unticked", 
   [fieldIds("details")[2], fieldBox("details", "priority").checked], ["priority", false]);
 
@@ -1161,9 +1233,9 @@ is("so the row is still where it was, unticked",
 // preference a drop writes is poked in directly, and what is checked is that the
 // panel puts the rows where it says. No pointer is involved and none could be.
 const parentRow = fieldRow("details", "parent");
-setPrefs({ detailsFields: 
+setPreset("details", { fields:
   ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]
-    .map((id) => ({ id, on: prefsOf().detailsFields.find((one) => one.id === id).on })) });
+    .map((id) => ({ id, on: editedPreset("details").fields.find((one) => one.id === id).on })) });
 is("a stored reorder is what the panel draws, not the catalogue's order",
   fieldIds("details"),
   ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]);
@@ -1226,18 +1298,18 @@ flush();
 network.body = ANSWER;
 dispatch(details(), "click");
 await settle();
-is("📋 Details is armed while the settings are up", details().textContent, "📋 Copy");
+is("📋 Details is armed while the settings are up", details().textContent, "📋 Copy ★");
 const fixvBox = fieldBox("details", "fixv");
 fixvBox.checked = false;
 dispatch(fixvBox, "change");
 flush();
-is("a field unticked mid-arm wrote the preference", ticked("detailsFields").includes("fixv"), false);
-is("AND THE ARMED COPY IS STILL ARMED", details().textContent, "📋 Copy");
-is("and still offers the same two items it fetched", /^Copy 1 item/.test(details().title), true);
+is("a field unticked mid-arm wrote the preset", ticked("details").includes("fixv"), false);
+is("AND THE ARMED COPY IS STILL ARMED", details().textContent, "📋 Copy ★");
+is("and still offers the same two items it fetched", /^Copy 1 item using/.test(details().title), true);
 // The same from outside this tab, which is where nobody pressed anything.
-setPrefs({ reportFields: prefsOf().reportFields.map((one) => ({ ...one, on: false })) });
+setPreset("report", { fields: editedPreset("report").fields.map((one) => ({ ...one, on: false })) });
 is("another tab emptying the OTHER list does not disarm it either",
-  details().textContent, "📋 Copy");
+  details().textContent, "📋 Copy ★");
 // And the copy it makes is the list as it stands NOW, not as it stood at the press.
 dispatch(details(), "click");
 await settle();
@@ -1250,24 +1322,34 @@ await settle();
 await settle();
 network.body = null;
 
-// ---- ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention:
-// ⌫ becomes `Empty 3?` before it will empty anything.
-// `url` and not a made-up id: since ticket 03 the shapes are real, and a restore
-// that only ever put back a value the UI could not produce would be measuring less
-// than it looks like it is.
-setPrefs({ lineShape: "url", reportBand2: "none", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
-is("five export settings are away from their defaults",
-  [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
+/* ---- ↺ RESTORE EXPORT DEFAULTS, armed before it fires, by §3's own convention:
+   ⌫ becomes `Empty 3?` before it will empty anything.
+
+   IT REACHES THE SELECTED PRESET SINCE 1.7.0, and the tab you are on decides which
+   of two restores it is (presets decision 14): on 📋 Details and 📊 Report it puts
+   THAT PRESET's fields, order, headings and head back and leaves its name and its ★
+   alone; on 🔗 Links it puts that tab's dropdown back. The 🔗 Links half is pressed
+   at the end of this section.
+
+   `url` and not a made-up id: the shapes are real, and a restore that only ever put
+   back a value the UI could not produce would be measuring less than it looks like it
+   is. */
+setPreset("details", { lineShape: "url" });
+setPreset("report", { band2: "none" });
+setPrefs({ lineShape: "url", settingsTab: "details", corner: "bottom-left", layout: "split", rightClickMenu: true });
+is("the selected preset's head and 📊 Report's second band are away from their defaults",
+  [editedPreset("details").lineShape, bandsOf("report")[1]], ["url", "none"]);
 // Both field lists too, and by real clicks and a real reorder rather than a poke:
 // the section above ticked team, unticked priority and fixv, moved the parent to the
 // top, and emptied 📊 Report's list altogether.
 is("and so are both field lists, which is what the two sections above did to them",
-  [ticked("detailsFields"), ticked("reportFields"), prefsOf().detailsFields[0].id],
+  [ticked("details"), ticked("report"), editedPreset("details").fields[0].id],
   [["parent", "type", "status", "assignee", "team", "remaining"], [], "parent"]);
 dispatch(restoreButton(), "click");
 flush();
 is("ONE PRESS ARMS IT and the label becomes the question", restoreButton().textContent, "Restore?");
-is("and writes nothing", [prefsOf().lineShape, prefsOf().reportBand2], ["url", "none"]);
+is("and writes nothing",
+  [editedPreset("details").lineShape, bandsOf("report")[1]], ["url", "none"]);
 is("the tooltip says there is no undo", /no undo/.test(restoreButton().title), true);
 // A render is not a click. The armed state is derived from `armed` inside `render`,
 // so a re-render REBUILDS the question rather than wiping it -- which is the same
@@ -1279,33 +1361,731 @@ is("a re-render leaves it armed, because the label is derived and not written",
 dispatch(byId.get("gt-cart-tabs"), "click");
 flush();
 is("but a click on the panel's dead space disarms it", restoreButton().textContent, "↺ Restore export defaults");
-is("and still nothing was written", prefsOf().lineShape, "url");
+is("and still nothing was written", editedPreset("details").lineShape, "url");
 
 dispatch(restoreButton(), "click");
 dispatch(restoreButton(), "click");
 flush();
-is("TWO PRESSES PUT THE FIVE EXPORT SETTINGS BACK",
-  [prefsOf().lineShape, prefsOf().reportBand1, prefsOf().reportBand2],
-  ["markdown", "priority", "team"]);
-is("both field lists with them", 
-  [ticked("detailsFields"), ticked("reportFields")],
-  [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"],
-   ["type", "status", "assignee", "fixv", "remaining", "parent"]]);
-// THE ORDER COMES BACK WITH THE TICKS, because a restore puts the whole stored list
-// back and the order is half of what one says.
-is("and the ORDER comes back with them, not just the ticks",
-  prefsOf().detailsFields.map((one) => one.id), CATALOGUE);
+/* TWO PRESSES PUT THE SELECTED PRESET BACK, AND IT REACHES ONE TAB'S PRESET AND NO
+   OTHER. This is the whole of what changed at 1.7.0: the press was made on 📋
+   Details, so 📋 Details' selected preset goes back and 📊 Report's is left exactly
+   as the sections above left it -- emptied, with `None` on band 2. */
+is("TWO PRESSES PUT THE SELECTED PRESET'S HEAD BACK",
+  editedPreset("details").lineShape, "markdown");
+is("and its field list with it, ticks and order both",
+  [ticked("details"), editedPreset("details").fields.map((one) => one.id)],
+  [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"], CATALOGUE]);
 is("the panel followed it, which is a render reading storage rather than a click",
   [fieldIds("details"), fieldBox("details", "priority").checked, fieldBox("details", "team").checked],
   [CATALOGUE, true, false]);
+// AND NO OTHER PRESET MOVED, which is the sentence the tooltip makes to whoever is
+// about to press it. 📊 Report's list is still empty and its band 2 is still None.
+is("and 📊 Report's preset is untouched, because the press was made on 📋 Details",
+  [ticked("report"), bandsOf("report")[1]], [[], "none"]);
+// ITS NAME AND ITS ★ ARE UNTOUCHED. Those are the only two parts of a preset that
+// are not shipped values, which is why this half of the restore is a rewrite of the
+// record's fields and not a replacement of the record.
+is("its name and its ★ came through the restore unchanged",
+  [editedPreset("details").name, editedPreset("details").star], ["Standard", true]);
 // IT IS AN EXPORT RESTORE AND NOTHING ELSE (decision 22). A dragged size is only
 // recoverable by dragging the grip again (risk 10), and being thrown to another tab
 // because you reset a field list would be a second change nobody asked for.
 is("and it leaves the appearance switches and the tab you are on exactly alone",
   [prefsOf().settingsTab, prefsOf().corner, prefsOf().layout, prefsOf().rightClickMenu],
   ["details", "bottom-left", "split", true]);
+// AND IT DOES NOT REACH 🔗 LINKS' PREFERENCE EITHER, which is the other half of the
+// same claim: the press was on an export tab, so the preference half never ran.
+is("nor 🔗 Links' own shape, which is a different tab's restore", prefsOf().lineShape, "url");
 is("the panel did not move out from under the press", tabPanel("details").hidden, false);
-setPrefs({ corner: "bottom-right", layout: "auto", rightClickMenu: false });
+
+/* ---- AND THE OTHER RESTORE, ON 🔗 LINKS. Same button, same arming, and it reaches
+   the PREFERENCE rather than any preset -- so the two halves are pressed rather than
+   argued about. */
+dispatch(tabButton("links"), "click");
+flush();
+is("the restore is offered on 🔗 Links too, because it holds an export setting",
+  restoreButton().hidden, false);
+// THE TOOLTIP IS A FUNCTION OF THE TAB, because what the button DOES is. On an
+// export tab it names the preset it is about to rewrite; here it names the button.
+is("and its tooltip names 🔗 Links, where the export tabs' names the preset",
+  [/🔗 Links/.test(restoreButton().title), /Standard/.test(restoreButton().title)],
+  [true, false]);
+dispatch(restoreButton(), "click");
+dispatch(restoreButton(), "click");
+flush();
+is("two presses put 🔗 Links' shape back", prefsOf().lineShape, "markdown");
+is("and the dropdown followed it", shapeSelect("links").value, "markdown");
+is("while no preset moved with it",
+  [editedPreset("details").lineShape, ticked("report")], ["markdown", []]);
+setPrefs({ settingsTab: "details", corner: "bottom-right", layout: "auto", rightClickMenu: false });
+
+/* ================= THE PRESET BLOCK (presets ticket 03, 1.7.0) ==================
+
+   `store-smoke` holds the repair rules and `format-smoke` holds which preset a plain
+   press reads. WHAT IS HERE IS THE SCREEN: five controls, driven by real events, and
+   the two claims that only a screen can be wrong about -- that changing the picker
+   writes NOTHING, and that creating a preset does not modify the one that was open.
+
+   THAT SECOND ONE IS THE DEFECT THE PROTOTYPE FOUND ON ITS FIRST PRESS. `Save as
+   new…` copied the selected preset, and editing writes straight into the selected
+   preset, so the flow anybody uses -- change the fields, then save under a new name --
+   modified the old preset as well as making the copy. The fix is an ORDER: the name is
+   committed first (decision 8, reversed 2026-08-27). This section reads the preset
+   that was open back BEFORE and AFTER, byte for byte, which is the term the defect was
+   found in. */
+const presetStar = (tab) => byId.get(`gt-cart-preset-star-${tab}`);
+const presetEdit = (tab) => byId.get(`gt-cart-preset-edit-${tab}`);
+const presetDelete = (tab) => byId.get(`gt-cart-preset-delete-${tab}`);
+const presetRenameField = (tab) => byId.get(`gt-cart-preset-rename-${tab}`);
+const presetNewButton = (tab) => byId.get(`gt-cart-preset-new-${tab}`);
+const presetNameField = (tab) => byId.get(`gt-cart-preset-name-${tab}`);
+const presetCreate = (tab) => byId.get(`gt-cart-preset-create-${tab}`);
+const presetNote = (tab) => byId.get(`gt-cart-preset-note-${tab}`).textContent;
+const pickerOptions = (tab) => presetPicker(tab).children.map((one) => one.textContent);
+const namesOf = (tab) => presetsOf()[tab].map((one) => one.name);
+
+dispatch(tabButton("details"), "click");
+flush();
+
+// ---- WHERE THE BLOCK IS. On the two tabs that have presets and nowhere else, and
+// ABOVE the settings it governs, because it says which preset those settings belong
+// to -- a control that scopes the rows below it has to be read before them.
+is("both export tabs carry a preset block, and 🔗 Links and Appearance do not",
+  ["appearance", "links", "details", "report"].map((id) => !!presetPicker(id)),
+  [false, false, true, true]);
+is("and it sits above the Issue reference, the bands and the field list",
+  [tabPanel("report").children.indexOf(presetPicker("report").closest(".gt-cart-presets")),
+   tabPanel("report").children.indexOf(shapeSelect("report").closest(".gt-cart-pref")),
+   tabPanel("report").children.indexOf(bandSelect("reportBand1").closest(".gt-cart-bands")),
+   tabPanel("report").children.indexOf(byId.get("gt-cart-fields-report"))],
+  [0, 1, 2, 3]);
+
+// ---- A FRESH INSTALL HAS ONE PRESET PER LIST, CALLED `Standard`, CARRYING ★.
+is("the picker lists one preset, and the ★ is in the option text",
+  pickerOptions("details"), ["★ Standard"]);
+is("and it is selected, because a fresh sitting starts at ★",
+  presetPicker("details").value, starOf("details").id);
+// TWO SENTENCES BECAUSE THEY ARE TWO FACTS, and stated limit 1 is that they need not
+// agree. With one preset they do, and the note says so in one sentence.
+is("the note says what a plain press uses and what the rows below edit",
+  presetNote("details"),
+  "★ Standard — what a plain press of 📋 Details uses, and what the settings below edit.");
+// ★ IS A STATE BUTTON. `css-smoke` proves the paint; this proves the attribute it
+// paints from.
+is("★ says it is pressed, because the selected preset IS the starred one",
+  presetStar("details").getAttribute("aria-pressed"), "true");
+is("and its tooltip says so rather than offering to change it",
+  /already uses Standard/.test(presetStar("details").title), true);
+// ✕ IS DISABLED ON A LIST OF ONE, and it says why: a list with no presets has no
+// answer to what this button prints.
+is("✕ is disabled on a list of one, and the tooltip carries the sentence",
+  [presetDelete("details").disabled,
+   presetDelete("details").title],
+  [true, "Standard is the only preset for this export, so it cannot be removed."]);
+is("the rename field is closed, and so is the name field",
+  [presetRenameField("details").hidden, presetNameField("details").hidden,
+   presetCreate("details").hidden, presetNewButton("details").hidden],
+  [true, true, true, false]);
+
+/* ---- CREATING IS NAME FIRST. `+ Create preset` opens a field; `Create` commits the
+   name, and every edit from then on lands on the new preset. There is no Cancel and
+   no draft -- Escape closes the field, which is not a cancel over unsaved work
+   because there is none. */
+/* THE OPEN PRESET IS PUT INTO A STATE THAT DIFFERS FROM THE SHIPPED DEFAULTS FIRST,
+   and that is not decoration. `Create` starts from the shipped defaults, so a check
+   run while the open preset IS at the shipped defaults compares two identical things
+   and CANNOT FAIL -- which is exactly what the mutation run found the first time this
+   was written. Untick a field and move the head, and the two are now different
+   objects, so a create that touched the open one would show. */
+const dirtyBox = fieldBox("details", "status");
+dirtyBox.checked = false;
+dispatch(dirtyBox, "change");
+flush();
+shapeSelect("details").value = "url";
+dispatch(shapeSelect("details"), "change");
+flush();
+is("the open preset is away from the shipped defaults before anything is created",
+  [ticked("details").includes("status"), editedPreset("details").lineShape], [false, "url"]);
+const beforeCreate = JSON.stringify(editedPreset("details"));
+dispatch(presetNewButton("details"), "click");
+flush();
+is("+ Create preset opens a name field and a Create, and hides itself",
+  [presetNameField("details").hidden, presetCreate("details").hidden, presetNewButton("details").hidden],
+  [false, false, true]);
+is("and opening it writes nothing", namesOf("details"), ["Standard"]);
+// AN EMPTY NAME IS REFUSED, with nothing written and the field still open -- the
+// placeholder already says what belongs there, exactly as `createCollection` does.
+presetNameField("details").value = "   ";
+dispatch(presetCreate("details"), "click");
+flush();
+is("Create with an empty name is refused and writes nothing",
+  [namesOf("details"), presetNameField("details").hidden], [["Standard"], false]);
+// ESCAPE CLOSES THE FIELD AND CREATES NOTHING.
+dispatch(presetNameField("details"), "keydown", { key: "Escape" });
+flush();
+is("Escape closes the name field and creates nothing",
+  [namesOf("details"), presetNameField("details").hidden, presetNewButton("details").hidden],
+  [["Standard"], true, false]);
+
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Executive";
+dispatch(presetCreate("details"), "click");
+flush();
+is("Create makes the preset and closes the field",
+  [namesOf("details").sort(), presetNameField("details").hidden],
+  [["Executive", "Standard"], true]);
+// IT IS SELECTED, so everything changed from here lands on it -- which is the whole
+// of why creating comes before editing.
+is("and it is SELECTED, which is what makes there be nothing to modify by accident",
+  editedPreset("details").name, "Executive");
+// AND THE PRESET THAT WAS OPEN IS BYTE-IDENTICAL. This is the reversal's own claim,
+// read back in the terms the defect was found in.
+is("AND THE PRESET THAT WAS OPEN IS BYTE-IDENTICAL AFTERWARDS",
+  JSON.stringify(presetsOf().details.find((one) => one.name === "Standard")), beforeCreate);
+// IT STARTS FROM THE SHIPPED DEFAULTS and never from a copy of the selected preset
+// (decision 8, against the recommendation). The cost is stated limit 9.
+is("and the new one carries the SHIPPED defaults, not a copy of what was open",
+  [ticked("details"), editedPreset("details").fields.map((one) => one.id),
+   editedPreset("details").lineShape],
+  [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"], CATALOGUE, "markdown"]);
+// CREATING DOES NOT MOVE ★. What a plain press prints is ★'s question and it takes
+// its own press.
+is("creating does not move the ★, because that is a different question",
+  starOf("details").name, "Standard");
+is("the note now says the two facts separately, because they no longer agree",
+  presetNote("details"),
+  "★ Standard — what a plain press of 📋 Details uses. The settings below edit Executive.");
+is("and ★ says it is NOT pressed, because the selected preset is not the starred one",
+  presetStar("details").getAttribute("aria-pressed"), "false");
+// SORTED BY NAME, case-insensitively, and ★ goes in the option text (decision 12).
+// The stored order carries nothing: `Executive` was created second and sorts first.
+is("the picker sorts by name, so the one created second is listed first",
+  pickerOptions("details"), ["Executive", "★ Standard"]);
+is("and the other list is untouched by any of it", namesOf("report"), ["Standard"]);
+
+/* AND THE LOG NAMES WHAT WAS ACTUALLY CREATED, which is the only thing that can tell
+   `createPreset`'s own `uniqueName` from the repair's. `normalisePresets` applies the
+   same rule per entry on the way out, and the new preset is pushed LAST, so the
+   STORED name is identical either way -- the mutation that dropped the call from the
+   handler survived every check on the store. What differs is the sentence: without
+   the call the log claims a name the store does not hold, which is the shape of thing
+   somebody debugs for an hour. */
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "executive";
+dispatch(presetCreate("details"), "click");
+flush();
+is("a create onto a name already taken gets uniqueName, case ignored",
+  namesOf("details").sort(), ["Executive", "Standard", "executive 2"]);
+is("AND THE LOG NAMES THE PRESET THAT EXISTS, not the name that was typed",
+  logs.filter(([level, line]) => level === "log" && line.includes("created the 📋 Details preset"))
+    .at(-1)[1],
+  "[Jira Cart] created the 📋 Details preset executive 2");
+// Undo it, so the sections below run on the two-preset list they were written for.
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("and deleting it leaves the two the section below expects",
+  namesOf("details").sort(), ["Executive", "Standard"]);
+// And back onto the new preset, which is what the section below edits.
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Executive").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("and the selection is back on the new preset", editedPreset("details").name, "Executive");
+
+
+/* ---- AN EDIT LANDS ON THE SELECTED PRESET AND ON NOTHING ELSE. This is the check
+   ticket 03 named as the one to prove able to fail: a tick landing on a preset other
+   than the selected one. */
+const standardBefore = JSON.stringify(presetsOf().details.find((one) => one.name === "Standard"));
+const teamBox2 = fieldBox("details", "team");
+teamBox2.checked = true;
+dispatch(teamBox2, "change");
+flush();
+is("a tick lands on the SELECTED preset", ticked("details").includes("team"), true);
+is("AND THE OTHER PRESET IS BYTE-IDENTICAL AFTERWARDS",
+  JSON.stringify(presetsOf().details.find((one) => one.name === "Standard")), standardBefore);
+// The shape row on an export tab writes the PRESET, where 🔗 Links' writes the
+// preference. Three dropdowns that look identical and write to two places.
+shapeSelect("details").value = "key-url";
+dispatch(shapeSelect("details"), "change");
+flush();
+is("and so does the tab's own Issue reference row",
+  [editedPreset("details").lineShape, prefsOf().lineShape], ["key-url", "markdown"]);
+
+/* ---- AND SO DOES THE DRAG, WHICH IS DRIVEN HERE FOR THE FIRST TIME. §2.14 said no
+   harness in this repository could drive it and corrected itself at 1.4.0: the claim
+   was never quite right, and what was true is that nothing drove THIS one -- a scope
+   call, not a limit. Ticket 03 moved where this drop WRITES, from a preference to the
+   selected preset, so the gap stopped being free: the mutation run put the drop's
+   target back to a no-op and nothing went red.
+
+   WHAT IS DRIVEN IS THE STATE AND NOT THE PAINT. `smoke.mjs` holds `moveInList`
+   directly and §7 step 31 is still the browser pass for what a pointer feels like;
+   this holds the two things that are new -- that both ends are resolved against the
+   STORED list at drop time by id, and that what the drop writes is the SELECTED
+   preset and nothing else. */
+const fieldTransfer = () => ({
+  data: {}, effectAllowed: "", dropEffect: "",
+  setData(type, value) { this.data[type] = value; },
+});
+// A rect for the row being dropped ON. The stub gives every element the same one, so
+// "the top half" would otherwise mean nothing: 100..120 puts the midpoint at 110.
+const FIELD_RECT = { left: 10, top: 100, right: 290, bottom: 120, width: 280, height: 20 };
+const dragRow = fieldRow("details", "parent");
+const ontoRow = fieldRow("details", "type");
+ontoRow.getBoundingClientRect = () => FIELD_RECT;
+const fdt = fieldTransfer();
+const otherBeforeDrag = JSON.stringify(presetsOf().details.find((one) => one.name === "Standard"));
+dispatch(dragRow, "dragstart", { dataTransfer: fdt });
+is("the dragged row carries the LIST and the field id, never a position",
+  fdt.data["application/x-gt-cart-field"], "details:parent");
+is("and it says it is being dragged, which is the attribute the sheet paints",
+  dragRow.attrs["data-gt-dragging"], "true");
+dispatch(ontoRow, "dragover", { dataTransfer: fdt, clientY: 105 });
+is("a pointer in the TOP half marks the gap ABOVE the row",
+  ontoRow.attrs["data-gt-drop"], "before");
+is("and the cursor is told it is a move, not a copy", fdt.dropEffect, "move");
+dispatch(ontoRow, "drop", { dataTransfer: fdt, clientY: 105 });
+flush();
+is("THE DROP REORDERS THE SELECTED PRESET'S LIST",
+  editedPreset("details").fields.map((one) => one.id),
+  ["parent", "type", "status", "priority", "assignee", "team", "fixv", "remaining"]);
+is("AND THE OTHER PRESET IS BYTE-IDENTICAL AFTERWARDS, order included",
+  JSON.stringify(presetsOf().details.find((one) => one.name === "Standard")), otherBeforeDrag);
+is("the panel drew the new order, moving the rows rather than rebuilding them",
+  [fieldIds("details")[0], fieldRow("details", "parent") === dragRow], ["parent", true]);
+dispatch(dragRow, "dragend", { dataTransfer: fdt });
+flush();
+is("and the drag cleared up after itself",
+  [dragRow.attrs["data-gt-dragging"], ontoRow.attrs["data-gt-drop"]], ["", ""]);
+// A DROP FROM ONE LIST INTO THE OTHER IS REFUSED rather than silently reinterpreted:
+// returning without preventDefault leaves the platform's own refusal in place, so the
+// cursor says no and `drop` never fires.
+const crossDt = fieldTransfer();
+const reportOnto = fieldRow("report", "type");
+reportOnto.getBoundingClientRect = () => FIELD_RECT;
+dispatch(fieldRow("details", "status"), "dragstart", { dataTransfer: crossDt });
+dispatch(reportOnto, "dragover", { dataTransfer: crossDt, clientY: 105 });
+is("a drag from one list is refused over the other, with no indicator drawn",
+  [reportOnto.attrs["data-gt-drop"] ?? "", crossDt.dropEffect], ["", ""]);
+dispatch(fieldRow("details", "status"), "dragend", { dataTransfer: crossDt });
+flush();
+
+/* ---- THE PICKER CHANGES WHAT THE ROWS EDIT AND WRITES NOTHING. The selection is in
+   memory (decision 9), so this is the only `change` in the drawer that does not reach
+   storage. */
+/* A SENTINEL, BECAUSE COMPARING THE BYTES CANNOT SEE A NO-OP REWRITE. The first
+   version of this check compared the stored blob before and after, and a picker that
+   called `savePresets` would have rewritten the SAME normalised content -- so the
+   check passed on a write. `normalisePresets` keeps only the lists `PRESET_LISTS`
+   names, so a key nothing knows about survives being READ and cannot survive being
+   WRITTEN. That is the difference this check needs. */
+store["gt-jira-cart.presets"] = JSON.stringify({
+  ...presetsOf(),
+  "gt-only-a-write-erases-this": true,
+});
+rerender();
+presetPicker("details").value = starOf("details").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("changing the picker writes NOTHING, which a no-op rewrite would not show",
+  "gt-only-a-write-erases-this" in JSON.parse(store["gt-jira-cart.presets"]), true);
+// AND EVERY ROW UNDER IT FOLLOWS: the tick that was made on `Executive` is gone, and
+// `Standard`'s own head -- which was moved to `url` before the create -- is back.
+is("but it changes what the rows below edit, all of them",
+  [editedPreset("details").name, ticked("details").includes("team"),
+   ticked("details").includes("status"), shapeSelect("details").value],
+  ["Standard", false, false, "url"]);
+is("and the note followed it", presetNote("details"),
+  "★ Standard — what a plain press of 📋 Details uses, and what the settings below edit.");
+// A RE-RENDER DOES NOT MOVE IT. The selection is module state, not something derived
+// from the store on every pass.
+rerender();
+is("the selection survives a re-render", editedPreset("details").name, "Standard");
+/* AND THE PICKER'S OPTIONS ARE NOT REBUILT WHEN NOTHING ABOUT THEM CHANGED. This is
+   the one control on the settings screen whose options are replaced at all, so it is
+   the one that can break the panel's build-once rule -- and a dropdown rebuilt on
+   every render closes under the pointer that opened it and loses the keyboard's place
+   in it. `renderPresetBlock` compares what it wants against what is on screen; this
+   holds it to that by NODE IDENTITY, which is the only thing a byte comparison of the
+   option text cannot see. */
+const heldOption = presetPicker("details").children[0];
+rerender();
+rerender();
+is("and the picker's options are not rebuilt when nothing about them changed",
+  presetPicker("details").children[0] === heldOption, true);
+// BUT THEY ARE REPLACED WHEN THE LIST CHANGES, which is what makes the comparison a
+// comparison rather than a refusal to ever write.
+store["gt-jira-cart.presets"] = JSON.stringify({
+  ...presetsOf(),
+  details: presetsOf().details.map((one) =>
+    one.name === "Executive" ? { ...one, name: "Renamed elsewhere" } : one),
+});
+rerender();
+// AND IT RE-SORTS WITH IT, because the order is by name and a rename moves one --
+// which is stated limit 4, visible here as the picker reshuffling.
+is("but a name changed in another tab does redraw them, and re-sorts",
+  [pickerOptions("details"), presetPicker("details").children[0] === heldOption],
+  [["Renamed elsewhere", "★ Standard"], false]);
+store["gt-jira-cart.presets"] = JSON.stringify({
+  ...presetsOf(),
+  details: presetsOf().details.map((one) =>
+    one.name === "Renamed elsewhere" ? { ...one, name: "Executive" } : one),
+});
+rerender();
+
+/* ---- ★ MOVES THE FLAG, AND MOVES NOTHING ELSE. It does not change which preset the
+   rows edit: those are two questions, which is stated limit 1. */
+/* ★ IS MOVED TWICE, AND THE SECOND MOVE IS THE ONE THAT CAN FAIL. The list is
+   `Executive` then `Standard` by name, and `oneStar` repairs any list that does not
+   hold exactly one flag by giving it to the FIRST BY NAME on the way out. So a press
+   that flagged everything, or that flagged the first by name whoever was selected,
+   lands on `Executive` and looks correct -- which is what the mutation run found the
+   first two times this was written. Moving ★ ONTO `Standard`, which is neither first
+   by name nor already flagged, is the press where the right answer and both wrong
+   ones differ. */
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Executive").id;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetStar("details"), "click");
+flush();
+is("★ moves the flag to the selected preset", starOf("details").name, "Executive");
+is("and EXACTLY ONE preset carries it afterwards",
+  presetsOf().details.filter((one) => one.star).length, 1);
+is("the picker's ★ moved with it", pickerOptions("details"), ["★ Executive", "Standard"]);
+is("and the selection did not move, because ★ and the picker are two questions",
+  editedPreset("details").name, "Executive");
+is("the other list's ★ did not move either", starOf("report").name, "Standard");
+// AND ONTO THE ONE THAT SORTS SECOND, which is the press the repair cannot fake.
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Standard").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("★ says it is not pressed on a preset that is not the starred one",
+  presetStar("details").getAttribute("aria-pressed"), "false");
+dispatch(presetStar("details"), "click");
+flush();
+is("★ MOVES TO THE SELECTED PRESET even when that is not the first by name",
+  [starOf("details").name, presetsOf().details.filter((one) => one.star).length],
+  ["Standard", 1]);
+is("and the picker's ★ went with it", pickerOptions("details"), ["Executive", "★ Standard"]);
+// Back onto Executive, which is the state the sections below were written for.
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Executive").id;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetStar("details"), "click");
+flush();
+is("and it moves back the same way", [starOf("details").name, pickerOptions("details")],
+  ["Executive", ["★ Executive", "Standard"]]);
+
+/* ---- RENAME. The field belongs to the keyboard while it is open, an empty name is
+   refused with the old one standing, and `uniqueName` applies -- the collection's own
+   three rules, reused rather than restated (decision 13). */
+dispatch(presetEdit("details"), "click");
+flush();
+is("✎ opens the field in place and takes the picker's row",
+  [presetRenameField("details").hidden, presetPicker("details").hidden,
+   presetStar("details").hidden, presetDelete("details").hidden],
+  [false, true, true, true]);
+is("and the field is handed the name to edit, by the press and not by render",
+  presetRenameField("details").value, "Executive");
+// A RENDER IN THE MIDDLE OF TYPING MUST NOT PUT THE STORED NAME BACK.
+presetRenameField("details").value = "Half typ";
+rerender();
+is("a render in the middle of typing does not put the stored name back",
+  presetRenameField("details").value, "Half typ");
+// AN EMPTY NAME IS REFUSED, nothing written, the old name standing.
+presetRenameField("details").value = "   ";
+dispatch(presetRenameField("details"), "keydown", { key: "Enter" });
+flush();
+is("an empty name is refused and the old one stands",
+  [namesOf("details").sort(), presetRenameField("details").hidden],
+  [["Executive", "Standard"], true]);
+// ESCAPE CANCELS, and the blur that hiding the field produces cannot undo it.
+dispatch(presetEdit("details"), "click");
+flush();
+presetRenameField("details").value = "Thrown away";
+dispatch(presetRenameField("details"), "keydown", { key: "Escape" });
+dispatch(presetRenameField("details"), "blur");
+flush();
+is("Escape cancels, and the blur it causes cannot commit behind it",
+  namesOf("details").sort(), ["Executive", "Standard"]);
+// AND `uniqueName` APPLIES, the same rule as create: a clash ignores case and ` 2`
+// is appended, so a preset called `Sprint 2` duplicates to `Sprint 2 2`.
+/* THE STORED ORDER IS REVERSED FIRST, and that is what makes this check able to
+   fail. `normalisePresets` also runs `uniqueName`, per entry, against the entries it
+   has already kept IN STORED ORDER -- so with the renamed preset stored LAST the two
+   give the same answer and a `commitPresetRename` that skipped `uniqueName`
+   altogether would look correct. Stored FIRST, they differ: the repair would rename
+   the OTHER preset, the one nobody touched. The array's order carries no meaning
+   (decision 12), so reversing it is a legal state and this is the one place its
+   legality does any work. */
+store["gt-jira-cart.presets"] = JSON.stringify({
+  ...presetsOf(),
+  details: presetsOf().details.slice().reverse(),
+});
+rerender();
+is("the renamed preset is stored FIRST, which is what makes the next check able to fail",
+  presetsOf().details[0].name, "Executive");
+dispatch(presetEdit("details"), "click");
+flush();
+presetRenameField("details").value = "standard";
+dispatch(presetRenameField("details"), "keydown", { key: "Enter" });
+flush();
+is("a rename onto a name already taken gets uniqueName, case ignored",
+  namesOf("details").sort(), ["Standard", "standard 2"]);
+is("AND IT IS THE RENAMED ONE THAT YIELDS, never the preset nobody touched",
+  presetsOf().details.map((one) => one.name), ["standard 2", "Standard"]);
+// Put it back, so the section below reads names it set.
+dispatch(presetEdit("details"), "click");
+flush();
+presetRenameField("details").value = "Executive";
+dispatch(presetRenameField("details"), "blur");
+flush();
+is("and blur commits, exactly as the collection's rename field does",
+  namesOf("details").sort(), ["Executive", "Standard"]);
+
+/* ---- AND THE RENAME FIELD'S OWN `change` MUST NOT REACH THE PICKER'S BRANCH.
+   `change` BUBBLES from every form control, including a text input on BLUR, and the
+   panel has ONE delegated `change` listener -- so a rename field carrying the
+   picker's attribute would fire on blur, land in the picker's branch, and set the
+   selection to the NAME somebody had just typed. The panel would then quietly show
+   the ★ preset instead, and the rename would look like it had jumped to another
+   preset.
+
+   IT IS RUN ON A PRESET THAT IS NOT ★, and that is what makes it able to fail: the
+   broken selection falls back to ★, so on the ★ preset the wrong answer and the right
+   one are the same string. Nothing here can be found by blurring — this harness's
+   blur synthesises no `change`, and a browser's does — so the event is dispatched
+   directly, which is also how the bug was found: by reading the delegated listener. */
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Standard").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("the selection is on a preset that is NOT the starred one",
+  [editedPreset("details").name, starOf("details").name], ["Standard", "Executive"]);
+dispatch(presetEdit("details"), "click");
+flush();
+presetRenameField("details").value = "Half typed again";
+dispatch(presetRenameField("details"), "change");
+flush();
+is("the rename field's own change does not reach the picker's branch",
+  editedPreset("details").name, "Standard");
+dispatch(presetRenameField("details"), "keydown", { key: "Escape" });
+flush();
+is("and Escape leaves the name alone", namesOf("details").sort(), ["Executive", "Standard"]);
+// Back onto the starred one, which is what the sections below were written for.
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Executive").id;
+dispatch(presetPicker("details"), "change");
+flush();
+
+/* ---- AN ADD FROM THE PAGE WHILE ⚙ IS UP DOES NOT LOSE THE SELECTION. Decision 25
+   is a constraint here too: every add calls `render`, and the panel only ever SETS. */
+dispatch(card.children[0], "pointerover");
+flush();
+dispatch(floating(), "click");
+flush();
+is("an add from the page leaves the panel up, on the same tab, on the same preset",
+  [panel().hidden, prefsOf().settingsTab, editedPreset("details").name],
+  [false, "details", "Executive"]);
+
+/* ---- ✕ ARMS ON THE FIRST PRESS. The two sentences are the collection chip's own,
+   and the armed key names the PRESET as well as the list -- so changing the picker
+   while it is armed disarms it by construction. */
+is("✕ is enabled once there are two presets", presetDelete("details").disabled, false);
+dispatch(presetDelete("details"), "click");
+flush();
+is("ONE PRESS ARMS IT and the tooltip becomes the question",
+  [presetDelete("details").attrs["data-gt-armed"], presetDelete("details").title],
+  ["true", "Click again to delete Executive. There is no undo."]);
+is("and writes nothing", namesOf("details").sort(), ["Executive", "Standard"]);
+// A RE-RENDER LEAVES IT ARMED, because the armed state is derived inside `render`.
+rerender();
+is("a re-render leaves it armed", presetDelete("details").attrs["data-gt-armed"], "true");
+// AND CHANGING THE PICKER DISARMS IT. The handler disarms explicitly, so this holds
+// the pair -- state and paint agreeing -- rather than the armed key on its own.
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Standard").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("changing the picker disarms it, so the second press cannot land on a preset you did not arm",
+  presetDelete("details").attrs["data-gt-armed"], "false");
+is("and nothing was deleted by the change", namesOf("details").sort(), ["Executive", "Standard"]);
+
+/* ---- AND THE ARMED KEY NAMES THE PRESET, WHICH IS A SEPARATE GUARD FROM THE
+   HANDLER'S OWN `disarm`. The mutation run is what says these are two things: with
+   the id taken out of the key, the check above still passed, because the picker
+   handler disarms by hand. THIS is the path the id is for, and no hand is on it --
+   ANOTHER TAB deletes the preset you have armed. The selection then falls to ★, and
+   without the id the button would go on wearing the armed paint over a preset nobody
+   armed, ready to be deleted by the next press. */
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Executive").id;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetDelete("details"), "click");
+flush();
+is("armed against the selected preset", presetDelete("details").attrs["data-gt-armed"], "true");
+store["gt-jira-cart.presets"] = JSON.stringify({
+  ...presetsOf(),
+  details: presetsOf().details.filter((one) => one.name !== "Executive"),
+});
+rerender();
+is("another tab deleting it drops the selection back to ★", editedPreset("details").name, "Standard");
+is("AND THE ARMED PAINT GOES WITH IT, because the key named the preset and not the list",
+  presetDelete("details").attrs["data-gt-armed"], "false");
+
+/* ---- AND A PRESS ON A LIST OF ONE REFUSES, WHICH TAKES A RACE TO REACH AT ALL.
+   The button is `disabled` on a list of one and the delegated listener reads
+   `disabled` before it reads the action, so no ordinary press gets near the handler.
+   The window is between ANOTHER TAB'S WRITE AND OUR RENDER: the store says one
+   preset, the screen still says two, and the button is still enabled. That is exactly
+   the read-modify-write window §2.5 is about, and it is reached here by poking the
+   store WITHOUT re-rendering.
+
+   IF THE REFUSAL WERE MISSING the list would be emptied and `normalisePresets` would
+   rebuild it with a fresh `Standard` from the shipped defaults -- so the preset you
+   built would be silently REPLACED rather than deleted. The whole preset is compared
+   and not its id: the first run's id is minted once per session and memoised, so a
+   rebuilt `Standard` comes back carrying the SAME id, and an id comparison passed
+   over a preset whose fields and head had been thrown away. */
+// Two presets again, and RENDERED -- so the ✕ is enabled on screen before the store
+// is changed under it. That order is the whole of the race.
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Executive";
+dispatch(presetCreate("details"), "click");
+flush();
+is("two presets, and the ✕ is enabled on screen", presetDelete("details").disabled, false);
+store["gt-jira-cart.presets"] = JSON.stringify({
+  ...presetsOf(),
+  details: presetsOf().details.filter((one) => one.name === "Standard"),
+});
+is("the store says one preset while the screen still says two, which is the race",
+  [presetsOf().details.length, presetDelete("details").disabled], [1, false]);
+const survivor = JSON.stringify(presetsOf().details[0]);
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("the last preset cannot be deleted, and it is the SAME preset afterwards, byte for byte",
+  [namesOf("details"), JSON.stringify(presetsOf().details[0])], [["Standard"], survivor]);
+rerender();
+
+// Put the second preset back, so the sections below run on the list they expect.
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Executive";
+dispatch(presetCreate("details"), "click");
+flush();
+dispatch(presetStar("details"), "click");
+flush();
+is("and the two-preset list is back, with ★ where the section below expects it",
+  [namesOf("details").sort(), starOf("details").name], [["Executive", "Standard"], "Executive"]);
+
+/* ---- DELETING THE ★ PRESET PASSES ★ TO THE FIRST REMAINING BY NAME (decision 11).
+   `store-smoke` proves `oneStar` repairs a blob on the way in; this proves the write
+   path does it too, so the two agree and neither is the only guard. */
+presetPicker("details").value = starOf("details").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("the ★ preset is the one selected before the delete", editedPreset("details").name, "Executive");
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("TWO PRESSES DELETE IT", namesOf("details"), ["Standard"]);
+is("and ★ passed to the first remaining by name",
+  [starOf("details").name, presetsOf().details.filter((one) => one.star).length], ["Standard", 1]);
+is("the selection reset to ★ with it", editedPreset("details").name, "Standard");
+is("and the picker redrew, so nothing points at a preset that is gone",
+  pickerOptions("details"), ["★ Standard"]);
+is("✕ is disabled again, because the list is back to one", presetDelete("details").disabled, true);
+is("and the other list never moved through any of it", namesOf("report"), ["Standard"]);
+
+/* ---- THE RESTORE ON A PRESET THAT IS NEITHER SHIPPED NOR ★. The restore section
+   above pressed it on the only preset there was, which was called `Standard` and
+   carried the flag -- so a restore that overwrote the NAME with `Standard` and cleared
+   the ★ would have looked identical, and the mutation run found exactly that: the
+   check could not fail. This one runs on a preset whose name is not `Standard` and
+   whose flag is off, which is the state the claim is about. */
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Portfolio office";
+dispatch(presetCreate("details"), "click");
+flush();
+const dirty2 = fieldBox("details", "parent");
+dirty2.checked = false;
+dispatch(dirty2, "change");
+flush();
+shapeSelect("details").value = "key-url";
+dispatch(shapeSelect("details"), "change");
+flush();
+is("a second preset, named, unstarred and away from the shipped defaults",
+  [editedPreset("details").name, editedPreset("details").star,
+   ticked("details").includes("parent"), editedPreset("details").lineShape],
+  ["Portfolio office", false, false, "key-url"]);
+/* THE OTHER PRESET IN THE SAME LIST IS SNAPSHOTTED FIRST, and it is away from the
+   shipped defaults -- `url` for a head and two fields unticked, left there by the
+   sections above. *No other preset moves* is the half of decision 14 that a check on
+   the OTHER TAB cannot reach, and a restore that walked the whole list would look
+   correct on every check that only reads the one it was pressed on. */
+const untouched = JSON.stringify(presetsOf().details.find((one) => one.name === "Standard"));
+is("the other preset in this list is away from the shipped defaults before the press",
+  presetsOf().details.find((one) => one.name === "Standard").lineShape, "url");
+dispatch(restoreButton(), "click");
+dispatch(restoreButton(), "click");
+flush();
+is("the restore put its fields and its head back",
+  [ticked("details"), editedPreset("details").lineShape],
+  [["type", "status", "priority", "assignee", "fixv", "remaining", "parent"], "markdown"]);
+is("AND ITS NAME AND ITS ★ CAME THROUGH UNTOUCHED",
+  [editedPreset("details").name, editedPreset("details").star], ["Portfolio office", false]);
+is("AND NO OTHER PRESET IN THE LIST MOVED, byte for byte",
+  JSON.stringify(presetsOf().details.find((one) => one.name === "Standard")), untouched);
+is("and the ★ is still where it was, on a preset the restore never looked at",
+  starOf("details").name, "Standard");
+// Back to one preset.
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("and back to one preset again", namesOf("details"), ["Standard"]);
+
+/* ---- AND THE SELECTION RESETS ON A FRESH DRAWER. It is in memory, so a drawer
+   rebuilt under it -- a React remount, a close and reopen -- starts at ★ again with
+   no half-typed name and nothing being renamed. This is also the only place in this
+   file where the drawer is rebuilt, which is `ensureDrawer`'s own path. */
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Executive";
+dispatch(presetCreate("details"), "click");
+flush();
+dispatch(presetStar("details"), "click");
+flush();
+/* ★ IS MOVED OFF THE FIRST PRESET IN THE ARRAY FIRST, and the picker is left
+   somewhere else again, so that "back at ★" is a different answer from every cheaper
+   one. The stored order is [Standard, Executive] and ★ is now on Executive, so a
+   fallback to `list[0]`, to the first BY NAME, or to "whatever was selected" each
+   gives `Standard` -- and only the right answer gives `Executive`. Written this way
+   because the first version of this check ran on a list where all four answers
+   agreed, and a mutation that took the ★ out of the fallback survived it. */
+presetPicker("details").value = presetsOf().details.find((one) => one.name === "Standard").id;
+dispatch(presetPicker("details"), "change");
+flush();
+is("★ is on the preset stored SECOND, and the picker is on the one stored first",
+  [presetsOf().details.map((one) => one.name), starOf("details").name, editedPreset("details").name],
+  [["Standard", "Executive"], "Executive", "Standard"]);
+const oldDrawer = byId.get("gt-cart-drawer");
+oldDrawer.remove();
+rerender();
+is("a rebuilt drawer is a NEW element, which is what ensureDrawer does when React removes ours",
+  byId.get("gt-cart-drawer") !== oldDrawer, true);
+is("and the selection is back at ★, which is neither the first in the array nor the first by name",
+  editedPreset("details").name, "Executive");
+is("with no name field open and nothing being renamed",
+  [presetNameField("details").hidden, presetRenameField("details").hidden], [true, true]);
+// Back to one preset, so nothing below this line reads a list it did not set.
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("and back to one preset, with ★ passed to it", [namesOf("details"), starOf("details").name],
+  [["Standard"], "Standard"]);
 
 // ---- A STORED TAB THIS BUILD DOES NOT KNOW must not leave the panel blank
 // (decision 20). `store-smoke` proves `normalisePrefs` folds it to the first tab;
@@ -1355,6 +2135,367 @@ is("the search names all three keys, the bare one included, in collection order"
   "https://dalet.atlassian.net/issues/?jql=key in (RDC-1, RDC-77, GLX-402)");
 is("the commas and parentheses are encoded, or the search silently returns another set",
   /key%20in%20\(RDC-1%2C%20RDC-77%2C%20GLX-402\)/.test(opened.at(-1).url), true);
+
+/* ---- THE FOOT'S THREE ARROWS (presets ticket 04), DRIVEN END TO END.
+
+   THE ARROW DOES WHAT ITS BUTTON DOES, with the pick instead of the default
+   (decision 16), and everything below is that one sentence in its four cases: 🔗
+   Links copies at once, the two stepped buttons fetch, an already-armed button
+   copies without re-fetching, and a plain press still uses ★.
+
+   IT IS DRIVEN THROUGH THE REAL NODE AND THE REAL LISTENER. Ticket 01's node run
+   found a check that set `.value` on an arrow the stub had handed out fresh per
+   query, so the handler it fired was one nothing had registered -- it passed and
+   proved nothing. `arrow()` here goes through `byId`, which is the node the script
+   built, and `dispatch` bubbles to the delegated listener on the foot the way a
+   browser would. The mutation table in the README beside this file records which of
+   these were confirmed able to fail. */
+const pickArrow = (kind, value) => {
+  arrow(kind).value = value;
+  dispatch(arrow(kind), "change");
+};
+const shapeOptions = () => arrow("links").children.map((one) => one.value);
+const presetOptions = (kind) => arrow(kind).children.map((one) => one.textContent);
+
+/* THE PREFERENCE AND BOTH PRESET SHAPES ARE PINNED IN THIS SECTION rather than
+   inherited from the sections above, and that is not tidiness. The sections above had
+   left 🔗 Links' shape on `url` and ★ Standard's with it, so the first version of
+   every byte check below passed whichever value was read -- which is the check that
+   proves nothing, and the fault this file has had to correct twice. Every claim here
+   is "it used THIS one and not THAT one", so the two have to differ on purpose. */
+store["gt-jira-cart.prefs"] = JSON.stringify({ ...prefsOf(), lineShape: "markdown" });
+setPreset("details", { lineShape: "markdown" });
+setPreset("report", { lineShape: "markdown" });
+dispatch(document, "visibilitychange");
+flush();
+
+is("all three link-bearing buttons carry an arrow, and the other three do not",
+  ["links", "details", "report", "names", "keys", "jql"].map((k) => !!arrow(k)),
+  [true, true, true, false, false, false]);
+// THE ARROW IS ALWAYS DRAWN, even for a list of one (decision 18). One that came and
+// went would change the foot's width and its row count, which is the
+// reflow-under-the-pointer defect §2.14 spent a day removing from this very row.
+is("and it is there with a list of ONE preset", presetOptions("details").length, 1);
+/* M28's FINDING: THE SELECT MUST NOT WEAR THE BUTTONS' ATTRIBUTE. A mutation that put
+   `data-gt-format` on the arrows as well survived the whole suite, because `footButton`
+   queries the foot for that attribute and the button happens to come first in the
+   tree -- a query answering correctly by DOCUMENT ORDER, which keeps working until
+   somebody reorders the markup. Two attributes over two disjoint sets of nodes is the
+   design; this is what holds it. */
+is("the arrows carry their own attribute and never the buttons'",
+  ["links", "details", "report"].map((k) =>
+    [arrow(k).attrs["data-gt-arrow"], arrow(k).attrs["data-gt-format"]]),
+  [["links", undefined], ["details", undefined], ["report", undefined]]);
+/* AND THE CARET IS THERE, which is the whole of the resting affordance: the select
+   over it is `opacity: 0`, so without the glyph the arrow is an empty box with a
+   border. A mutation that emptied it survived until this line. */
+is("each arrow draws a caret, because the select over it is invisible",
+  ["links", "details", "report"].map((k) =>
+    arrow(k).parent.children.filter((one) => one.tag === "span").map((one) => one.textContent)),
+  [["▾"], ["▾"], ["▾"]]);
+is("and the caret is hidden from assistive tech, because the select beside it is the control",
+  ["links", "details", "report"].map((k) =>
+    arrow(k).parent.children.find((one) => one.tag === "span").attrs["aria-hidden"]),
+  ["true", "true", "true"]);
+is("with the ★ in the option's own TEXT, because a native option has no other hook",
+  presetOptions("details"), ["★ Standard"]);
+// 🔗 Links' list is the five shapes and not a preset list, which was the user's own
+// reformulation of the question (decision 4): its only configurable property is a
+// shape, and the shape list is already a fixed named list in the script.
+is("🔗 Links offers the five shapes instead", shapeOptions(),
+  ["markdown", "markdown-key", "key-summary-url", "key-url", "url"]);
+is("and no ★ among them, because a shape carries no flag",
+  arrow("links").children.some((one) => one.textContent.startsWith("★")), false);
+// WHAT THE ARROW SHOWS IS WHAT THE NEXT PRESS WOULD USE, one rule for all three.
+/* THE OPTIONS ARE NOT REBUILT WHEN NOTHING CHANGED, and the check is node IDENTITY
+   rather than content: `replaceChildren` makes new `<option>` elements, so the same
+   objects surviving a render is the only evidence that nothing was replaced. A
+   dropdown rebuilt under the pointer that opened it closes, and throws the keyboard's
+   position in it away -- neither of which a fake DOM can see, which is why this is
+   asserted from the outside. A mutation that always replaced survived until this
+   line. */
+const optionNodes = (kind) => arrow(kind).children;
+const beforeRender = ["links", "details", "report"].map((k) => optionNodes(k)[0]);
+rerender();
+is("a render that changes nothing leaves the very same option nodes in place",
+  ["links", "details", "report"].map((k, at) => optionNodes(k)[0] === beforeRender[at]),
+  [true, true, true]);
+
+is("each arrow rests on what a plain press of its button would use",
+  [arrow("links").value, arrow("details").value === starOf("details").id],
+  ["markdown", true]);
+/* AND EACH ARROW SAYS WHAT PICKING WOULD DO, derived for the same reason the label is:
+   an armed stepped button's arrow COPIES rather than fetches, so a fixed sentence
+   about fetching would be wrong at exactly the moment somebody was deciding whether to
+   press it. 🔗 Links' sentence is the one that never changes, because it has no
+   pending state to be in. */
+is("🔗 Links' arrow says it copies at once", /copies at once/.test(arrow("links").title), true);
+is("and an IDLE stepped arrow says it fetches first, naming the ★ it would replace",
+  /^Ask Jira, then copy with a preset other than ★ Standard\. Picking one fetches/
+    .test(arrow("details").title), true);
+
+/* A PICK ON 🔗 LINKS COPIES AT ONCE, with the picked shape's bytes. No fetch, no
+   second press, and no state left behind -- which is why the control goes back to
+   showing the preference on the next render. */
+const beforeArrowCopy = clipboard.length;
+pickArrow("links", "url");
+await settle();
+is("a 🔗 Links pick wrote once, with no second press", clipboard.length, beforeArrowCopy + 1);
+is("and the bytes are the PICKED shape's, not the preference's",
+  clipboard.at(-1)["text/plain"].text.split("\n"),
+  ["- https://dalet.atlassian.net/browse/RDC-1",
+   "- https://dalet.atlassian.net/browse/RDC-77",
+   "- https://dalet.atlassian.net/browse/GLX-402"]);
+is("the preference itself was NOT written -- a pick is not a setting",
+  prefsOf().lineShape, "markdown");
+is("so the arrow is back on what a plain press does, which is not what was picked",
+  [arrow("links").value, prefsOf().lineShape], ["markdown", "markdown"]);
+// 🔗 LINKS CARRIES NO MARK, and that is not an inconsistency: it copies on one press,
+// so there is no pending moment for a mark to describe (decision 26).
+await settle();
+await settle();
+is("and 🔗 Links never grew a mark", copy("links").textContent, "🔗 Links");
+
+/* A PICK ON A STEPPED BUTTON FETCHES, and the `Copy` that follows uses the pick. Two
+   presets are needed to say anything at all here, so one is created through the panel
+   -- the way a pair of hands reaches it -- and ★ is left where it was. */
+dispatch(gear(), "click");
+flush();
+dispatch(tabButton("details"), "click");
+flush();
+dispatch(presetNewButton("details"), "click");
+flush();
+presetNameField("details").value = "Executive";
+dispatch(presetCreate("details"), "click");
+flush();
+/* THE TWO PRESETS ARE MADE TO PRINT DIFFERENT BYTES, by id and not through the picker,
+   because "which preset was read" is the only question this section asks and two
+   presets in the same shape cannot answer it. Standard keeps markdown, Executive gets
+   url, and every byte check below names which of the two it expects. */
+(() => {
+  const all = presetsOf();
+  all.details = all.details.map((preset) => ({
+    ...preset,
+    lineShape: preset.name === "Executive" ? "url" : "markdown",
+  }));
+  store["gt-jira-cart.presets"] = JSON.stringify(all);
+  rerender();
+})();
+is("Standard prints markdown and Executive prints url, so the bytes can tell them apart",
+  presetsOf().details.map((one) => [one.name, one.lineShape]).sort(),
+  [["Executive", "url"], ["Standard", "markdown"]]);
+dispatch(gear(), "click");
+flush();
+is("two presets now, and ★ is still on the shipped one",
+  [namesOf("details").sort(), starOf("details").name], [["Executive", "Standard"], "Standard"]);
+is("the arrow offers both, sorted by name, with the ★ marked in the text",
+  presetOptions("details"), ["★ Standard", "Executive"].sort((a, b) =>
+    a.replace("★ ", "").localeCompare(b.replace("★ ", ""))));
+
+const executive = presetsOf().details.find((one) => one.name === "Executive").id;
+network.body = ANSWER;
+const beforeFetches = calls.fetches;
+pickArrow("details", executive);
+await settle();
+is("a pick on 📋 Details FETCHED", calls.fetches, beforeFetches + 1);
+/* AND THE ARMED LABEL DROPS ITS ★, which is decision 26's whole content: the label is
+   the fetch ladder and never a preset's name, so the armed rung is the only place that
+   can say whether you are on the default.
+
+   THE MARK IS THE ★ AND ITS ABSENCE, amended 2026-09-07 from a press in real Jira. It
+   was `▾` for a pick, and the arrow beside this button draws a `▾` caret that is always
+   there -- so the row showed two carets with one of them inert. The exact string is
+   asserted rather than a regex, because the failure this replaces was a TRAILING
+   character, and a trailing space would be the same class of defect and just as
+   invisible. */
+is("and the armed label drops its ★, because this copy will not use the ★ preset",
+  details().textContent, "📋 Copy");
+is("with no trailing space where the mark used to be",
+  /\s$/.test(details().textContent), false);
+is("the tooltip names the preset the mark cannot, and says what a plain press does",
+  /using Executive, picked from the arrow\. ★ Standard is what a plain press uses/
+    .test(details().title), true);
+// AND THE ARROW'S OWN SENTENCE CHANGED WITH THE STATE: an armed button's arrow copies
+// rather than fetches, so the tooltip that said "Picking one fetches" a moment ago
+// must not still say it.
+is("an ARMED stepped arrow says it copies at once and asks Jira nothing",
+  /^Copy the items already in hand with a preset other than ★ Standard\. Picking one copies at once, and nothing is fetched again$/
+    .test(arrow("details").title), true);
+// THE BUTTON YOU PRESS IS THE BUTTON THAT ANSWERS, and a third control in the row is
+// a third chance to reintroduce the defect §2.15 reversed from use on 2026-08-21.
+is("and the OTHER stepped button was not walked through its ladder",
+  copy("report").textContent, "📊 Report");
+is("nor was its arrow moved off ★",
+  arrow("report").value === starOf("report").id, true);
+// THE LABEL IS DERIVED INSIDE `render`, not written at the press: a re-render with
+// nothing else changed has to produce the same mark, or the mark is a second value.
+rerender();
+is("the mark survives a bare re-render, so it is derived and not written",
+  details().textContent, "📋 Copy");
+
+const beforePickCopy = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("the Copy that follows wrote once", clipboard.length, beforePickCopy + 1);
+is("and it used the PICKED preset's url shape, not ★ Standard's markdown",
+  clipboard.at(-1)["text/plain"].text.split("\n")[0],
+  "- https://dalet.atlassian.net/browse/RDC-1");
+await settle();
+await settle();
+is("the held fetch is spent, and the pick went with it", details().textContent, "📋 Details");
+
+/* AND A PLAIN PRESS STILL USES ★ -- before and after ★ moves. This is the half the
+   arrow must not have broken, and it is checked on both sides of the move because a
+   pick resolved at the press and a pick snapshotted at the pick give the same answer
+   until the default changes underneath them. */
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("a plain press after all that is back on ★", details().textContent, "📋 Copy ★");
+const beforeStarCopy = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("and it copied in ★ Standard's markdown shape",
+  clipboard.at(-1)["text/plain"].text.startsWith("- [RDC-1](https://dalet.atlassian.net/browse/RDC-1)"), true);
+is("one write, not two", clipboard.length, beforeStarCopy + 1);
+await settle();
+await settle();
+// ★ MOVES, THROUGH THE PANEL, and a plain press follows it. The end-to-end claim the
+// real-Jira press of 2026-09-07 made about ticket 03, driven here for the arrow's
+// sake: nothing under `test/` had it before, and this is the cheap half of it.
+dispatch(gear(), "click");
+flush();
+presetPicker("details").value = executive;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetStar("details"), "click");
+flush();
+dispatch(gear(), "click");
+flush();
+is("★ moved to Executive", starOf("details").name, "Executive");
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("a plain press is STILL on ★, which is now a different preset", details().textContent, "📋 Copy ★");
+const beforeMoved = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("and it printed the NEW default's shape", clipboard.length, beforeMoved + 1);
+is("which is the url shape Executive holds",
+  clipboard.at(-1)["text/plain"].text.split("\n")[0],
+  "- https://dalet.atlassian.net/browse/RDC-1");
+await settle();
+await settle();
+
+/* AN ARROW PRESSED ON AN ALREADY-ARMED BUTTON COPIES, AND DOES NOT RE-FETCH
+   (decision 16's last row). It does not re-fetch because `DETAIL_FIELDS` asks for all
+   nine fields whatever any preset says and the selection is applied at render, so a
+   second request would return the same rows. */
+const standard = presetsOf().details.find((one) => one.name === "Standard").id;
+network.body = ANSWER;
+dispatch(details(), "click");
+await settle();
+is("armed, on ★ Executive", details().textContent, "📋 Copy ★");
+const armedFetches = calls.fetches;
+const armedWrites = clipboard.length;
+pickArrow("details", standard);
+await settle();
+is("the pick on an ARMED button copied", clipboard.length, armedWrites + 1);
+is("and asked Jira NOTHING, because the rows in hand already carry every field",
+  calls.fetches, armedFetches);
+is("using the picked preset and not the ★ one it was armed with",
+  clipboard.at(-1)["text/plain"].text.startsWith("- [RDC-1](https://dalet.atlassian.net/browse/RDC-1)"), true);
+await settle();
+await settle();
+is("and the copy spent the held fetch, as any copy does", details().textContent, "📋 Details");
+
+/* THE PICK IS THROWN AWAY BY EVERYTHING THAT THROWS THE HELD FETCH AWAY, and it needs
+   no rule of its own: it rides on the held object, so the signature that invalidates
+   the fetch invalidates the pick with it. Driven here through one of the five -- an
+   add -- because the other four are already driven against the held fetch above and
+   the pick cannot outlive the object it is a field of. */
+network.body = ANSWER;
+pickArrow("details", standard);
+await settle();
+is("armed on a pick again", details().textContent, "📋 Copy");
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [
+    { key: "RDC-1", summary: "A live issue" },
+    { key: "RDC-77" },
+    { key: "GLX-402", summary: "A smart link title" },
+    { key: "RDC-9000" },
+  ] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("another tab adding an item threw the fetch away", details().textContent, "📋 Details");
+is("and the arrow is back on ★, because there is no pick left to show",
+  arrow("details").value, starOf("details").id);
+
+/* THE PICKED PRESET DELETED BETWEEN THE FETCH AND THE COPY: the copy uses ★ AND STILL
+   WRITES (decision 17). Driven the way one pair of hands reaches it -- arm, open ⚙
+   which hides the foot, delete through the panel, close ⚙, copy -- rather than as a
+   story about two tabs. This is the check the feature rests on, because the failure it
+   guards is silent: a pick that falls back when it should not produces a perfectly
+   good document in the wrong shape. */
+network.body = ANSWER;
+pickArrow("details", standard);
+await settle();
+is("armed on Standard, picked from the arrow", details().textContent, "📋 Copy");
+dispatch(gear(), "click");
+flush();
+presetPicker("details").value = standard;
+dispatch(presetPicker("details"), "change");
+flush();
+dispatch(presetDelete("details"), "click");
+dispatch(presetDelete("details"), "click");
+flush();
+is("Standard is gone, and ★ Executive is the only preset left",
+  [namesOf("details"), starOf("details").name], [["Executive"], "Executive"]);
+dispatch(gear(), "click");
+flush();
+is("the armed label fell back to ★ the moment the preset went, because it is derived",
+  details().textContent, "📋 Copy ★");
+const beforeFallback = clipboard.length;
+dispatch(details(), "click");
+await settle();
+is("AND THE COPY STILL WROTE, rather than refusing or throwing", clipboard.length, beforeFallback + 1);
+is("in ★ Executive's url shape, which is what a plain press would have printed",
+  clipboard.at(-1)["text/plain"].text.split("\n")[0],
+  "- https://dalet.atlassian.net/browse/RDC-1");
+is("and no error was logged on the way", errors(), []);
+await settle();
+await settle();
+
+/* AND THE ARROW STANDS DOWN WITH ITS BUTTON. An arrow left live on an empty
+   collection would run a gesture `format` refuses -- a copy that never happened, with
+   no feedback at all, which is the "I picked it and nothing happened" report decision
+   19 kept `Edit presets…` out of this list to avoid. */
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1, collections: [{ id: "c1", name: "Scratch", items: [] }],
+});
+dispatch(document, "visibilitychange");
+flush();
+is("every arrow is disabled exactly when its button is",
+  ["links", "details", "report"].map((k) => arrow(k).disabled === copy(k).disabled),
+  [true, true, true]);
+is("and they are all disabled, because the collection is empty",
+  ["links", "details", "report"].map((k) => arrow(k).disabled), [true, true, true]);
+
+// Put the three items and the one shipped preset back, so nothing below this line
+// reads a store it did not set.
+store["gt-jira-cart.collections"] = JSON.stringify({
+  v: 1,
+  collections: [{ id: "c1", name: "Scratch", items: [
+    { key: "RDC-1", summary: "A live issue" },
+    { key: "RDC-77" },
+    { key: "GLX-402", summary: "A smart link title" },
+  ] }],
+});
+setPreset("details", { name: "Standard", lineShape: "markdown" });
+dispatch(document, "visibilitychange");
+flush();
 
 /* ---- THE HOVER RAIL, ADDED AT 1.3.0: the copy button beside the `+`, and the
    geometry claim the whole arrangement rests on.
@@ -1530,6 +2671,15 @@ const menuItems = () => menu()?.children.map((k) => k.textContent) ?? null;
 // attribute, and the menu's Open entry reads the property.
 const rightClickTarget = card.children[0];
 rightClickTarget.href = "https://dalet.atlassian.net/browse/RDC-77";
+/* THE RECT COUNTER IS RESET FIRST, and it has to be. The stub widens every rect it
+   hands out by one pixel per call, so that the rail's placement checks are reading a
+   different box each time rather than one constant. The menu is placed at the pointer
+   and CLAMPED to the viewport by its own width, so once enough rects have been read
+   earlier in this file the menu is wider than the window and the clamp moves it --
+   and the check fails for a reason that has nothing to do with placement. It was
+   found by adding checks ABOVE this line, which is the honest way to discover that a
+   check depends on how much ran before it. */
+now = 0;
 
 dispatch(rightClickTarget, "contextmenu", { clientX: 400, clientY: 300 });
 flush();

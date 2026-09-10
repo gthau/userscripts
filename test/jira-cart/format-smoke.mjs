@@ -33,7 +33,17 @@ const names = ["issueUrl","escapeHtml","formatLinks","formatNames","formatKeys",
                "detailBit","detailBits","detailChip","formatDetails","byLabel","bandFor","bandPatch","bandGroups",
                "reportGroups","formatReport",
                "shapeFor","bulkfetchIssues","readIssues","cleanText","uniqueName","alertLine",
-               "clamp","defaultFieldList","enabledFields"];
+               "clamp","defaultFieldList","enabledFields",
+               // The preset side, at 1.7.0. `format` reads the ★ preset of the list
+               // its `fields` key names, so the two functions that answer "which list"
+               // and "which preset" come with it -- sliced, never copied, because a
+               // second `starPreset` here would assert that a copy is right.
+               // AND THE PICK, at ticket 04. `format` takes the arrow's pick as its
+               // fourth argument and resolves it at the press through these two -- a
+               // preset id for the two exports with a list, a shape id for 🔗 Links
+               // (decisions 4 and 17). Sliced for the same reason: a second copy of
+               // the `?? star` fallback here would assert that a copy is right.
+               "byName","firstByName","starPreset","pickedPreset","pickedShapeId","presetBands"];
 // The palette 📋 Details emits. Sliced in from the real file rather than copied,
 // because section 12 below asserts things ABOUT these values -- that no ground is
 // saturated, that no colour appears without one -- and a copy would let the file
@@ -56,6 +66,13 @@ const harness = `
   ${slice("const SETTINGS_TABS = [", "\n  ];")}
   ${slice("const SETTINGS_TAB_IDS =", "\n")}
   ${slice("const DEFAULT_PREFS = {", "\n  };")}
+  /* AND THE FOUR KEYS THAT LEFT IT AT 1.7.0. They are the shipped export
+     configuration -- both field lists and both bands -- and section 16's claim that
+     the defaults reproduce 1.1.0 byte for byte is now a claim about THIS object
+     (decision 22). Only their home moved. */
+  ${slice("const PRESET_DEFAULTS = {", "\n  };")}
+  ${slice("const PRESET_LISTS =", "\n")}
+  ${slice("const presetBandKey =", "\n")}
   ${slice("const LIST_ITEM_STYLE =", "\n")}
   ${slice("const NO_PRIORITY =", "\n")}
   ${slice("const NO_TEAM =", "\n")}
@@ -73,7 +90,7 @@ const harness = `
   ${slice("const SUMMARY_FIELDS =", "\n")}
   ${slice("const DETAIL_FIELDS = [", "\n  ];")}
   return {${names.join(",")}, EXPORTS, SHAPES, LINE_SHAPE_IDS, SUMMARY_FIELDS, DETAIL_FIELDS,
-          FIELD_CATALOGUE, SETTINGS_TABS, DEFAULT_PREFS,
+          FIELD_CATALOGUE, SETTINGS_TABS, DEFAULT_PREFS, PRESET_DEFAULTS, PRESET_LISTS,
           MUTED_INK, LOZENGE, PRIORITY_INK, LIST_ITEM_STYLE,
           NO_PRIORITY, NO_TEAM, TEAM_FIELD, BANDS, BAND_IDS, BAND_ROW_FIELD, NO_BAND, STATUS_BANDS};
 `;
@@ -90,11 +107,40 @@ const location = { origin: "https://dalet.atlassian.net" };
    1.1.0's bytes, rather than a check against a stub that happens to agree with them.
    Nothing below sets a preference except through `withPrefs`, which puts the
    defaults back afterwards. */
+/* ONE CONFIGURATION, TWO SHIMS, AND THE ★ PRESET IS WHAT IT STANDS FOR. Until 1.7.0
+   the export configuration was five preference keys and `loadPrefs` was the only
+   shim this file needed. It is a preset now: `format` reads the ★ preset of the list
+   its `fields` key names, and 🔗 Links keeps the preference (decision 4).
+
+   SO `loadPresets` IS DERIVED FROM THE SAME PATCH `loadPrefs` IS. Every section
+   written before 1.7.0 sets `detailsFields`, `reportBand1` and the rest and is
+   unchanged, because those names still say what they always said -- they are just
+   read off a preset now instead of off a blob. What that costs is stated rather than
+   hidden: this shim builds a list of ONE preset, so it cannot say anything about
+   which of several is read. Section 16c does that with a list of two.
+
+   THE BASE IS THE SHIPPED VALUES OF BOTH OBJECTS, sliced out of the script, which is
+   what makes every section written before 1.2.0 a check that THE SHIPPED DEFAULTS
+   still emit 1.1.0's bytes rather than a check against a stub that agrees with them. */
 let prefsPatch = {};
+let presetsOverride = null;
 let shipped = null;
 const loadPrefs = () => ({ ...shipped, ...prefsPatch });
-const f = new Function("SAFE_KEY_RE", "location", "loadPrefs", harness)(SAFE_KEY_RE, location, loadPrefs);
-shipped = f.DEFAULT_PREFS;
+const loadPresets = () => {
+  if (presetsOverride) return presetsOverride;
+  const p = loadPrefs();
+  return {
+    details: [{ id: "d-1", name: "Standard", star: true, lineShape: p.lineShape, fields: p.detailsFields }],
+    report: [{ id: "r-1", name: "Standard", star: true, lineShape: p.lineShape, fields: p.reportFields,
+               band1: p.reportBand1, band2: p.reportBand2 }],
+  };
+};
+const withPresets = (blob, run) => {
+  presetsOverride = blob;
+  try { return run(); } finally { presetsOverride = null; }
+};
+const f = new Function("SAFE_KEY_RE", "location", "loadPrefs", "loadPresets", harness)(SAFE_KEY_RE, location, loadPrefs, loadPresets);
+shipped = { ...f.DEFAULT_PREFS, ...f.PRESET_DEFAULTS };
 const withPrefs = (patch, run) => {
   prefsPatch = patch;
   try { return run(); } finally { prefsPatch = {}; }
@@ -231,7 +277,7 @@ is("so the gesture's own call returns a payload rather than null",
 is("and the other five still build a clipboard payload",
   f.EXPORTS.filter((one) => !one.opens).every((one) =>
     !!one.build(THREE, "collection", f.shapeFor("markdown"),
-      one.fields ? f.enabledFields(f.DEFAULT_PREFS[one.fields]) : undefined).text), true);
+      one.fields ? f.enabledFields(f.PRESET_DEFAULTS[one.fields]) : undefined).text), true);
 
 // ---- 7b. the search URL. The query is unchanged; only where it goes changed.
 const jql = f.format("jql", THREE, "collection").text;
@@ -757,30 +803,31 @@ for (const kind of ["links", "details", "report"]) {
 // ---- 16. TWO SELECTIONS OVER ONE CATALOGUE (ADR §2.14, decisions 7 to 11)
 //
 // EVERY SECTION ABOVE THIS ONE IS ALREADY A CHECK ON THE DEFAULTS, and that is the
-// first thing this section claims. `loadPrefs` above hands out `DEFAULT_PREFS`
-// itself, sliced out of the script, so sections 12, 14 and 15 pin 1.1.0's bytes
+// first thing this section claims. `loadPrefs` and `loadPresets` above hand out the
+// two sliced shipped objects themselves, so sections 12, 14 and 15 pin 1.1.0's bytes
 // while the shipped defaults are what produced them. None of them changed when the
-// field lists landed, which is the requirement: an install that never opens ⚙ must
-// not be able to tell that any of this exists.
+// field lists landed at 1.2.0, and none of them changed when those lists became a
+// PRESET's at 1.7.0 -- which is the requirement both times: an install that never
+// opens ⚙ must not be able to tell that any of this exists.
 //
 // What is asserted below is what a CLICK can now reach.
 
 // -- 16a. the two defaults, said out loud so their silence above is not read as luck
 is("📋 Details ships 1.1.0's seven fields, in 1.1.0's reading order",
-  f.enabledFields(f.DEFAULT_PREFS.detailsFields),
+  f.enabledFields(f.PRESET_DEFAULTS.detailsFields),
   ["type", "status", "priority", "assignee", "fixv", "remaining", "parent"]);
 // Priority is 📊 Report's first band, and a band leaves the row -- which at 1.2.0 is
 // what the DEFAULT says rather than what the renderer does (decision 8).
 is("📊 Report ships the same list less priority, which is its first band",
-  f.enabledFields(f.DEFAULT_PREFS.reportFields),
+  f.enabledFields(f.PRESET_DEFAULTS.reportFields),
   ["type", "status", "assignee", "fixv", "remaining", "parent"]);
 is("team is off in both, because a NEW FIELD ARRIVES OFF (decision 21)",
-  [f.DEFAULT_PREFS.detailsFields, f.DEFAULT_PREFS.reportFields]
+  [f.PRESET_DEFAULTS.detailsFields, f.PRESET_DEFAULTS.reportFields]
     .map((list) => list.find((one) => one.id === "team").on), [false, false]);
 // Off is not absent. Both lists carry every catalogue field, so every field has a
 // row in the ⚙ panel and one click turns it on (`normaliseFieldList`, step 5).
 is("and both lists still name every catalogue field, so none of them is unreachable",
-  [f.DEFAULT_PREFS.detailsFields, f.DEFAULT_PREFS.reportFields]
+  [f.PRESET_DEFAULTS.detailsFields, f.PRESET_DEFAULTS.reportFields]
     .map((list) => list.map((one) => one.id)),
   [f.FIELD_CATALOGUE.map((one) => one.id), f.FIELD_CATALOGUE.map((one) => one.id)]);
 
@@ -819,7 +866,7 @@ is("the tabs that edit a field list and the exports that read one name the same 
   f.EXPORTS.filter((one) => one.fields).map((one) => one.fields).sort());
 is("and both keys are real preferences with a default behind them",
   f.EXPORTS.filter((one) => one.fields)
-    .map((one) => Array.isArray(f.DEFAULT_PREFS[one.fields])), [true, true]);
+    .map((one) => Array.isArray(f.PRESET_DEFAULTS[one.fields])), [true, true]);
 is("the two exports that read a field list are the two that fetch",
   f.EXPORTS.filter((one) => one.fields).map((one) => one.kind), ["details", "report"]);
 // The tab that owns the bands names them, so the panel can mark a row `also a
@@ -828,9 +875,198 @@ is("the two exports that read a field list are the two that fetch",
 // appears -- ticket 05 puts the dropdowns on that same tab.
 is("the tab that has bands names preferences that exist",
   f.SETTINGS_TABS.flatMap((one) => one.bands ?? [])
-    .map((key) => typeof f.DEFAULT_PREFS[key] === "string"), [true, true]);
+    .map((key) => typeof f.PRESET_DEFAULTS[key] === "string"), [true, true]);
 is("and it is the report tab, which is the only one with headings",
   f.SETTINGS_TABS.filter((one) => one.bands).map((one) => one.fields), ["reportFields"]);
+
+/* -- 16d. A PLAIN PRESS READS THE ★ PRESET, added at 1.7.0. Everything above uses
+   the one-preset shim, which cannot say WHICH preset is read; these use a list of
+   several, so the answer has somewhere to be wrong.
+
+   THE ★ IS NOT THE FIRST IN THE ARRAY AND NOT THE FIRST BY NAME. The stored order
+   carries nothing (the picker sorts by name) and the flag is on the preset itself
+   (decision 10), so a reader that took `list[0]` or `sortedPresets(list)[0]` would be
+   right on a fresh install and wrong on every list somebody built. Both wrong answers
+   are set up below to differ from the right one. */
+/* DETAILED IS WHAT THESE PRESS, and not `THREE`. Its items carry every field, so a
+   preset naming different fields produces different BYTES -- which is the only thing
+   a check here can hold. `THREE` carries none of them, so two presets over it would
+   emit the same head-only lines and every check below would pass on nothing. */
+const PRESET_SET = {
+  details: [
+    // First in the array AND first by name, and NOT starred: the two wrong answers.
+    { id: "d-a", name: "Alpha", star: false, lineShape: "key-url", fields: listOf(["parent"]) },
+    { id: "d-b", name: "Zulu", star: true, lineShape: "markdown", fields: listOf(["status"]) },
+  ],
+  report: [
+    { id: "r-a", name: "Alpha", star: false, lineShape: "key-url", fields: listOf(["parent"]),
+      band1: "fixv", band2: "none" },
+    { id: "r-b", name: "Zulu", star: true, lineShape: "markdown", fields: listOf(["assignee"]),
+      band1: "priority", band2: "none" },
+  ],
+};
+const starred = (kind) => withPresets(PRESET_SET, () => f.format(kind, DETAILED, "collection"));
+// The two candidate WRONG answers, built alone, so the check below can say the
+// reader picked neither of them by accident.
+const aloneDetails = (at) =>
+  withPresets({ ...PRESET_SET, details: [PRESET_SET.details[at]] }, () =>
+    f.format("details", DETAILED, "collection"));
+is("📋 Details does NOT read the first in the array, which is also the first by name",
+  starred("details").text === aloneDetails(0).text, false);
+is("and it IS the ★ one: the same bytes as building from that preset alone",
+  starred("details"),
+  withPresets({ ...PRESET_SET, details: [PRESET_SET.details[1]] }, () =>
+    f.format("details", DETAILED, "collection")));
+is("📊 Report reads the ★ preset's field list AND its bands",
+  starred("report"),
+  withPresets({ ...PRESET_SET, report: [PRESET_SET.report[1]] }, () =>
+    f.format("report", DETAILED, "collection")));
+// EDITING THE OTHER PRESET CHANGES NOTHING A PLAIN PRESS PRINTS. That is stated
+// limit 1 as a property of the bytes rather than as a sentence in the record.
+is("editing a preset that is not ★ does not move a single byte",
+  withPresets({
+    ...PRESET_SET,
+    details: [{ ...PRESET_SET.details[0], fields: listOf(["parent", "remaining"]), lineShape: "url" },
+              PRESET_SET.details[1]],
+  }, () => f.format("details", DETAILED, "collection")),
+  starred("details"));
+// THE TWO LISTS ARE NEVER SHARED (decision 2). A ★ moved in one list must not reach
+// the other export.
+is("a ★ moved in one list does not reach the other export",
+  withPresets({ ...PRESET_SET, details: [PRESET_SET.details[0], { ...PRESET_SET.details[1], star: false },
+                                          { id: "d-c", name: "Beta", star: true, lineShape: "url",
+                                            fields: listOf(["parent"]) }] },
+    () => f.format("report", DETAILED, "collection")),
+  starred("report"));
+/* A PRESET ALWAYS NAMES ITS OWN SHAPE (decision 5), and 🔗 Links keeps the
+   PREFERENCE. So the three can now disagree about what a collected issue looks like
+   -- deliberately, and this is where that is pinned rather than merely described. */
+is("📋 Details takes its head from the preset and not from 🔗 Links' preference",
+  withPrefs({ lineShape: "key-url" }, () => starred("details")), starred("details"));
+is("while 🔗 Links takes its head from the preference and not from any preset",
+  withPresets(PRESET_SET, () => withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection"))),
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection")));
+// 🔗 LINKS' BYTES DO NOT MOVE WHEN A PRESET MOVES. The check below this one already
+// says they do not move when a FIELD LIST does, and its comment records that it was
+// kept for exactly this claim.
+is("🔗 Links' bytes do not move when a preset moves",
+  withPresets(PRESET_SET, () => f.format("links", DETAILED, "collection")),
+  f.format("links", DETAILED, "collection"));
+
+/* -- 16e. AND AN ARROW'S PICK READS THE PRESET IT NAMES, added with ticket 04.
+
+   ONE RULE FOR BOTH PATHS AND NO SNAPSHOT (decision 17): a plain press is this same
+   call with no fourth argument, so every claim in 16d above is the `pick`-absent case
+   of every claim here. What a check can hold is that the pick REACHED the read -- and
+   the failure it guards is silent, because a pick that quietly falls back to ★
+   produces a perfectly good document in the wrong shape.
+
+   EVERY REACHABLE PICK, BY CONSTRUCTION. The list is walked rather than named, so a
+   third preset in `PRESET_SET` is covered without being added here. */
+const picked = (kind, pick) =>
+  withPresets(PRESET_SET, () => f.format(kind, DETAILED, "collection", pick));
+const alone = (kind, preset) =>
+  withPresets({ ...PRESET_SET, [kind]: [preset] }, () =>
+    f.format(kind, DETAILED, "collection"));
+for (const kind of ["details", "report"]) {
+  for (const preset of PRESET_SET[kind]) {
+    is(`${kind} · a pick of ${preset.name} builds exactly what that preset alone builds`,
+      picked(kind, preset.id), alone(kind, preset));
+  }
+  // AND THE TWO ARE DIFFERENT DOCUMENTS, or the loop above passes on nothing. This is
+  // the check that makes the one before it mean something, and it is written out
+  // rather than assumed because a fixture whose presets agree is exactly how a pick
+  // check comes to prove nothing.
+  is(`${kind} · and the two presets do not print the same bytes anyway`,
+    picked(kind, PRESET_SET[kind][0].id).text === picked(kind, PRESET_SET[kind][1].id).text,
+    false);
+  // A PICK NAMING NOTHING IS A MISS THAT FALLS TO ★, which is the guard the whole
+  // feature rests on: it is reachable with one pair of hands -- arm, open ⚙, delete
+  // the preset you picked, close ⚙, copy.
+  is(`${kind} · a pick naming a preset that is gone falls to ★, and still builds`,
+    picked(kind, "d-deleted"), starred(kind));
+  is(`${kind} · so does no pick at all, which is what a plain press hands in`,
+    picked(kind, undefined), starred(kind));
+  is(`${kind} · and so does the empty string, which is what a never-set select reads`,
+    picked(kind, ""), starred(kind));
+}
+// THE TWO LISTS ARE NEVER SHARED (decision 2), and a pick cannot cross between them:
+// an id from the other list names nothing here, so it falls to this list's ★ rather
+// than reaching a preset of the wrong kind.
+is("a 📋 Details preset id picked on 📊 Report names nothing there, so ★ is used",
+  picked("report", PRESET_SET.details[0].id), starred("report"));
+is("and the reverse", picked("details", PRESET_SET.report[0].id), starred("details"));
+
+/* 🔗 LINKS' PICK IS A SHAPE AND NOT A PRESET (decision 4), and it is the other half
+   of the one string, two vocabularies seam. Its shape list is already a fixed named
+   list in the script, so there is no preset list to name. */
+for (const shape of f.LINE_SHAPE_IDS) {
+  is(`links · a pick of ${shape} builds exactly what that shape builds`,
+    withPresets(PRESET_SET, () => f.format("links", DETAILED, "collection", shape)),
+    withPrefs({ lineShape: shape }, () => f.format("links", DETAILED, "collection")));
+}
+is("a 🔗 Links pick naming no shape falls to the preference, and still builds",
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection", "haiku")),
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection")));
+// AND A PRESET ID IS NOT A SHAPE. The one crossing that would be silent: an id that
+// happened to name a shape would print the wrong head with no error anywhere.
+is("a preset id picked on 🔗 Links names no shape, so the preference is used",
+  withPrefs({ lineShape: "key-url" },
+    () => withPresets(PRESET_SET, () => f.format("links", DETAILED, "collection", "d-b"))),
+  withPrefs({ lineShape: "key-url" }, () => f.format("links", DETAILED, "collection")));
+
+/* THE FIVE PASTE RULES OVER EVERY REACHABLE PICK. Section 16i runs them over every
+   field SELECTION; a pick reaches the same renderers by a different door, and a
+   document is a document whichever door it came through. Cheap to run and the
+   cheapest possible answer to "does this feature emit bytes we have never pasted". */
+for (const kind of ["details", "report"]) {
+  for (const preset of PRESET_SET[kind]) {
+    const out = picked(kind, preset.id);
+    const label = `${kind} · ${preset.name}`;
+    is(`${label} · rule 5: no font-size anywhere`, /font-size/.test(out.html), false);
+    is(`${label} · rule 2: nothing depends on opacity`, /opacity/.test(out.html), false);
+    is(`${label} · rule 1: no separator is a box`, /border:/.test(out.html), false);
+    is(`${label} · rule 3: every background is one of the pale lozenge grounds`,
+      [...out.html.matchAll(/background:(#[0-9a-f]{6})/gi)].map((m) => m[1])
+        .every((one) => pale.includes(one)), true);
+    is(`${label} · rule 3: no colour the palette does not name`,
+      [...out.html.matchAll(/color:(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase())
+        .every((one) => allowed.has(one)), true);
+    is(`${label} · no trailing space on any line`, /[ \t]$/m.test(out.text), false);
+    is(`${label} · no format drops an item`, out.text.includes("GLX-402"), true);
+  }
+}
+
+/* -- 16f. THE THIRD SEAM BETWEEN THE TWO TABLES, and it is 16c's for the arrows.
+   `arrow` names the vocabulary a pick comes from, so an entry that says `presets` and
+   has no `fields` key is an arrow over a list that cannot be found -- a dropdown the
+   render would have to leave empty, silently. */
+is("every export whose arrow offers presets names the preset list it offers",
+  f.EXPORTS.filter((one) => one.arrow === "presets").map((one) => !!one.fields), [true, true]);
+is("and they are exactly the exports that read a field list, which is the same seam 16c holds",
+  f.EXPORTS.filter((one) => one.arrow === "presets").map((one) => one.kind),
+  f.EXPORTS.filter((one) => one.fields).map((one) => one.kind));
+is("every preset list an arrow offers is one a settings tab edits",
+  f.EXPORTS.filter((one) => one.arrow === "presets")
+    .map((one) => f.PRESET_LISTS.some((tab) => tab.fields === one.fields)), [true, true]);
+// 🔗 Links is the one entry whose arrow offers the SHAPES, and it carries no field
+// list at all -- the shape list IS its preset list (decision 4).
+is("exactly one export offers shapes instead, and it is 🔗 Links",
+  f.EXPORTS.filter((one) => one.arrow === "shapes").map((one) => one.kind), ["links"]);
+is("and it names no preset list, because it has none",
+  f.EXPORTS.find((one) => one.arrow === "shapes").fields, undefined);
+// AN ARROW ON THE ENTRY THAT NAVIGATES WOULD BE A DROPDOWN THAT COPIES NOTHING, and
+// one on 📃 Names or 🔑 Keys would offer a choice neither format reads.
+is("the three link-bearing exports carry an arrow and the other three do not",
+  f.EXPORTS.map((one) => [one.kind, !!one.arrow]),
+  [["links", true], ["names", false], ["keys", false],
+   ["details", true], ["report", true], ["jql", false]]);
+is("and no arrow sits on the entry that navigates rather than copying",
+  f.EXPORTS.filter((one) => one.arrow).some((one) => one.opens), false);
+// The vocabulary is closed: a value neither renderer knows would draw an empty list.
+is("every arrow names one of the two vocabularies",
+  f.EXPORTS.filter((one) => one.arrow).map((one) => one.arrow).sort(),
+  ["presets", "presets", "shapes"]);
 
 /* THE OTHER FOUR EXPORTS DO NOT VARY WITH A FIELD LIST. This began as a browser step
    -- "press 🔗 Links after a reorder and check it did not move" -- and it needs no
@@ -1066,10 +1302,10 @@ is("the tab that edits the bands and the export that reads them name the same ke
 is("and 📊 Report is the only export with any, because it is the only one with headings",
   f.EXPORTS.filter((one) => one.bands).map((one) => one.kind), ["report"]);
 is("both keys hold a real band id, so a fresh install groups by something",
-  f.EXPORTS.flatMap((one) => one.bands ?? []).map((key) => f.BAND_IDS.includes(f.DEFAULT_PREFS[key])),
+  f.EXPORTS.flatMap((one) => one.bands ?? []).map((key) => f.BAND_IDS.includes(f.PRESET_DEFAULTS[key])),
   [true, true]);
 is("and the shipped pair is still priority then team, which is what keeps 1.1.0's bytes",
-  [f.DEFAULT_PREFS.reportBand1, f.DEFAULT_PREFS.reportBand2], ["priority", "team"]);
+  [f.PRESET_DEFAULTS.reportBand1, f.PRESET_DEFAULTS.reportBand2], ["priority", "team"]);
 // Section 14 asserts the default pair without naming it. This says the two are the
 // same thing, so neither can drift into asserting something the other does not.
 is("section 14's report IS the pair named explicitly, and not a shape that happens to agree",
@@ -1228,7 +1464,7 @@ is("an id this build does not know goes the same way, because both are just unre
 // `detailBits`.
 is("a report with no bands IS 📋 Details, which is exactly why the option is not offered",
   flat.text,
-  withFields("detailsFields", f.enabledFields(f.DEFAULT_PREFS.reportFields),
+  withFields("detailsFields", f.enabledFields(f.PRESET_DEFAULTS.reportFields),
     "details", DETAILED).text);
 
 // -- 17h. A REPRESENTATIVE HANDFUL OF PAIRS, BOTH FLAVOURS. The two versions must
@@ -1338,7 +1574,7 @@ is("and the same document in the flavour Outlook and Teams read",
 // §2.14 rule 4 is the ground: a field that appears only in a heading is a field whose
 // meaning depends on the row's position, and these lists are reshuffled by hand.
 is("the default report list leaves the two banded fields off the row",
-  f.enabledFields(f.DEFAULT_PREFS.reportFields).filter((id) => ["priority", "team"].includes(id)), []);
+  f.enabledFields(f.PRESET_DEFAULTS.reportFields).filter((id) => ["priority", "team"].includes(id)), []);
 is("but ticking a banded field puts it on the row as well as in the heading",
   withPrefs({ reportBand1: "priority", reportBand2: f.NO_BAND, reportFields: listOf(["priority"]) },
     () => f.format("report", [TWO[0]], "collection")).text,

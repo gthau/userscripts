@@ -95,9 +95,22 @@ const HIDDEN_ABLE = [
   "aside#gt-cart-drawer div#gt-cart-body",
   "aside#gt-cart-drawer div.gt-cart-tabpanel",
   "aside#gt-cart-drawer button.gt-cart-restore",
+  /* THREE MORE SINCE 1.7.0, AND THEY ARE THE PRESET BLOCK. Eleven of the source's
+     `.hidden =` sites are in it, over these three kinds of element: the picker and
+     the two text fields, which take each other's place -- a rename replaces the
+     picker, a name field replaces `+ Create preset` -- and the five buttons.
+
+     THIS IS THE ONE PLACE ON THE SETTINGS SCREEN WHERE HIDING IS THE LAYOUT, so it
+     is also where the 0.3.0 trap is easiest to walk back into: a rule naming an
+     element TYPE inside a class is (1,1,2) and beats the generic (1,1,1)
+     `[hidden]`. The sheet's preset rules therefore set `display` on the two wrappers
+     only, and the check below is what holds them to it. */
+  "aside#gt-cart-drawer div.gt-cart-preset-row select",
+  "aside#gt-cart-drawer div.gt-cart-preset-row input",
+  "aside#gt-cart-drawer button.gt-cart-preset-btn",
 ];
 is("the script still hides exactly the elements this list names",
-   (src.match(/\.hidden = /g) || []).length, 16);
+   (src.match(/\.hidden = /g) || []).length, 27);
 
 const hidingRules = rules.filter((r) => /display:\s*none/.test(r.body));
 const showsDisplay = (sel) =>
@@ -256,6 +269,33 @@ const dropRule = (row, edge) =>
 const onlyAColour = (row) => ["before", "after"].map((edge) =>
   /^\s*border-block-(start|end)-color:[^;]+;?\s*$/.test(dropRule(row, edge)?.body ?? ""));
 is("and the indicator only ever changes its colour, never its width", onlyAColour("field"), [true, true]);
+
+/* ---- 2c-ter. THE SAME TRAP A FIFTH TIME, on the preset block's ★ (1.7.0). ★ is a
+   state button on `aria-pressed`, wearing the Cart's one "this is the one that is
+   on" pair, and the plain hover rule beside it is the same specificity -- so without
+   the repeated selector the ON control goes quiet under the pointer, which is exactly
+   how the ⚙ was inert for two versions.
+
+   AND THE ARMED ✕ IS THE SAME SHAPE OF RULE ON THE SAME CLASS, so it is checked here
+   rather than left to be noticed: the pointer is by definition on the button it just
+   armed. */
+const presetHover = rules.find((r) => r.sel === "aside#gt-cart-drawer button.gt-cart-preset-btn:hover:not(:disabled)");
+const presetOn = rules.find((r) => /button\.gt-cart-preset-btn\[aria-pressed="true"\]/.test(r.sel));
+const presetArmed = rules.find((r) => /button\.gt-cart-preset-btn\[data-gt-armed="true"\]/.test(r.sel));
+is("★ is painted from the Cart's own selected tokens, not a new blue",
+   ["border-color", "background", "color"].map((prop) =>
+     new RegExp(`(^|;)\\s*${prop}:\\s*var\\(--gt-cart-selected`).test(presetOn?.body ?? "")),
+   [true, true, true]);
+const presetOnHover = presetOn?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("and it keeps them under the pointer, so a ★ preset does not go quiet on hover",
+   beats(spec(presetOnHover ?? ""), spec(presetHover?.sel ?? "")), true);
+const presetArmedHover = presetArmed?.sel.split(",").map((x) => x.trim()).find((x) => x.includes(":hover"));
+is("and the armed ✕ keeps its red under the pointer that armed it",
+   beats(spec(presetArmedHover ?? ""), spec(presetHover?.sel ?? "")), true);
+// The armed ✕ carries the same red as the armed ⌫, the armed chip and the armed ↺:
+// one gesture, four scopes, one colour.
+is("and that red is the Cart's own remove token, at a fourth scope",
+   /(^|;)\s*background:\s*var\(--gt-cart-remove\)/.test(presetArmed?.body ?? ""), true);
 
 /* ---- 2c-bis. THE SAME TRAP A FOURTH TIME, on the collection's own drag (§2.9,
    1.4.0). Everything above about the field rows has to hold about the item rows,
@@ -426,25 +466,48 @@ is("and it still names the collection's four",
    ["h2.gt-cart-section-head", "div.gt-cart-chips", "div.gt-cart-create", `div#${ids.FOOT_ID}`]
      .map((one) => fixedParts.includes(`aside#gt-cart-drawer ${one}`)), [true, true, true, true]);
 
-/* The arithmetic behind risk 10's fix, re-derived here so that changing either
-   number without the other fails loudly. All four sub-heights are read off the
-   rules in this same sheet:
+/* The arithmetic behind risk 10's fix. EVERY NUMBER BELOW IS NOW A MEASUREMENT taken
+   in the real drawer on 2026-09-08 by ADR appendix C.3's probe, at 300px content width
+   with the settings panel down -- they were derived off this stylesheet from 1.0.0
+   until then, and the derivation was wrong:
 
-     drawer borders          2   1px top + 1px bottom
-     head                   35   6+6 padding, 1px border, 22px icon buttons
-     divider                 5   block-size, flex: none
-     live section heading   26   6+4 padding, 11px text at line-height 1.4
-     collection heading     32   6+4 padding, and its 22px ⌫ and ↻
-     one row of chips        29   6 padding, 12px text at 1.4, 2+2 padding, 2 border
-     the create field        35   6+6 padding, 12px input at 1.4, 4 padding, 2 border
-     the foot                38   1 border, 6+6 padding, 12px buttons at 1.4, 6+2
-     the collection's own top border  1
+                          derived   MEASURED
+     drawer borders           2        2     1px top + 1px bottom
+     head                    35       35     exact
+     divider                  5        5     exact
+     live section heading    26       38
+     collection heading      32       38
+     one row of chips        29       29     the one part the derivation got right
+     the create field        35       35     exact
+     the foot                38       95     AND THE FOOT IS THREE ROWS AT 300px
+     collection top border    1        1
 
-   So the collection cannot shrink below 32+29+35+38+1 = 135, and with the divider
+   THE FOOT IS THE WHOLE STORY. The derivation counts ONE row. The foot has been TWO
+   rows and 67px since the sixth button arrived at 1.5.0, and the three arrows of 1.7.0
+   took it to three and 95px -- so they cost 28px, where `paste-test.html` reported 0
+   twice. At the old MIN_BLOCK of 215 the collection was left 140px for the 198 its
+   parts need, so roughly 57px was clipped: two foot rows, which is the 1.0.0 defect
+   risk 10 exists to kill.
+
+   AND THIS FILE COULD NOT HAVE CAUGHT ANY OF IT, WHICH IS WHY THE CHECK BELOW CHANGED
+   SHAPE. `COLLECTION_FIXED` was a literal here derived from the same reading of the
+   same sheet as the constant it checks, so `reserved - 5 >= COLLECTION_FIXED` passed
+   with BOTH numbers wrong together -- it could only ever catch them drifting apart.
+   That is the `store-smoke` failure this directory already records, where a copied
+   `160` was checked against a script that said `215`. Proof: raising the script's two
+   constants to the measured values on 2026-09-08 turned nothing in this file red.
+
+   THERE IS NO LAYOUT HERE, so this file can never compute the row count itself and must
+   not pretend to. What it CAN do is hold the measurement's own PROVENANCE -- the
+   arithmetic still has to agree, and the inputs the reading was taken against have to
+   be the inputs that are still there. That second half is the new check, and it is the
+   one that would have fired at 1.5.0.
+
+   So the collection cannot shrink below 38+29+35+95+1 = 198, and with the divider
    taken out of the reserve the collection is left `reserved - 5`. The live section
    keeps `body - reserved`, and it must not go below its own heading either -- or
    the yield has only moved the clipping from one section to the other. */
-const DRAWER_BORDERS = 2, HEAD = 35, DIVIDER = 5, LIVE_HEAD = 26, COLLECTION_FIXED = 135;
+const DRAWER_BORDERS = 2, HEAD = 35, DIVIDER = 5, LIVE_HEAD = 38, COLLECTION_FIXED = 198;
 const reserved = Number(css.match(/calc\(100% - (\d+)px\)/)?.[1] ?? 0);
 const minBlock = Number(src.match(/const MIN_BLOCK = (\d+);/)?.[1] ?? 0);
 const bodyAtMin = minBlock - DRAWER_BORDERS - HEAD;
@@ -453,6 +516,33 @@ is("the reserve covers the collection's fixed parts, divider included",
    reserved - DIVIDER >= COLLECTION_FIXED, true);
 is("and MIN_BLOCK leaves the live section its own heading, so nothing is clipped either side",
    bodyAtMin - reserved >= LIVE_HEAD, true);
+/* ---- THE FLOOR'S PROVENANCE, AND IT IS THE CHECK THAT WOULD HAVE FIRED AT 1.5.0.
+
+   The two numbers above are a MEASUREMENT, and a measurement is only true of the thing
+   it was taken against. `MIN_BLOCK` and `COLLECTION_FIXED_PX` were read in a drawer
+   whose foot held SIX BUTTONS AND THREE ARROWS. Add a seventh export and the foot
+   wraps further, the reserve is short again, and nothing in this file would notice --
+   which is not a hypothetical: that is exactly what happened when the sixth button
+   arrived at 1.5.0 and the number stayed at 145 through two whole efforts.
+
+   THIS FILE HAS NO LAYOUT, so it cannot count rows and must not pretend to. What it
+   can do is hold the INPUTS the reading was taken against, and go red when they move.
+   The reader then has one instruction and it is in the failure: re-run appendix C.3.
+
+   Counted off `EXPORTS`, which is the one place the foot's contents are decided, so
+   this cannot drift from the row it is about. */
+const exportsBlock = src.slice(
+  src.indexOf("const EXPORTS = ["),
+  src.indexOf("\n  ];", src.indexOf("const EXPORTS = [")),
+);
+const footButtons = (exportsBlock.match(/^\s{6}kind: /gm) || []).length;
+const footArrows = (exportsBlock.match(/^\s{6}arrow: /gm) || []).length;
+console.log(`     the floor was measured against ${footButtons} foot buttons and ${footArrows} arrows`);
+is("the foot still holds the six buttons the floor was measured against",
+   footButtons, 6);
+is("and the three arrows, which cost 28px of it",
+   footArrows, 3);
+
 // The floor has to be in the SHEET, not only in the grip's clamp: a 70vh cap on a
 // short window went under MIN_BLOCK and brought the clipping back. A
 // min-block-size beats a max-block-size, so this is what makes the guarantee hold
@@ -611,6 +701,98 @@ is("the item rows' indicators change a colour and never a width",
      const r = rules.find((x) => x.sel === `aside#gt-cart-drawer div.gt-cart-item[data-gt-drop="${edge}"]`);
      return /border-block-(start|end)-color:/.test(r?.body ?? "") && !/width|style/.test(r?.body ?? "");
    }), [true, true]);
+
+/* ---- THE FOOT'S THREE ARROWS (presets ticket 04). Four claims, and every one of
+   them is a defect that already happened or a rule a press chose -- none is a
+   preference being written down twice. */
+const splitButton = rules.find(
+  (r) => r.sel === "aside#gt-cart-drawer span.gt-cart-split > button.gt-cart-copy",
+);
+const arrowBox = rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-arrow");
+const arrowHover = rules.find((r) => r.sel.startsWith("aside#gt-cart-drawer span.gt-cart-arrow:hover"));
+const arrowDead = rules.find((r) => r.sel.includes("span.gt-cart-arrow:has("));
+
+/* 1. THE ARROW CLOSES THE BUTTON'S RIGHT EDGE, AND THIS IS A DEFECT THAT ALREADY
+   HAPPENED. The button drops its right border to make room; the prototype's first
+   quiet variant replaced it with a TRANSPARENT one, and the button read as cut open
+   -- reported on 2026-08-27 as "without border it looks strange, like if the button
+   is somewhat cut". So the replacement is asserted to EXIST and to name the border
+   token, because `transparent` would satisfy a check that only asked for a border. */
+is("the button in a split drops its right border to make room for the arrow",
+   /border-inline-end:\s*0/.test(splitButton?.body ?? ""), true);
+is("and its right corners with it, or the pair reads as two controls",
+   [/border-start-end-radius:\s*0/.test(splitButton?.body ?? ""),
+    /border-end-end-radius:\s*0/.test(splitButton?.body ?? "")], [true, true]);
+is("the arrow carries the replacement border, and it is a real colour rather than transparent",
+   /border:\s*1px solid var\(--gt-cart-border\)/.test(arrowBox?.body ?? ""), true);
+
+/* 2. THE DIVIDER IS WHAT DISTINGUISHES THE TWO LOOKS, AND THE SHIPPED ONE HAS IT.
+   Two candidates were pressed on 2026-08-27 and they differed by exactly one
+   declaration -- whether the arrow carries a border on the side it shares with the
+   button. The divider won. Without it the pair is one continuous button with a caret
+   at its end, and the button's own 8px right padding then reads as "too much space to
+   the left of the arrow". The losing variant is `border-inline-start: 0`, so its
+   ABSENCE is the check: a shorthand border with no start-side override. */
+is("the divider is there -- the arrow does NOT drop its shared border",
+   /border-inline-start:\s*0/.test(arrowBox?.body ?? ""), false);
+
+/* 3. THE RESTING AFFORDANCE IS PAINTED, AND IT SURVIVES A HOVER. Limit 6: a beta
+   tester could not find the ⚙ at 1.1.0 because it was a grey glyph in a transparent
+   box with no resting state, and a bare caret glued to a button is the same failure
+   waiting to happen. So the box paints a ground at rest, and the hover changes the
+   ground and nothing else -- a hover that also moved the border would make the
+   control jump under the pointer. */
+is("the arrow paints a ground at rest rather than sitting transparent",
+   /background:\s*var\(--gt-cart-input-bg\)/.test(arrowBox?.body ?? ""), true);
+is("and a caret that can be seen against it", /color:\s*var\(--gt-cart-text\)/.test(arrowBox?.body ?? ""), true);
+is("the hover changes the ground and nothing else, so nothing moves under the pointer",
+   [/background:/.test(arrowHover?.body ?? ""),
+    /border|inline-size|padding|font-size/.test(arrowHover?.body ?? "")], [true, false]);
+/* AND A DEAD ARROW DOES NOT LIGHT UP. The exclusion is in the hover's OWN selector,
+   which is `button.gt-cart-copy:hover:not(:disabled)`'s shape one rule up: written
+   that way there is no cascade to lose, which is the trap this sheet has fallen into
+   five times. Asserted rather than trusted, because the alternative -- a more
+   specific rule underneath -- looks identical in a diff and depends on `:has()`
+   folding its argument's specificity. */
+is("the hover excludes the arrow whose select is disabled, in its own selector",
+   /:hover:not\(:has\(select:disabled\)\)/.test(arrowHover?.sel ?? ""), true);
+is("and the dead one is dimmed the way the button beside it is",
+   [/opacity:\s*0\.45/.test(arrowDead?.body ?? ""), /cursor:\s*default/.test(arrowDead?.body ?? "")],
+   [true, true]);
+is("read off the select's own disabled state, not off a second attribute",
+   /select:disabled/.test(arrowDead?.sel ?? ""), true);
+/* THE SELECT IS INVISIBLE AND COVERS THE WHOLE BOX. The caret is ours and the option
+   list is the platform's, painted on top of the page and outside every clip this
+   drawer owns -- which is the measurement that made this a native control rather than
+   a menu of our own (decision 15). If the select stopped covering the box, the caret
+   would be a picture of a control. */
+const arrowSelect = rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-arrow select");
+is("the select is laid over the whole box at zero opacity",
+   [/position:\s*absolute/.test(arrowSelect?.body ?? ""), /inset:\s*0/.test(arrowSelect?.body ?? ""),
+    /opacity:\s*0\b/.test(arrowSelect?.body ?? "")], [true, true, true]);
+
+/* 4. THE 11ch RESERVATION IS UNTOUCHED. It is what stops a changing label rearranging
+   this row, and the mark the armed rung now carries -- `📋 Copy ★` -- has to fit
+   INSIDE it rather than widen it. The rule is asserted to be exactly what it was, and
+   to be on the stepped buttons rather than on the split wrapper: moving it out to the
+   wrapper would reserve the button AND its arrow, which is a different number. */
+const stepped = rules.find((r) => r.sel === "aside#gt-cart-drawer button.gt-cart-copy[data-gt-steps]");
+is("the two stepped buttons still reserve 11ch, and it is still on the BUTTON",
+   /min-inline-size:\s*11ch/.test(stepped?.body ?? ""), true);
+is("and the split wrapper reserves no width of its own",
+   /min-inline-size/.test(rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-split")?.body ?? ""),
+   false);
+/* AND THE ARROWS ARE NOT A FIFTH FIXED PART. They sit INSIDE the foot, which is
+   already one of the four the magic number pays for, so the `flex: none` list checked
+   above is the same length it was -- which is exactly why they cost nothing at the
+   floor. The two `flex: none` declarations they DO add are in rules of their own, so
+   they cannot quietly join that list and make the number stale without anybody
+   noticing. This asserts the separation rather than the count, which is checked
+   above. */
+is("the arrows declare their own flex: none, outside the collection's fixed-parts rule",
+   [/flex:\s*none/.test(rules.find((r) => r.sel === "aside#gt-cart-drawer span.gt-cart-split")?.body ?? ""),
+    /flex:\s*none/.test(arrowBox?.body ?? "")], [true, true]);
+is("and neither of them is in it", fixedParts.some((one) => /gt-cart-split|gt-cart-arrow/.test(one)), false);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

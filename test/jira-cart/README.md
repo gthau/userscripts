@@ -5,12 +5,13 @@ node test/jira-cart/run.mjs        # all of them, one total
 node test/jira-cart/css-smoke.mjs  # or any single one, on its own
 ```
 
-**1,375 checks across eight files. No framework, no `package.json`, no dependencies.**
+**1,737 checks across nine files. No framework, no `package.json`, no dependencies.**
 Node 20.11 or later, for `import.meta.dirname`. The exit code of `run.mjs` is the
 number of failing files, so a hook or a CI step needs no output parsing.
 
 There is nothing to install because there is nothing to install *for*: the thing
-under test is one file that a browser runs, and these are eight scripts that read it.
+under test is one file that a browser runs, and these are nine scripts that read it —
+eight reading the script, and since 2026-08-27 one reading the two HTML rigs.
 That is deliberate and it is the same argument §2.13 of the ADR makes about the
 duplicated helpers — a build step is a thing that can break between you and the
 answer.
@@ -20,13 +21,14 @@ answer.
 | File | Checks | What it holds |
 | --- | --- | --- |
 | `smoke.mjs` | 64 | The pure helpers: `cleanText`, `stripKeyPrefix`, `dropEnterKeyHint`, `keyFromHref`, `normaliseCollections`, `buildCollectedCss` — and since 1.4.0 **`moveInList`**, the array move BOTH drags go through. It was `moveField` and it lived in `format-smoke`; it never touched a field, and once the collection's item list moved through it too (ADR §2.9.1) a pure helper two features share belongs in the pure-helpers file. The field checks came with it, plus the two a list of issues adds: a list of one, and entries that are not `{id, on}`. **Since 1.6.0 it also holds `keysFromUriList`** (ADR §2.9.3) — the one parser all three of the drop feature's sources go through: CRLF and bare LF, RFC 2483 comment lines, a relative line, the same-origin rule that stops another instance's URL being retargeted at this one, deduplication, and the two things that must yield NOTHING — prose that spells a key, and our own `text/plain` line |
-| `store-smoke.mjs` | 127 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches |
+| `store-smoke.mjs` | 210 | The store. `load`/`save`/`update`, all four migration rows of ADR §2.4, and every preference clamped and range-checked — including the object form a hand-edited blob arrives as. Since 1.2.0 that includes the six export preferences: every id checked against the script's own vocabulary, both field lists through all five steps of `normaliseFieldList`, the tab ids **derived from the bar that draws them**, and the exact key list `Restore export defaults` reaches. **Since 1.7.0 it holds the fourth key, `gt-jira-cart.presets`** (ADR §2.4, amended 2026-08-28), and §18 is written as the MIRROR of §10: a preference that will not parse falls back to the shipped defaults, and a preset list is **repaired per entry** instead. The first-run build carrying the preferences as they are stored right now — which is what keeps 1.6.0's output byte-identical — a list that is not an array rebuilt **while the other one survives**, the four ways a name can be unusable and the drop that follows, `uniqueName` applied inside a list, the bands proved to go through the preference's OWN function rather than a copy of its rule, and the **one-★ invariant** every screen after this one rests on. **Amended at ticket 03**: the four export keys left the preferences, so §13's claim that the shipped defaults reproduce 1.1.0 is now made about `PRESET_DEFAULTS`, the band sweeps moved onto the preset path where the rule now has its only caller, and §18q was **inverted** — it asserted the four keys were still there as a tripwire, and it now asserts they are gone. §18a-bis holds the first run being **written** at boot rather than built lazily, which is ticket 03's correction of ticket 02: while the key is absent the two export presets follow 🔗 Links' shape, and no test on the blob can tell a shape chosen before 1.7.0 from one chosen after |
 | `group-smoke.mjs` | 25 | The selectors, against the real `data-testid` values of eight of the nine views, and `groupFor`'s **two** answers — place beside the key, read from the widest. The ninth is `rovo-smoke` |
 | `rovo-smoke.mjs` | 51 | **The ninth view, Rovo search**, and the only harness here that builds a WHOLE TREE of elements rather than stubbing `closest` per call — because the defect that opened it was the **contract check firing**, and nothing but a real tree can answer whether a warning appears. It runs `scanPage`, `checkContract`, `readSummary`, `groupFor` and `originOf` unmodified against a page whose every testid and width was measured on the live page on 2026-08-25. It holds the two things that view taught: that **a row entry without a summary entry changes nothing** (tier 0 → tier 0 → tier 1, asserted in all three states), and that the regions are **layered** — with the row name rotted the check stays quiet, with its fallback gone too the table is reported at 20 keys, and with neither region named the warning is the one the user read off the page, **42 keys**, word for word |
-| `format-smoke.mjs` | 552 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It used to hold `moveField` directly; that function is `moveInList` now and its checks are in `smoke.mjs`. What replaced them here is **§18, a hand-made order**: that a reordered collection is what all six exports emit, and — the half that is not tautological — that a moved row keeps its new place **inside** a 📊 Report band, which is the one export whose grouping could plausibly have thrown the order away (§2.9.1) |
-| `boot-smoke.mjs` | 439 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued. **Since 1.4.0 it drives a DRAG** (§2.9.1), which this README said for two versions could not be done here: `dragstart` → `dragover` in a named half of a named row → `drop` → `dragend`, through the delegated listeners the script really registers, with a rect stubbed per row. It holds all four payload types and their bytes — including that the three external ones are the `🔗` button's, asserted against the same literals as its own press, so one issue cannot come to have two shapes; both halves of a row and the append below the last one; that a release with no drop writes nothing; that the list does **not** redraw while the pointer is down; and that a write landing mid-drag survives the drop, because `update` re-reads before it writes. **Since 1.6.0 it drives the other direction — a drop INTO the Cart** (§2.9.3), with a `dataTransfer` that can be **read**: `types` for the accept and `getData` for the drop. A `dragover` that does not call `preventDefault` *is* the refusal, so acceptance is asserted directly instead of inferred. It holds every live row draggable with its key opted out, the live drag's three types and `copy`, a chip taking a drop **without becoming active**, the move and the Ctrl copy and Ctrl released mid-drag changing the cursor back, the item carried **whole** — proved by making the stored summary differ from the page's — the duplicate reaching the same end state, the gap above and below and the append with no row under the pointer, and all four refusals: a collection, no url-list, a foreign origin, and a read-only store |
-| `css-smoke.mjs` | 86 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct. **Since 1.4.0 it holds the collection's draggable rows** (§2.9.1): the same specificity trap a FOURTH time, the transparent border both lists' rows reserve so nothing reflows under a pointer mid-drag, and the one word the grip decision comes down to — `visibility` and not `display`, so the glyph's width is held whether or not it is painted. **Since 1.6.0 it holds the live list's own drag and the two new drop indicators** (§2.9.3): the live rows' grab cursor and reserved grip, the chip's ring as an `outline` rather than a third meaning on a border that already carries two, and the dashed outline an EMPTY item list wears — the one gap a list with no rows still has |
+| `format-smoke.mjs` | 617 | The **six** copy formats against §2.8's, §2.14's and §2.15's worked examples, `bulkfetch` response validation, `uniqueName`, and every failure sentence §2.9's table promises, word for word. Since 1.1.0 it also asserts the four rules §2.14 bought with real pastes — no `opacity`, no inline `border`, no separator that is a box, no colour without a pale ground. Since 1.2.0, **§15 asserts all five line shapes byte for byte** — both flavours, all three exports, with a summary and without — and that the shape table names the same ids as the preference's own vocabulary, in the same order. **§16 asserts the two field lists**: that the shipped defaults reproduce 1.1.0 for both exports, that every id `FIELD_CATALOGUE` names draws a bit, that a reordered list emits in the stored order, that zero fields is the head alone, and that the five paste rules hold over every byte string a selection can produce. It used to hold `moveField` directly; that function is `moveInList` now and its checks are in `smoke.mjs`. What replaced them here is **§18, a hand-made order**: that a reordered collection is what all six exports emit, and — the half that is not tautological — that a moved row keeps its new place **inside** a 📊 Report band, which is the one export whose grouping could plausibly have thrown the order away (§2.9.1). **Since 1.7.0 §16d holds which PRESET a plain press reads**, over a list in which the ★ is neither first in the array nor first by name — so the two cheap wrong answers are both set up to differ from the right one. With it: that editing a preset which is not ★ moves not a single byte, that a ★ moved in one list does not reach the other export, that 📋 Details takes its head from its preset while 🔗 Links takes its from the preference, and that 🔗 Links' bytes do not move when a preset does. **Since ticket 04, §16e holds the arrow's PICK** — every preset in the list walked rather than named, so a third one is covered without being added; that the two presets do not print the same bytes anyway, which is what makes the loop mean something; that a pick naming nothing, no pick at all and the empty string all fall to ★; that a pick cannot cross between the two lists; that a 🔗 Links pick is a SHAPE and a preset id picked there names none; and the five paste rules over every reachable pick. **§16f is 16c's seam for the arrows**: an entry whose `arrow` says `presets` must name the preset list it offers, or it is a dropdown the render cannot fill |
+| `boot-smoke.mjs` | 603 | **The whole script**, against a fake DOM, driven by real clicks through the delegated listeners it really uses. Since 1.1.0 that includes 📋 Details' two presses, its expiry, and its refusal to arm on a refused fetch. Since 1.2.0 it also drives the **⚙ screen**: the mode that replaces the body and the foot, the three tabs and the tab it remembers, the two-press restore, an add made **from the page while the panel is up**, and the pinned `Issue reference` control — including a copy that proves the stored shape is read **at the press** rather than held in a variable. It also drives the **two field lists**: eight rows each over one catalogue, a tick that writes and keeps the field's place, a stored reorder the panel draws by **moving** the rows rather than rebuilding them, and an armed `📋 Copy` that survives a preference change in this tab and in another one. **Since 1.3.0 it drives the hover rail** (§2.7.1): the copy button's own press, and the one geometry claim the feature rests on — that the `+` does not move a pixel when the copy button comes and goes, measured from the rail's own placement rather than argued. **Since 1.4.0 it drives a DRAG** (§2.9.1), which this README said for two versions could not be done here: `dragstart` → `dragover` in a named half of a named row → `drop` → `dragend`, through the delegated listeners the script really registers, with a rect stubbed per row. It holds all four payload types and their bytes — including that the three external ones are the `🔗` button's, asserted against the same literals as its own press, so one issue cannot come to have two shapes; both halves of a row and the append below the last one; that a release with no drop writes nothing; that the list does **not** redraw while the pointer is down; and that a write landing mid-drag survives the drop, because `update` re-reads before it writes. **Since 1.6.0 it drives the other direction — a drop INTO the Cart** (§2.9.3), with a `dataTransfer` that can be **read**: `types` for the accept and `getData` for the drop. A `dragover` that does not call `preventDefault` *is* the refusal, so acceptance is asserted directly instead of inferred. It holds every live row draggable with its key opted out, the live drag's three types and `copy`, a chip taking a drop **without becoming active**, the move and the Ctrl copy and Ctrl released mid-drag changing the cursor back, the item carried **whole** — proved by making the stored summary differ from the page's — the duplicate reaching the same end state, the gap above and below and the append with no row under the pointer, and all four refusals: a collection, no url-list, a foreign origin, and a read-only store. **Since 1.7.0 it drives the PRESET BLOCK** (presets ticket 03): the four-tab bar, the picker, ★, ✎, ✕ and `+ Create preset`, all through real events. Three of its checks exist because a mutation survived the first version of them — a create is pressed on a preset that has been moved AWAY from the shipped defaults, so *the preset that was open is byte-identical* compares two different objects; ★ is moved onto the preset that sorts SECOND, because `oneStar` would otherwise fake the answer; and *the picker writes nothing* is proved with a **sentinel key** rather than by comparing bytes, because a no-op rewrite of the same normalised content is invisible to a byte comparison. **And it drives the FIELD LISTS' drag at last** (§2.14), which this README said for four versions was a gap rather than an impossibility: the drop writes a preset now, and a mutation that made it a no-op survived the whole suite until this landed. **And since ticket 04 it drives the FOOT'S THREE ARROWS**: the pick that copies at once on 🔗 Links, the pick that fetches on the two stepped buttons, the pick on an already-armed button that copies **without asking Jira again**, the mark on the armed rung dropping its `★` and surviving a bare re-render, the other stepped button staying where it was, the pick thrown away with the fetch it rode on, and the one the feature rests on — **the picked preset deleted through the panel between the fetch and the copy, where the copy falls to ★ and still writes.** Two presets in deliberately different shapes, because a fixture whose presets agree cannot say which of them was read |
+| `css-smoke.mjs` | 107 | The generated stylesheet. The three CSS traps this effort actually hit, plus §2.11 rule 7's arithmetic. Since 1.2.0 it also holds the ⚙ button — its glyph size, the 22px box the head's height depends on, the **state** paint that survives a hover, and the focus reset that every ring inside the drawer must out-specify — and the ⚙ **screen**: that the panel is the drawer's one scroller while it is up, and that the body can actually be hidden underneath it. Since 1.2.0 it also holds the field rows: the transparent border the drop indicator paints into, that the indicator changes only a colour, and **the same specificity trap a third time** — the dragged row's ground has to survive the pointer that is dragging it. **Since 1.3.0 it holds the hover rail**, and one of its checks is the reason this file exists at all: *the `+` is still a containing block*. The plus stopped being `position: fixed` when it gained a neighbour, and the two bars that draw it are `inset: 0` absolute — so without `position: relative` they draw in the viewport's corner and the button is an empty blue circle, while every property `boot-smoke` can see is still correct. **Since 1.4.0 it holds the collection's draggable rows** (§2.9.1): the same specificity trap a FOURTH time, the transparent border both lists' rows reserve so nothing reflows under a pointer mid-drag, and the one word the grip decision comes down to — `visibility` and not `display`, so the glyph's width is held whether or not it is painted. **Since 1.6.0 it holds the live list's own drag and the two new drop indicators** (§2.9.3): the live rows' grab cursor and reserved grip, the chip's ring as an `outline` rather than a third meaning on a border that already carries two, and the dashed outline an EMPTY item list wears — the one gap a list with no rows still has. **Since 1.7.0 it holds the preset block**: the same specificity trap a FIFTH time, on ★'s `aria-pressed` state and on the armed ✕'s red, and the block's own version of the 0.3.0 trap — eleven of the script's `hidden` writes are in it, so every hidden-able element there is named and held to carrying no `display` of its own. **Since ticket 04 it holds the three arrows**: that the button in a split drops its right border and the arrow carries a **real** replacement rather than a transparent one — the defect that actually happened and made the button read as cut open; that the **divider** is there, which is the one declaration the two candidate looks differed by and the press chose; that the resting ground is painted and the hover changes the ground and nothing else; that the hover **excludes the dead arrow in its own selector**, the shape `button.gt-cart-copy:hover:not(:disabled)` already uses, so there is no cascade to lose; and that the `11ch` reservation is still on the BUTTON rather than on the wrapper, because moving it out would reserve the button *and* its arrow. **And since 2026-09-08 it holds the FLOOR'S PROVENANCE**, which is the one check here that exists because the file could not catch something. `MIN_BLOCK` and `COLLECTION_FIXED_PX` were measured in the real drawer against a foot of six buttons and three arrows; this file has no layout, so it can never count the foot's rows itself and must not pretend to. It counts the foot's CONTROLS off `EXPORTS` instead and goes red when that moves, with *re-run appendix C.3* as the instruction. **A seventh export replays the 1.5.0 regression and is caught** — which is the bug this is for: the sixth button made the foot two rows, the number stayed at 145, and it survived two whole efforts because this file's copy of it was derived from the same reading of the same sheet and could only ever catch the two drifting apart |
 | `tabs-smoke.mjs` | 31 | **The whole script twice**, over one shared store, with a working value-change bus |
+| `rig-smoke.mjs` | 29 | **THE TWO COMMITTED HTML RIGS, and the first thing here ever to read one.** Added 2026-08-27 after the sixth drift in `paste-test.html`: a CSS comment that was never closed swallowed five rules whole, including all of `.cart`, so the drawer stopped clipping and stopped being a flex column. It holds three kinds of check. **The sheet parses:** every comment closed by walking the pairs rather than counting them, braces balanced, and no orphan declaration between one rule and the next. **The rules a rig's answers depend on exist:** `.cart` still carries `overflow: clip`, `display: flex` and `flex-direction: column`, `.b-stage` still carries its flex, and each of the three areas that get the `hidden` attribute has a paired `[hidden]` rule — because an author rule setting `display` on a class beats the browser's own. **And the drawer mock has not drifted:** the foot, the head, the chips row and the tab bar are compared **property by property against the script's own rules, sliced out of `src/`**, which is the check the fourth drift is the reason for. It also asserts every id the page's scripts fetch exists and every class they set is painted. It says nothing about layout — there is no browser here — so fit is still §7's browser step |
 
 ## Why they cannot drift from the code
 
@@ -68,8 +70,9 @@ the vocabulary lacks is an unreachable shape, and an id with no table is a prefe
 that renders nothing.
 
 `store-smoke` does the same to the constants it asserts about — `MIN_INLINE`,
-`MIN_BLOCK`, `BASIS_MIN`, `BASIS_MAX`, `LAYOUTS`, `SETTINGS_TABS`, `EXPORT_PREF_KEYS`
-and `DEFAULT_PREFS` — and **it is
+`MIN_BLOCK`, `BASIS_MIN`, `BASIS_MAX`, `LAYOUTS`, `SETTINGS_TABS`, `EXPORT_PREF_KEYS`,
+`DEFAULT_PREFS` and, since 1.7.0, the four key NAMES, `DEFAULT_PRESET_NAME` and
+`PRESET_LISTS` — and **it is
 the file that proves why the rule matters**, because it had already drifted. It
 copied `MIN_BLOCK` as `160`; the script has said `215` since 1.0.0, when the floor
 was re-derived from the stylesheet. So *"a size below the minimum is clamped"* was
@@ -111,6 +114,34 @@ Since 1.2.0 the page carries two more things:
   rather than read about. It drives nothing above it, and the page's own fence says
   so.
 
+### The bench gained a fifth `Tabs` variant on 2026-08-27: `Presets · proposed`
+
+**It is a PROPOSAL and not a shipped screen** —
+[`docs/jira-cart/presets/`](../../docs/jira-cart/presets/README.md) is the design and
+`01-the-prototype.md` is the ticket. What it adds: a four-tab bar at full label length,
+the preset block in both export tabs, a per-preset `Issue reference`, and **three
+arrows in the foot**. It carries a readout under the drawer that measures the foot
+**with the arrows and without them**, in layout pixels, and prints the `MIN_BLOCK` the
+delta implies — which is the number the arrows ticket owes the ADR.
+
+**It deliberately breaks this page's own invariant** that every variant is built from
+the same controls, because it proposes new ones rather than rearranging the shipped
+ones. The break is stated in a comment beside `TAB_SETS`, and the fence at the foot of
+the page carries what the variant does not model: no fetch, no `Copy` ladder, no
+store, no clipboard behind the foot, and presets that live in a variable and do not
+survive a reload.
+
+**The three older variants are untouched**, because `tabs2` and `tabs4` are §2.9's
+rejected rows and the record's own reason for keeping them is that a choice should be
+lookable-at rather than read about. `tabs4` shortened its labels to `🔗 Line` and
+`⚙ Look`; the new variant uses the decided ones at full length, so the two can be
+switched between at 300px and the fit compared.
+
+**The fence's *"The Cart itself. No drawer…"* line was FIXED the same day.** It had
+been false since the bench landed at 1.2.0 — there has been a drawer on this page for
+five versions — and it is the fourth thing on this page found wrong by reading rather
+than by anything going red.
+
 ### `config-prototype.html` was MERGED INTO IT AND DELETED, at 1.2.0
 
 Ticket 06 named three options — merge, keep both, or let the prototype supersede the
@@ -132,15 +163,170 @@ rather than left to be discovered: the `--cart-*` chrome colours, the sketched d
 body, and the tab remembered in `localStorage` where the script uses
 `gt-jira-cart.prefs`.
 
+### THE FOURTH DRIFT, 2026-08-27, and it invalidated a measurement
+
+**The rule at the top of this section says keep the chips shape byte-identical to the
+script. The FOOT was never covered by it, and the foot had drifted in four values.**
+
+The user read the foot readout back and it said the three arrows cost **0px** and the
+drawer's floor does not move. That number was better than the presets record's own
+arithmetic predicted, which is the direction that earns a second look — and the second
+look found this:
+
+| | script | the rig | effect |
+| --- | --- | --- | --- |
+| foot padding | `6px 10px` | `6px 8px` | the row was laid out in 4px more width than it has |
+| button padding | `3px 8px` | `2px 6px` | each of the six buttons 4px narrower, 2px shorter |
+| font-size | `12px` | `11px` | every label ~9% narrower, and **both `11ch` reservations with them** |
+| border-radius | `4px` | `3px` | cosmetic |
+
+Six buttons at 4px is 24px before the ~9% on the labels — enough to move where the row
+wraps. **The measurement was withdrawn**, all four values are the script's now, and the
+**head** (`gap: 8px; padding: 6px 10px`) and the **chips row** (`padding: 6px 10px 0`)
+were drifted too and went with them.
+
+**The tab bar was checked in the same pass and is byte-identical** —
+`padding: 3px 9px; font-size: 11px` on the button, `gap: 2px` and a 1px bottom border on
+the bar — which is why the *"four labels fit at 300px"* answer from the same press
+**stands** where the foot's did not. That check is the whole difference between a closed
+question and a withdrawn one.
+
+**What cannot be fixed here, and is now in the page's fence:** `ch` is the width of a
+`0` in the inherited font family, and this page inherits IBM Plex Sans where the drawer
+inherits Jira's stack. `11ch` is the right rule with a slightly wrong ruler.
+
+**And the sketch line is now drawn explicitly**, because it was doing no work: the
+head, the chips row and the foot are real and byte-identical, because
+`COLLECTION_FIXED_PX` and `MIN_BLOCK` are summed from them. The section headings, the
+collection rows and the inside of a chip are sketches — the script's chip is a div
+holding two buttons with their own paddings and here it is one span. **Do not measure a
+floor off those three.**
+
+### THE FIFTH DRIFT, the same day, and this one was STRUCTURAL
+
+**The `hidden` attribute did nothing on this page.** Reported by the user: *"I can
+only see the buttons whenever I select Appearance tab, with the other tabs, the
+drawer gets cut vertical, even though I select 1x and 700px."*
+
+`.cart-settings`, `.cart-sections` and `.cart-foot` each set `display: flex`, and an
+**author rule on a class beats the browser's own `[hidden] { display: none }`** — so
+`hidden = true` set the attribute and changed no paint. All three were laid out at
+once: the panel and the sections both asking for `flex: 1`, the foot taking its 66px,
+and the panel left with about half the drawer. Short content fit; the field lists were
+cut. It read as a tab problem because the tabs are what change the content's height.
+
+**The script has this right and says why**, in seven rules and one comment: *"The
+pair. Both selectors name the same two ids, so the one with the attribute is strictly
+more specific and the area hides when it is told to."* This page had **none** of them.
+It now has the pair, class-plus-attribute at (0,2,0) against the bare class at (0,1,0).
+
+**Three things it also fixes, and the third is the one that matters:**
+
+- the overflow readout was measuring `clientHeight` on a squeezed panel, so its
+  numbers were wrong;
+- the ⚙-replaces-the-whole-body claim this bench exists to demonstrate was not
+  actually being demonstrated;
+- **every "does the panel scroll at 300×215 with every group in view" question asked
+  of THIS PAGE since 1.2.0 was asked of a panel about half its real size.** The
+  shipped script is not affected — it carries the seven rules — so anything verified
+  in real Jira stands. What is in doubt is only what was judged by looking at the
+  bench.
+
+**What survived the same reading, and why**, because a drift is not a reason to throw
+away every number near it:
+
+| Answer from the 2026-08-27 press | Standing |
+| --- | --- |
+| Four tab labels fit at 300px | **Stands.** The squeeze was vertical — `flex: 1` competition in a column. The bar's width comes from the cart's 300px and was never touched |
+| The foot is 2 rows / 66px, and three arrows cost 0px | **Stands.** `measureFoot` returns early on `foot.hidden`, which was true as a *property* whatever the CSS did, so the number was taken with ⚙ off. Row count and the foot's own height follow from the cart's WIDTH, and `flex: none` gives it its content height either way |
+| The armed label does not jump the row | **Stands.** Width again |
+
+### And the fix made the bench unhelpful, which was fixed in turn
+
+**The same day, immediately after**: *"now the buttons don't appear at all, regardless
+of which settings tab is selected and regardless of the height selected."*
+
+**That is the fix working.** ⚙ replaces the drawer's whole body, the foot included — so
+on the settings screen there are no foot buttons to see, at any height. They had looked
+otherwise for as long as `hidden` was doing nothing here, and the foot was being painted
+underneath the panel.
+
+**But it left the bench worse for the thing being done with it:** the `Arrow` and
+`Foot labels` switches are both about the foot, and neither could be seen while the
+settings were up. So **both of those switches now close the settings**, and the stage
+line says they do. It is the one place on this page where a press moves something other
+than the control pressed, and the comment beside it says why.
+
+**The declined alternative was a second copy of the foot outside the drawer**, always
+visible. Two copies of the foot is two things that can drift, and this page has now had
+five. One foot, and the switches take you to where it is.
+
+> **CONFIRMED AGAINST THE REAL CART the same day, by the user, in one sentence:**
+> *"it's different from before, now it matches the actual behaviour of the cart in
+> Jira."* That is the half no reading of the CSS could reach. The fifth drift was
+> found by reading the stylesheet and fixed on the strength of the script's own
+> comment; what this says is that the page now behaves like the thing it is a model
+> of, judged by somebody who uses it. **So the bench had been misrepresenting the
+> drawer for five versions, and it no longer is.**
+
+> **CONFIRMED FIXED the same day, by the user: "ok, it's working as expected now."**
+> Recorded at the precision it has. What that closes is the **layout**: the drawer
+> clips, it is a flex column again, and it looks like the card it is meant to be at
+> every height. What it does **not** close is the three numbers the same page produced
+> earlier that day — they were read off a drawer 300px wide where the real one is 298px
+> inside its border, and *it looks right* is not *the number was read again*. Those are
+> still owed, and `docs/jira-cart/presets/README.md` says so beside decision 23.
+
+### Running the bench's script in node, which found two things
+
+**Nothing here read an HTML file until 2026-08-27**, and the table above is what that
+cost: a `renderStage` that threw on every call, a `render` in a temporal dead zone,
+and a shape table with four rows where the script has five. None of the three went
+red. `rig-smoke.mjs` now reads both rigs, but **it reads their CSS and their markup,
+not their behaviour** — a stylesheet that parses and a class that is painted are what
+it can see. Everything below is still the way the page's own JavaScript gets
+exercised.
+
+So the 2026-08-27 change was checked by **extracting the bench's script block and
+running it in node against a small DOM stub** — a throwaway, not committed and not in
+`run.mjs`: load, then switch variant, then press every handler the panel built, one at
+a time, re-reading the tree after each press so no stale closure is mistaken for a
+defect. `node --check` was **not** enough and could not have been: every one of the
+three faults above is syntactically valid.
+
+It found two faults, and **both were in the check rather than in the page** — which is
+worth recording, because that is the usual result and it is not a reason to skip the
+run:
+
+| What went wrong | Where |
+| --- | --- |
+| The stub stored `textContent = ""` as a string instead of clearing the children, so the panel's tree grew on every render and node ran out of heap. The symptom read as a leak in the page | the stub |
+| The structural assertion pressed nothing first, so it measured the **`Appearance`** tab — which is `tabs[0]` and where the panel opens — and reported its two dropdowns and its checkbox as the preset block. **The counts looked plausible**, which is the whole hazard | the check |
+
+A second assertion matched the star note by its **leading ★** and found an `<option>`
+in the picker, whose text also starts with one — a check that passed on the wrong node.
+It matches on the class now.
+
+What the run does say: nothing throws at load or on any press, and a fresh presets
+panel on the 📋 Details tab draws four tabs, two dropdowns, nine buttons, nine inputs
+and its star note. What it does not say is anything about **layout**, which is the
+whole reason the ticket ends in a browser.
+
 ### Verifying the chips, which is the rule this page lives under
 
-`run.mjs` cannot do it — nothing under `test/` reads an HTML file, and adding an
-eighth harness that did would give every other file a second seam to point at the
-code. So it is a **diff run by hand, and ticket 06 required it rather than assuming
-it**: emit one collection from the page's `buildChips` and from the script's
-`formatDetails`, on all five shapes in both flavours, and require every byte to
-match. Run it after touching either. **It was run at 1.2.0 and it is
+`run.mjs` still cannot do it, and the reason has changed. It used to be that nothing
+here read an HTML file at all; since 2026-08-27 `rig-smoke.mjs` does, but comparing
+**emitted bytes** would mean running the page's own `buildChips` against the script's
+`formatDetails`, which needs both of them executing rather than being read. So it
+remains a **diff run by hand, and ticket 06 required it rather than assuming it**:
+emit one collection from each, on all five shapes in both flavours, and require every
+byte to match. Run it after touching either. **It was run at 1.2.0 and it is
 byte-identical.**
+
+**What `rig-smoke` DOES cover of this page's fidelity** is the CSS half, which is the
+half that had drifted twice: the foot, the head, the chips row and the tab bar are
+compared property by property against the script's own rules, sliced out of `src/`.
+That is the fourth drift closed by a check rather than by a comment.
 
 The same session also booted the whole page against a fake DOM and pressed every
 instrument, which is what found the `grouped` fault above and proved the fix by
@@ -161,6 +347,24 @@ bytes changed and **it will not tell you whether the result is readable**.
 The same applies to the fake DOM: it has no cascade, no layout and no paint, which is
 why `css-smoke` exists separately and why §7 still has steps only a browser can
 answer.
+
+**AND SINCE 1.7.0 THERE IS A CONTROL WHOSE WHOLE POINT IS SOMETHING NOTHING HERE CAN
+SEE.** The foot's arrows are native `<select>` elements because a menu of our own would
+be cut off by the `overflow: clip` on every container in the drawer — so **the option
+list is painted by the browser, on top of the page, outside every clip we own.** That
+is the entire argument for the control (presets decision 15), and no fake DOM can watch
+a list open. `boot-smoke` holds what the list CONTAINS and what picking from it does;
+whether it is drawn whole is ADR §7 **step 42** — pressed in normal use on 2026-09-10,
+where the list opened and picked, and the 300×215 floor version accepted unseen there
+because a native `<select>` is browser-painted and escapes every clip by construction.
+Another item in that step is the same kind of claim: whether the caret is
+**noticed at rest** — the failure a beta tester hit with the ⚙ at 1.1.0, and it was
+found and used in that same press. The foot's
+**row count** at the floor was the third — and it is now CLOSED: measured in the real
+drawer on 2026-09-08 at **three** rows, so `MIN_BLOCK` moved from 215 to 283 and the
+number the rig had read off `paste-test.html` twice was wrong (risk 10, appendix C.3).
+This file cannot count rows and never could, so it holds the floor's **provenance**
+instead — see *The floor, 2026-09-08* below.
 
 **THIS SENTENCE USED TO SAY "NOTHING HERE CAN DRIVE A DRAG", AND 1.4.0 DISPROVED
 IT.** It is left in that form because the correction is the useful part. The claim
@@ -306,6 +510,48 @@ and each is a single edit to `src/jira-cart.user.js` in a scratch copy:
 | **05, the bands** | the two may not name one field; the swap moves the other dropdown to what this one held; the status categories come out in Atlassian's order and not alphabetically; the default pair is priority then team | `format-smoke` and `boot-smoke`, one also `tabs-smoke` |
 | **the stylesheet** | the ⚙'s state paint survives a hover | `boot-smoke`, `format-smoke` |
 
+### The 1.7.0 presets store, and the check that could not fail
+
+Ticket 02 asked for **at least one new rule proven able to fail**, and named the
+**one-★ invariant** as the one to prove, because every screen after it assumes a
+plain press has exactly one answer. **Eight mutations, run 2026-08-28, and 0
+survived**, each a single edit to a scratch copy of `src/jira-cart.user.js`:
+
+| The rule broken | Checks that went red |
+| --- | --- |
+| `oneStar` stops repairing at all | 8, including the write path's |
+| a truthy `star` counts as a star | 1 — *a star that is not a boolean is not a star* |
+| ★ falls to the first by POSITION rather than by name | 7 |
+| `byName` falls back to `<`, so capitals sort first | 1 |
+| a nameless preset is invented a name rather than dropped | 5 |
+| names are no longer made unique inside a list | 1 |
+| the presets path copies the band pair rule instead of calling `resolveBands` | 6 |
+| the writer stops re-reading before it writes | 1 — the stale tab |
+
+**A ninth mutation was run and did NOT go red, and it is recorded rather than
+quietly dropped.** `PRESET_LISTS` is `SETTINGS_TABS.filter((tab) => tab.fields)` —
+a tab has presets exactly when it has a field list. Changing that filter to
+`tab.exports` changed nothing, because **every tab carrying `exports` also carries
+`fields` today**, so the two predicates pick the same two tabs. They diverge the
+moment ticket 03 adds the 🔗 Links tab: `exports: true`, no field list, and no
+presets (decision 4). What catches it then is the neighbouring check, which pins the
+literal pair `["details", "report"]` — so the guard exists, it just cannot fire until
+that tab does. The comment in `store-smoke` §18 says so at the check.
+
+**And one mutation survived, which is the finding worth keeping.** The comparator was
+written `a.name.toLowerCase().localeCompare(b.name.toLowerCase())` and checked with
+*first by name is case-insensitive*. Making the comparator case-**sensitive** changed
+no answer and the harness stayed green — because `localeCompare` already orders by
+letter first and treats case as a tie-break, so the `toLowerCase` was dead code and
+the check was asserting a property that could not be false.
+
+This is `css-smoke`'s first backtick check again, and the fix was the same shape: find
+what the code actually decides. What `byName` really chooses is `localeCompare` over
+`<` — `<` compares code units, so `Zebra` would sort before `apple` and the picker
+would look broken. The `toLowerCase` is gone, the comment says why it went, and the
+check now names that. **It fails when the comparator does**, which the eighth mutation
+above confirms.
+
 **What it does not say, and this matters more than the number.** A mutation run proves
 that *something* goes red, not that the check you had in mind is the one that caught
 it — several of these are caught by three files at once. And it says nothing about a
@@ -318,6 +564,186 @@ parameter to `detailBits` does nothing, because every caller passes the argument
 adding a fourth parameter to `formatLinks` does nothing, for the reason recorded
 above. **A mutation that survives is as likely to be a bad mutation as a missing
 check**, so read the diff before believing the result.
+
+### The floor, 2026-09-08 — the check that could not catch anything
+
+`MIN_BLOCK` and `COLLECTION_FIXED_PX` were **measured in the real drawer** and both
+moved: 215 → **283** and 145 → **208**. The foot is three rows and 95px at 300px, the
+three arrows cost **28px** where the rig had twice reported 0, and the number had been
+short since the sixth button arrived at **1.5.0** — about 57px was being clipped at the
+shipped floor, which is risk 10's own 1.0.0 defect.
+
+**The finding for this directory is not the number.** It is that raising the script's
+two constants to the measured values turned **nothing** in `css-smoke` red. Its
+`COLLECTION_FIXED` was a literal derived from the same reading of the same sheet as the
+constant it was checking, so `reserved − 5 >= COLLECTION_FIXED` passed with both numbers
+wrong together. It could only ever catch them drifting **apart**. That is the
+`store-smoke` `160`-against-`215` failure again, in a second file, four efforts later.
+
+**This file has no layout and can never count the foot's rows**, so the fix is not a
+better sum. It holds the measurement's **provenance**: the reading was taken against a
+foot of six buttons and three arrows, counted off `EXPORTS`, and it goes red when that
+count moves — with *re-run appendix C.3* as the instruction in the failure.
+
+**Six mutations, all six caught:** the floor put back to 215/145 (the bug as shipped),
+each constant lowered on its own, each lowered by one pixel past its slack, an arrow
+dropped, and **a seventh export added — the 1.5.0 regression replayed.**
+
+### The 1.7.0 settings screen — SIX RUNS, and the survivors are the whole story
+
+Ticket 03 asked for at least one check proven able to fail, and named the one to
+prove: **a tick landing on a preset other than the selected one.** That one went red
+on the first run. **What the other five runs bought is more interesting, and it is why
+they are all recorded rather than only the last:** **40 distinct mutations over seven
+passes**, and the passes exist because the first had **five survivors**, and the next
+five had three, three, three, four and two. Every one of those was either a check that
+could not fail or a line of code that could not matter — and telling those two apart is
+the whole exercise. The last pass is the only one where nothing survived.
+
+**Three lines of the script were DELETED because a mutation could not touch them**,
+and each had been written on purpose:
+
+| The line | Why it could not matter |
+| --- | --- |
+| `deletePreset` passing ★ to the first remaining by name | `savePresets` writes what `normalisePresets` returns, so every delete goes through `oneStar` on the way out — which gives a starless list to the first preset **by name**, from the same `firstByName`, for the same reason. Ticket 03 asked for it "on write too, so the two agree and neither is the only guard"; they agree by construction, so there was only ever one guard |
+| `deletePreset` clearing the selection | An id naming a preset that is gone already falls to ★ in `selectedPreset`. The comment called it *a convenience and not a guard*, which turned out to be the reason to delete it |
+| the ★ transfer's companion comment | Replaced by the finding, so the next session does not add it back |
+
+**And six checks were rewritten because they could not fail**, which is the same
+defect on the other side of the seam:
+
+| The check | Why it could not fail | What it is now |
+| --- | --- | --- |
+| *the preset that was open is byte-identical after a create* | it ran while that preset was AT the shipped defaults, and a create starts from the shipped defaults — so it compared two identical objects | the preset is moved away from the defaults first, by a real tick and a real dropdown |
+| *changing the picker writes nothing* | it compared the stored bytes, and a no-op `savePresets` rewrites the same normalised content | a **sentinel key** the normaliser drops: it survives a read and cannot survive a write |
+| *the restore leaves the name and the ★ alone* | it ran on the only preset there was, which was called `Standard` and carried the flag — so overwriting both looked identical | it runs on a preset named something else, with the flag off |
+| *★ moves the flag to the selected preset* | pressed on the preset that is first by name, which is where `oneStar` sends a broken list anyway — and then on one that was already starred, where the handler returns early | pressed onto the preset that sorts **second**, from a state where it is not already flagged |
+| *the last preset cannot be deleted* | the ✕ is `disabled` on a list of one and the delegated listener reads `disabled` first, so no press reached the handler | the store is poked to one preset **without a render**, which is the read-modify-write window §2.5 is about and the only way the guard is reachable |
+| *a rename applies `uniqueName`* | the renamed preset was stored LAST, where the normaliser's own per-entry `uniqueName` gives the same answer | the stored order is reversed first, so the repair would rename the preset **nobody touched** |
+
+**One check was ADDED because the mutation had nowhere to go.** `createPreset`'s own
+`uniqueName` cannot change the STORED name — the new preset is pushed last, so the
+normaliser reaches the same answer — but it does change the **log line**, which would
+otherwise name a preset the store does not hold. The check reads the log.
+
+**And one harness bug was found by adding checks above an old one.** The stub widens
+every rect it hands out by a pixel per call, so the right-click menu — placed at the
+pointer and clamped to the viewport by its own width — started failing once enough
+rects had been read earlier in the file. The counter is reset before that section now,
+with a comment saying why. **A check that depends on how much ran before it is a check
+that will fail for a reason that is not its own.**
+
+**And the backtick check earned its keep for the fourth time, during this ticket.** A
+comment added to the stylesheet at the very end of the work used two backticks to
+quote an identifier; the template literal ended there, `boot-smoke` and `tabs-smoke`
+went to **0 checks**, and `css-smoke`'s first check said what had happened rather than
+reporting a syntax error 200 lines below. It is the same trap the sheet carries three
+warnings about, and it is worth recording that it was hit by somebody who had just
+written one of those warnings.
+
+**One DEFECT was found by reading rather than by pressing**, and it is the only one
+here this harness could not have found on its own. `change` **bubbles** from every
+form control, including a text input on **blur**, and the settings panel has one
+delegated `change` listener — so the preset block's rename field, which carried the
+picker's own dataset attribute, would on blur have landed in the picker's branch and
+set the selection to the **name somebody had just typed**. The panel would then have
+shown the ★ preset instead, and the rename would have looked as though it had jumped
+to another preset. This stub's blur synthesises no `change`; a browser's does.
+
+**And fixing it produced two guards where one was needed**, which the mutation run
+said out loud: the attribute was taken off the two text fields AND the handler's
+branch was given an id test, and **each alone prevented the bug**, so neither could be
+proved able to fail. The id test is gone — every other branch in that handler
+dispatches on an attribute alone — and the check now dispatches a `change` at the
+rename field directly, **on a preset that is not ★**, because a broken selection falls
+back to ★ and on the ★ preset the wrong answer and the right one are the same string.
+
+**The field lists' drag is driven here for the first time**, and that is a direct
+result of this run: ADR §2.14 recorded in 2026-08-25 that nothing drove it and that
+retro-fitting was declined as out of scope. Ticket 03 moved where that drop **writes**
+— a preference became a preset — and a mutation making the drop a no-op survived the
+entire suite. The gap stopped being free, so it was closed.
+
+### The 1.7.0 arrows, and four checks that could not fail
+
+Ticket 04 asked for **at least one check confirmed able to fail**, and named the one
+the feature rests on: *an arrow pick that silently falls back to ★ when it should not*.
+That failure is silent by construction — it produces a perfectly good document in the
+wrong shape — so it is the one worth the run.
+
+**42 mutations in five passes, run 2026-09-07.** Thirty-four are aimed at the feature
+and **0 of those survive**, after three passes — the first pass had **four survivors**
+and each turned out to be a real gap rather than a mutation worth discarding. Three are
+aimed at **guards**, and all three survived on purpose: surviving is the answer that
+tells you a guard is unreachable, and what to do about it is a note below. The last
+five came after the press that reversed the mark, and none of them survived.
+
+| Area | Mutations | Caught by |
+| --- | --- | --- |
+| **the pick, resolved at the press** | `pickedPreset` ignores the pick; `format` ignores its fourth argument; `onDetails` passes it on to neither branch; `copyDetails` drops the arrow's pick; `copyDetails` drops the HELD pick; `fetchDetails` stores none; `pickedShapeId` ignores the pick; `pickedShapeId` skips its range check | `boot-smoke`, three of the eight also `format-smoke` |
+| **the arrow as a control** | it is never appended; 📊 Report loses it; 🔗 Links offers presets instead of shapes; the `change` listener is not registered; it always copies and never fetches; it never stands down with its button; its value is never set; its options are not sorted; the ★ leaves the option text; its tooltip is fixed instead of derived; the caret glyph is emptied; the caret stops being `aria-hidden`; the select also wears `data-gt-format`; the options are rebuilt on every render | `boot-smoke`, two also `format-smoke` |
+| **the stylesheet** | the divider is dropped — the variant that lost the press; the replacement border is `transparent` — the defect that actually happened; the hover stops excluding the dead arrow; the `11ch` reservation moves to the wrapper | `css-smoke`, one each |
+| **elsewhere** | `selectedPreset` ignores which preset the picker names — the seam ticket 04 rewrote | `boot-smoke` |
+
+**Four survivors on the first pass, and what each of them was:**
+
+| The survivor | What it turned out to be |
+| --- | --- |
+| the options rebuilt on **every** render | A real gap. Rebuilding gives the same options, so no content check can see it — what it costs is a list that closes under the pointer that opened it and a keyboard position thrown away, neither of which a fake DOM paints. The check is node **identity** across two renders: `replaceChildren` makes new `<option>` elements, so the same objects surviving is the only evidence nothing was replaced |
+| the **caret glyph** emptied | A real gap, and an embarrassing one: the select over the caret is `opacity: 0`, so with no glyph the arrow is an empty bordered box. Nothing asserted the one visible thing about the control |
+| the select **also** wearing `data-gt-format` | A real gap, and it confirms the hazard the code's own comment names. `footButton` queries the foot for that attribute; the button comes first in the tree, so the query still answers correctly — **by document order**, which keeps working until somebody reorders the markup. Now held: the arrows carry `data-gt-arrow` and never the buttons' attribute |
+| `pick: pick ?? null` losing its `?? null` | **Not a gap — a line that was not doing anything.** Every reader of that field goes through `pickedPreset`, where `undefined` and `null` land on ★ alike. The standing rule from ticket 03 applies: a line no mutation can touch is deleted, not checked. It is gone, and the held object is `{ signature, rows, kind, pick }` |
+
+**Three guards were mutation-tested and ALL THREE survived, and the resolution is not
+ticket 03's.** That ticket deleted three lines a mutation could not touch; the rule it
+was applying turns out to be narrower than *delete every unreachable guard*, because
+`starPreset`'s own `??` is unreachable too and is kept with a stated reason. The
+distinction the file already draws: **a guard that duplicates another guard goes; a
+sole guard on the copy path stays, labelled as unreachable.** So `onFootArrow`'s two —
+the entry lookup and the button lookup, neither of which can be null while the listener
+lives on the foot — became **one** guard with the reason `shapeFor` already gives for
+keeping its own: a TypeError on this path is a copy that silently never happened.
+`renderFootArrow`'s `if (!node) return` stays untouched, because every render helper in
+the file guards its `getElementById` the same way and consistency is worth more than
+the line.
+
+**AND THE FEATURE WAS PRESSED IN REAL JIRA THE SAME DAY, WHICH REVERSED THE MARK — 5
+more mutations, 0 survivors.** The non-default rung read `📊 Copy ▾`, and the arrow
+beside it draws a `▾` caret that is always there, so the row showed two arrows with one
+of them inert. It is `★` and its absence now. The five mutations are the ones that
+matter for a mark that can be **absent**: always shown, never shown, inverted, the
+caret back, and — the one worth writing down — **the space left behind when the mark is
+not**, which is a trailing character nobody would see on screen and every string
+comparison would. The label assertions here are exact strings for that reason rather
+than regexes, and one of them checks the trailing space directly.
+
+**One check was written twice, and it passed on nothing the first time.** Every byte
+claim in the arrows section is *it used THIS preset and not THAT one*, and the first
+version ran on two presets that both emitted `url` — because the sections above it had
+left 🔗 Links' shape on `url` and ★ Standard's with it. Every copy came out identical
+and every check would have passed whichever preset was read. **The section now pins the
+preference and both preset shapes on purpose**, and asserts that the two differ before
+it asserts anything about which was chosen. This is the third time in this file a check
+has had to be rewritten for passing on a fixture whose two sides agreed.
+
+**AND THE RIG WAS WRONG ABOUT THE ONE NUMBER IT WAS STILL TRUSTED FOR — pressed
+2026-09-08.** `paste-test.html` reported the foot as **two rows** at 300px, with the
+arrows and without, and it reported it twice: once before its foot was found to have
+drifted from the script in four values, and once after the fix. The real drawer takes
+**three**. The estimate the rig overturned had said three with the arrows and two
+without, so the arithmetic was right and the instrument was wrong — **three readings,
+three failures**, on the file that has also drifted from the script six times. What that
+costs is stated in ADR risk 10 and appendix C.3: `COLLECTION_FIXED_PX` and `MIN_BLOCK`
+are stale by roughly 50px, `css-smoke`'s own `COLLECTION_FIXED = 135` is stale with
+them, and no number for that floor is taken off this rig again.
+
+**And one committed file turned out to be invisible to `grep`.** `paste-test.html` used
+a literal NUL byte as a sort sentinel — the same string at runtime — which makes the
+whole file read as binary: `grep` prints *binary file matches* and no lines, and
+ripgrep with `-I` skips it in silence. That is the file that has drifted from the
+script **six times**, and every one of those drifts was found by **reading** it. The
+sentinel is written `\u0000` now, which is the same value and leaves the file
+text.
 
 ### The 1.6.0 run — adding by drop
 
