@@ -53,6 +53,7 @@
     "shahar dadon",
     "nufar michurin",
     "revital kimhi",
+    "william chuang"
   ];
 
   const SCRIPT_EDITOR_DEFAULT_REVIEWERS = [
