@@ -367,6 +367,12 @@
     // The board's summary testid contains no word "summary". Do not look for one.
     '[data-testid$="single-line-text.container.box"]', // board
     '[data-testid$="inline-read.link-item"]', // issue links
+    // THE BUSINESS PROJECT'S TIMELINE TAB, added 2026-10-16. Its row already matched
+    // `ui.issue-row`, but the summary cell is named `issue-table-cells.summary-cell`,
+    // which no entry here knew -- so the cascade fell to tier 2, and the key's own
+    // anchor says `aria-label="RFENPS-930 is resolved"`, which is a label that STARTS
+    // WITH THE KEY and is not the summary. The stored summary was "is resolved".
+    '[data-testid$="issue-table-cells.summary-cell"]',
     // The Team's Timeline tab. Two segments rather than the leaf, because
     // `summary.title` on its own is the kind of name any view could take; scoped
     // to a row this reads the one title beside the one key (§2.2, tier 1).

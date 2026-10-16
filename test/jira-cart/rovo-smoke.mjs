@@ -492,6 +492,15 @@ is("and is not a row", rowMatches("contextual-summary.ui.gadgets.activity-feed.u
      { summary: "Revive Pyramid Staging Platform and integrate it with Galaxy STG", tier: 2 });
 }
 
+// ---- 9h. the business-project timeline row, probed 2026-10-16: a resolved-state aria-label
+{
+  const key = new El("a", { href: `${ORIGIN}/browse/RFENPS-930`, "aria-label": "RFENPS-930 is resolved" }, [], "RFENPS-930");
+  const summary = new El("div", { "data-testid": "issue-table-cells.summary-cell" }, [], "Review Epics");
+  new El("tr", { "data-testid": "native-issue-table.ui.issue-row" }, [key, summary]);
+  is("the summary cell wins over the key's 'is resolved' label",
+     cart.readSummary(key, "RFENPS-930"), { summary: "Review Epics", tier: 1 });
+}
+
 // ---- 10. the eight views that were already working are untouched by all of it
 for (const [testid, want] of [
   ["software.card-list.card.content-container.RDC-1", true],
