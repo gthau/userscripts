@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.7.0
+// @version      1.8.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Drag the drawer's rows to set the order a paste comes out in, or drag one straight into Slack or an editor. Drop an issue on a collection's chip to file it there without leaving the one you are in -- from the live list, from the collection, or straight off the page. Drag the whole collection by its heading or its chip to send every link at once -- into Teams, a Jira comment, or the browser's tab strip to open them all. Or press the 🔗 beside a key to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -351,6 +351,12 @@
     // entry also pays wherever one is embedded -- an issue description, a
     // Confluence page -- and none of those were surveyed. Expect a tenth view.
     '[data-testid*="datasource-table-view--row-"]',
+    // THE BOARD OF A BUSINESS / WORK-MANAGEMENT PROJECT (`/jira/core/projects/KEY/board`),
+    // added on 2026-10-16: the card is `board.content.cell.card`, and it has no summary
+    // testid at all. Its summary comes through tier 2: a card-wide overlay anchor carries
+    // `aria-label="KEY Summary. Use the enter key to load the work item."`, the same
+    // label the software board uses. The row is what lets tier 2 look.
+    '[data-testid$="board.content.cell.card"]',
   ].join(",");
 
   const ISSUE_HEADING = '[data-testid$="foundation.summary.heading"]';
@@ -361,6 +367,12 @@
     // The board's summary testid contains no word "summary". Do not look for one.
     '[data-testid$="single-line-text.container.box"]', // board
     '[data-testid$="inline-read.link-item"]', // issue links
+    // THE BUSINESS PROJECT'S TIMELINE TAB, added 2026-10-16. Its row already matched
+    // `ui.issue-row`, but the summary cell is named `issue-table-cells.summary-cell`,
+    // which no entry here knew -- so the cascade fell to tier 2, and the key's own
+    // anchor says `aria-label="RFENPS-930 is resolved"`, which is a label that STARTS
+    // WITH THE KEY and is not the summary. The stored summary was "is resolved".
+    '[data-testid$="issue-table-cells.summary-cell"]',
     // The Team's Timeline tab. Two segments rather than the leaf, because
     // `summary.title` on its own is the kind of name any view could take; scoped
     // to a row this reads the one title beside the one key (§2.2, tier 1).
@@ -439,7 +451,63 @@
     // this one holds, and what it buys then is silence instead of a false warning
     // on a view that is not broken.
     '[data-testid*="datasource-table-view--cell-"]',
+    // THE ANALYTICS / DASHBOARD CHART WIDGET. Added on 2026-10-16 after the
+    // contract check reported 18 keys on a page whose only issue links are in a
+    // table chart: `avp-chart-library-render-chart` > `table-chart-scroll-container`
+    // > `table-nitro-chart-table-element` > `hover-card-trigger-wrapper` > anchor.
+    // Probed from the anchor upwards only, so NO ROW IS NAMED: the row's own
+    // testid was not read. A press here stores the key and, through tier 4, no
+    // summary; gap-fill asks the API later. Named a region for the same bargain as
+    // the entries above -- silence from the check on a page that is not broken.
+    // The widget is one chart, nowhere near as wide as the page.
+    '[data-testid="avp-chart-library-render-chart"]',
+    // THE CLASSIC SPRINT REPORT, same bargain: `.ghx-sprint-report-table` is one
+    // issue list inside the report, not the page. Added on 2026-10-16.
+    ".ghx-sprint-report-table",
+    // A DASHBOARD GADGET, whatever it holds. Added on 2026-10-16 for the Filter
+    // Results gadget: `dashboard-view.gadget-wrapper` > ... > `table.issue-table` >
+    // `tr.issuerow` > `td.issuekey` > `a.issue-link`. One gadget, not the page.
+    '[data-testid="dashboard-view.gadget-wrapper"]',
+    // THE PROJECT SUMMARY PAGE'S GADGETS (`/jira/core/projects/KEY/summary`), added on
+    // 2026-10-16: the activity feed is `contextual-summary.ui.gadgets.activity-feed.ui`
+    // > `ul` > `li` > ... > `hover-card-trigger-wrapper` > `a.inline-card-resolved-view`,
+    // 53 keys and no row. Probed from one anchor only, so no row is named and no
+    // summary is promised beyond tier 4 and gap-fill. One gadget family, not the page.
+    '[data-testid*="contextual-summary.ui.gadgets."]',
   ].join(",");
+
+  // TABLES WITH NO ROW OR CELL TESTID, whose summary is found by COLUMN HEADER and
+  // never by position: the columns are configured per widget. Two so far, both
+  // probed on 2026-10-16: the dashboard / Analytics table chart, and the classic
+  // Sprint Report (`Key | Summary | Issue Type | Priority | Status | ...`), and the
+  // Filter Results gadget's `table.issue-table` (`T | P | Key | ... | Summary | ...`).
+  // See `chartTableSummary`.
+  const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"], .ghx-sprint-report-table, .issue-table';
+
+  // LAZY SMART-LINK CARDS. The project Summary page's activity feed draws each issue
+  // as an inline card that is a bare key and URL until it scrolls into view and
+  // resolves (`inline-card-resolved-view`). Probed 2026-10-16: the resolved one is
+  // what carries the title. Inside this scope an anchor that has not resolved yet is
+  // NOT LISTED, so the drawer shows a key with its summary or does not show it at all,
+  // and the card appears the moment it resolves. The unresolved card's own testid was
+  // not read, so the test is "not resolved" rather than a name that could rot.
+  const LAZY_CARD_SCOPE = '[data-testid*="contextual-summary.ui.gadgets."]';
+  const RESOLVED_CARD = '[data-testid="inline-card-resolved-view"]';
+
+  // THE CALENDAR'S "UNSCHEDULED WORK" PANEL, and it is the one place the Cart lists an
+  // issue that has NO LINK. Probed 2026-10-16: a card is
+  // `calendar-unscheduled-panel-card.draggable` > a title `div`, then a row holding
+  // the issue-type icon, the KEY AS PLAIN TEXT in a bare `div`, a status lozenge and
+  // a priority icon. There is no `/browse/` anchor anywhere in it, so §2.1's detector
+  // never saw the card.
+  //
+  // THIS BREAKS §2.1'S RULE THAT A KEY TYPED AS PLAIN TEXT IS INVISIBLE, and it is
+  // scoped as narrowly as it can be: only inside a card this selector names, only a
+  // leaf element whose WHOLE text is a key, and only when no anchor on the page
+  // already listed that key. Anywhere else the rule stands. What it costs: the hover
+  // rail and the green tint need an anchor, so they do not appear on these cards --
+  // the live list is the way to add one, which is what §2.9 says it is for.
+  const PLAIN_KEY_CARD = '[data-testid$="calendar-unscheduled-panel-card.draggable"]';
 
   const DEFAULT_COLLECTION_NAME = "Scratch";
 
@@ -1086,18 +1154,18 @@
 
   /* WHETHER THE DRAWER IS OPEN IS A STORED PREFERENCE. Reversed on 2026-08-18, at
      the user's request, after using 0.4.0.
-     
+
      It was a variable in memory until then, and §2.9 had the reason: it answers
      *am I collecting right now*, which reads as a question about this sitting
      rather than a standing preference. USE SAID OTHERWISE. A reload is not the end
      of a sitting -- it is a link you clicked, a save, a page that reloaded itself --
      and closing the drawer each time made the reload cost more than the reload.
-     
+
      This is a FUNCTION and not a variable, deliberately: a variable beside the
      stored value is two values that can disagree, which is the one thing this
      design deletes everywhere else (principle 1). Every reader asks storage, the
      way `corner` and `layout` already do, so there is nothing to keep in step.
-     
+
      Two costs, both accepted and neither hidden: a NEW TAB opens with the drawer
      already open, because it reads the same preference; and a drawer left open a
      week ago is open when you come back. Both follow from it being a preference,
@@ -1898,8 +1966,57 @@
    * cascade went tier 0 to tier 0, and reached tier 1 only when both were there. A
    * row entry without a summary entry is a change that looks like a fix.
    */
+  /**
+   * The summary of an issue drawn in a headed table with no row testids (the
+   * dashboard table chart, the Sprint Report), read from the cell under the header
+   * that says "summary". Measured on 2026-10-16: the headers are
+   * `Work item key | Work type | Work item priority | Issue summary`, the `tr` and
+   * `td` carry no `data-testid`, and the key anchor sits in the first cell. A chart
+   * with no summary column answers "" and the cascade falls through to gap-fill.
+   */
+  function chartTableSummary(anchor, key) {
+    const cell = anchor.closest("td");
+    const table = cell?.closest("table");
+    if (!table?.closest(CHART_TABLE)) return "";
+    const headers = [...(table.rows[0]?.cells ?? [])];
+    const at = headers.findIndex((header) => /summary/i.test(header.textContent));
+    const target = at < 0 ? null : cell.parentElement?.cells?.[at];
+    return target ? stripKeyPrefix(cleanText(target.textContent), key) : "";
+  }
+
+  /**
+   * The element that IS the key on a card with no link: a leaf whose whole text is a
+   * key. Whole text and not a match inside text, so a title that happens to mention
+   * another issue is never taken for the card's own key.
+   */
+  function plainCardKey(card) {
+    for (const leaf of card.querySelectorAll("div")) {
+      if (leaf.children.length) continue;
+      const text = cleanText(leaf.textContent).toUpperCase();
+      if (SAFE_KEY_RE.test(text)) return { element: leaf, key: text };
+    }
+    return null;
+  }
+
+  // The title of such a card is the first `div` of its first child. It has no testid
+  // (the classes are generated), so this is position, which is the weakest thing the
+  // Cart reads a summary by -- and an item with no summary is still valid, so a card
+  // that is reshuffled costs a title and gap-fill asks Jira for it.
+  function plainCardSummary(element, key) {
+    const card = element.closest(PLAIN_KEY_CARD);
+    const title = card?.children?.[0]?.children?.[0];
+    return title ? stripKeyPrefix(cleanText(title.textContent), key) : "";
+  }
+
   function readSummary(anchor, key) {
+    const titled = plainCardSummary(anchor, key);
+    if (titled) return { summary: titled, tier: 1 };
+
     const row = anchor.closest(ROW_SELECTOR);
+
+    // Tier 1, for the one view that has no row to scope it to.
+    const charted = chartTableSummary(anchor, key);
+    if (charted) return { summary: charted, tier: 1 };
 
     // Tier 1 -- the view's own summary field, scoped to the row. It pays on the
     // backlog, the board, search results, an epic's children and issue links.
@@ -2023,6 +2140,9 @@
       // would find itself, the count would double, and the whole thing would be
       // diagnosed as a Jira change rather than as our own bug.
       if (anchor.closest(UI_SELECTOR)) continue;
+      // A lazy card that has not resolved is not on the page yet as far as the Cart
+      // is concerned. See LAZY_CARD_SCOPE.
+      if (anchor.closest(LAZY_CARD_SCOPE) && !anchor.matches(RESOLVED_CARD)) continue;
 
       const key = keyFromHref(anchor.getAttribute("href"));
       if (!key) continue;
@@ -2046,6 +2166,22 @@
         continue;
       }
       if (!anchor.closest(KNOWN_REGION)) unexplained.add(key);
+    }
+
+    // CARDS WITH NO LINK, AFTER THE ANCHORS, so an issue the page also links keeps
+    // its anchor as the representative (see PLAIN_KEY_CARD).
+    for (const card of document.querySelectorAll(PLAIN_KEY_CARD)) {
+      if (card.closest(UI_SELECTOR)) continue;
+      const found = plainCardKey(card);
+      if (!found || live.has(found.key)) continue;
+      keys.add(found.key);
+      rows.add(card);
+      if (wantLive) {
+        live.set(found.key, {
+          anchor: found.element,
+          width: found.element.getBoundingClientRect().width,
+        });
+      }
     }
 
     return { keys, rows, unexplained, live };
@@ -3802,7 +3938,7 @@ ${selectors.join(",\n")} {
   /* The foot's four controls. THREE COPY AND ONE OPENS, which is why this is not
      called COPY_FORMATS any more: a name that promised a copy while one entry
      navigated is the kind of small lie that costs the next reader an afternoon.
-     
+
      The four are still §2.8's SPANNING SET -- one rich list a person reads, one
      plain list a person reads, one list of identifiers, one query -- and `build`
      still produces the same four payloads. `opens` is what says the fourth one's
@@ -5056,6 +5192,7 @@ ${selectors.join(",\n")} {
     // the coarse answer is the honest one until something has.
     ['[data-testid="search-page-body"]', "search"],
     ['[data-testid*="issue-line-card"]', "linked work items"],
+    [PLAIN_KEY_CARD, "unscheduled work"],
     [".ak-renderer-document", "description or comments"],
   ];
 
@@ -5465,7 +5602,7 @@ ${selectors.join(",\n")} {
      at the user's request: emptying a collection meant clicking ✕ on every row,
      and deleting one was not possible at all -- §2.4 designed the delete and §2.9
      never gave it a control.
-     
+
      Neither is a plain click, and the reason is §2.9's own argument for the
      per-row ✕: "a mis-click on a whole row would delete something and there is no
      undo". These remove twelve things, or a whole named collection, so the same
@@ -5473,7 +5610,7 @@ ${selectors.join(",\n")} {
      second one will do; the second commits; anything else disarms. That is the
      pre-click warning the floating button and the live row already give, in the
      one shape a heading and a chip can carry (§2.7, §2.9).
-     
+
      ONLY ONE THING IS EVER ARMED, AND SINCE 1.2.0 THAT IS LITERALLY ONE VARIABLE.
      It was a boolean beside a nullable id, kept exclusive by `arm` -- which worked,
      and which principle 1 says not to write: two values that must agree. The third
@@ -6873,7 +7010,7 @@ ${selectors.join(",\n")} {
   /* ★ MOVES THE FLAG, AND THE FLAG IS ALL IT MOVES. It does not change which preset
      the rows below edit -- those are two questions, which is stated limit 1 -- so a
      press of ★ leaves the picker exactly where it was.
-     
+
      EXACTLY ONE ★ IS WRITTEN HERE, not left to the repair. `oneStar` would fix a list
      with two, but a write that depended on being repaired is a write whose meaning
      lives somewhere else (§2.4). */

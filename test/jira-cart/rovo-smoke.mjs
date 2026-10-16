@@ -69,6 +69,7 @@ const ISSUE_HEADING = constant("ISSUE_HEADING");
 const CURRENT_ISSUE = constant("CURRENT_ISSUE");
 const ISSUE_ANCHOR = constant("ISSUE_ANCHOR");
 const ISSUE_PATH_RE = constant("ISSUE_PATH_RE");
+const SAFE_KEY_RE = constant("SAFE_KEY_RE");
 const SCREEN_READER_KEY = constant("SCREEN_READER_KEY");
 const UI_ATTRIBUTE = constant("UI_ATTRIBUTE");
 const UI_SELECTOR = `[${UI_ATTRIBUTE}]`;
@@ -76,7 +77,11 @@ const UNEXPLAINED_KEYS_LIMIT = constant("UNEXPLAINED_KEYS_LIMIT");
 const ROW_SELECTOR = constant("ROW_SELECTOR", {}, '].join(",");');
 const SUMMARY_SELECTOR = constant("SUMMARY_SELECTOR", { ISSUE_HEADING }, '].join(",");');
 const KNOWN_REGION = constant("KNOWN_REGION", { CURRENT_ISSUE }, '].join(",");');
-const ORIGINS = constant("ORIGINS", { CURRENT_ISSUE }, "];");
+const PLAIN_KEY_CARD = constant("PLAIN_KEY_CARD");
+const ORIGINS = constant("ORIGINS", { CURRENT_ISSUE, PLAIN_KEY_CARD }, "];");
+const CHART_TABLE = constant("CHART_TABLE");
+const LAZY_CARD_SCOPE = constant("LAZY_CARD_SCOPE");
+const RESOLVED_CARD = constant("RESOLVED_CARD");
 
 // The two names this view added. Held separately so a check can take them BACK OUT
 // and prove the warning returns -- otherwise "no warning" might be something else's
@@ -108,6 +113,7 @@ class El {
   *walk() { for (const k of this.children) { yield k; yield* k.walk(); } }
   matchesOne(sel) {
     if (sel.startsWith(".")) return (this.attrs.class ?? "").split(/\s+/).includes(sel.slice(1));
+    if (/^[a-z]+$/.test(sel)) return this.tagName === sel.toUpperCase();
     const m = sel.match(/^([a-z]*)\[([a-zA-Z-]+)(?:([$*^]?=)"([^"]*)")?\]$/);
     if (!m) throw new Error("the stub cannot parse this selector: " + sel);
     const [, tag, attr, op, want] = m;
@@ -124,6 +130,8 @@ class El {
   matches(sel) {
     return sel.split(",").map((s) => s.trim()).filter(Boolean).some((s) => this.matchesOne(s));
   }
+  get cells() { return this.children.filter((k) => k.tagName === "TD" || k.tagName === "TH"); }
+  get rows() { return [...this.walk()].filter((e) => e.tagName === "TR"); }
   querySelectorAll(sel) { return [...this.walk()].filter((e) => e.matches(sel)); }
   querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
   closest(sel) { for (let e = this; e; e = e.parentElement) if (e.matches(sel)) return e; return null; }
@@ -228,10 +236,10 @@ globalThis.location = {
 // ------------------------------------------------------------- the real code
 
 const NAMES = ["keyFromHref", "cleanText", "stripKeyPrefix", "dropEnterKeyHint",
-  "isCurrentIssue", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
-const ARGS = ["ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
+  "isCurrentIssue", "chartTableSummary", "plainCardKey", "plainCardSummary", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
+const ARGS = ["SAFE_KEY_RE", "PLAIN_KEY_CARD", "LAZY_CARD_SCOPE", "RESOLVED_CARD", "ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
   "SUMMARY_SELECTOR", "KNOWN_REGION", "SCREEN_READER_KEY", "CURRENT_ISSUE",
-  "ISSUE_HEADING", "UNEXPLAINED_KEYS_LIMIT", "ORIGINS", "reportBrokenContract"];
+  "ISSUE_HEADING", "UNEXPLAINED_KEYS_LIMIT", "ORIGINS", "CHART_TABLE", "reportBrokenContract"];
 
 // One bundle per selector set, so a check can ask what the code does with an entry
 // removed without editing the script.
@@ -239,9 +247,9 @@ function load({ rows = ROW_SELECTOR, summaries = SUMMARY_SELECTOR, regions = KNO
   const warnings = [];
   const fns = new Function(...ARGS, `${NAMES.map(extract).join("\n")}
     return {${NAMES.join(",")}};`)(
-    ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
+    SAFE_KEY_RE, PLAIN_KEY_CARD, LAZY_CARD_SCOPE, RESOLVED_CARD, ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
     SCREEN_READER_KEY, CURRENT_ISSUE, ISSUE_HEADING, UNEXPLAINED_KEYS_LIMIT,
-    ORIGINS, (reason) => warnings.push(reason));
+    ORIGINS, CHART_TABLE, (reason) => warnings.push(reason));
   return { ...fns, warnings };
 }
 const cart = load();
@@ -381,6 +389,7 @@ is("the label survives the row name rotting", rotted.originOf(keyLink), "search"
 // ---- 9. the selector shapes, against the names the probe printed. These are the
 //         traps a shorter or longer match would fall into.
 const rowMatches = (t) => new El("div", { "data-testid": t }).matches(ROW_SELECTOR);
+const regionMatches2 = (cls) => new El("div", { class: cls.slice(1) }).matches(KNOWN_REGION);
 const regionMatches = (t) => new El("div", { "data-testid": t }).matches(KNOWN_REGION);
 is("the table's row matches", rowMatches(`datasource-table-view--row-${ARI}/564570`), true);
 is("its body does not", rowMatches("datasource-table-view--body"), false);
@@ -401,6 +410,118 @@ is("and neither is the page body, which would silence the check for ever",
    regionMatches("search-page-body"), false);
 is("a cell stays a region, for the day the row name rots",
    regionMatches("datasource-table-view--cell-0"), true);
+// Added 2026-10-16: a dashboard / Analytics table chart, probed from the anchor up.
+is("an analytics chart widget is a region, not a row",
+   regionMatches("avp-chart-library-render-chart"), true);
+is("and the chart's table element alone is not named",
+   regionMatches("table-nitro-chart-table-element"), false);
+is("the chart widget is not a row", rowMatches("avp-chart-library-render-chart"), false);
+
+// ---- 9b. a dashboard table chart: the summary comes from the column headed "summary"
+{
+  const td = (kids, text = "") => new El("td", {}, kids, text);
+  const th = (text) => new El("th", {}, [], text);
+  const link = (key) => new El("a", { href: `/browse/${key}` }, [], `${key}, (opens new window)`);
+  const header = new El("tr", {}, ["Work item key", "Work type", "Work item priority", "Issue summary"].map(th));
+  const body0 = new El("tr", {}, [td([link("RDC-10015")]), td([], "Test"), td([], "P2"), td([], "[Mobile – Restriction] Edit Status Using Status List")]);
+  const table = new El("table", {}, [header, body0]);
+  const chart = new El("div", { "data-testid": "table-nitro-chart-table-element" }, [table]);
+  is("the chart's summary is read from the Issue summary column",
+     cart.chartTableSummary(body0.querySelector("a"), "RDC-10015"),
+     "[Mobile – Restriction] Edit Status Using Status List");
+  is("a table that is not the chart answers nothing", cart.chartTableSummary(link("RDC-1"), "RDC-1"), "");
+}
+
+// ---- 9c. the classic Sprint Report: plain table, `Key | Summary | ...`, measured 2026-10-16
+{
+  const td = (kids, text = "") => new El("td", {}, kids, text);
+  const th = (text) => new El("th", {}, [], text);
+  const a = new El("a", { href: "/browse/RDC-1853" }, [], "RDC-1853");
+  const header = new El("tr", {}, ["Key", "Summary", "Issue Type", "Priority", "Status"].map(th));
+  const row = new El("tr", {}, [td([a]), td([], "Markers [1] Dev (player) - Embed markers panel"), td([], "Story"), td([], "P2"), td([], "Done")]);
+  new El("div", { class: "ghx-sprint-report-table ghx-report-issue-list" }, [new El("table", {}, [header, row])]);
+  is("the sprint report table is a known region", regionMatches2(".ghx-sprint-report-table"), true);
+  is("its summary is read from the Summary column",
+     cart.chartTableSummary(a, "RDC-1853"), "Markers [1] Dev (player) - Embed markers panel");
+}
+
+// ---- 9d. the Filter Results gadget: `table.issue-table`, 18 columns, measured 2026-10-16
+{
+  const td = (kids, text = "") => new El("td", {}, kids, text);
+  const th = (text) => new El("th", {}, [], text);
+  const a = new El("a", { class: "issue-link", href: "/browse/RDC-336" }, [], "RDC-336");
+  const cols = ["T", "P", "Key", "Created", "Updated", "Summary", "Status"];
+  const header = new El("tr", {}, cols.map(th));
+  const row = new El("tr", { class: "issuerow" }, [td([], ""), td([], ""), td([a]), td([], "11/06/24"), td([], "08/10/26"),
+    td([], "Pyramid: Propagate Media Restrictions to Rendered Assets"), td([], "Ready for Dev Review")]);
+  new El("div", { class: "results-wrap" }, [new El("table", { class: "aui issue-table" }, [header, row])]);
+  is("a dashboard gadget is a known region", regionMatches("dashboard-view.gadget-wrapper"), true);
+  is("the gadget is not a row", rowMatches("dashboard-view.gadget-wrapper"), false);
+  is("its summary is read from the Summary column, not the Key cell's neighbour by position",
+     cart.chartTableSummary(a, "RDC-336"), "Pyramid: Propagate Media Restrictions to Rendered Assets");
+}
+
+// ---- 9e. the project Summary page's gadgets, probed 2026-10-16
+is("a project summary gadget is a known region",
+   regionMatches("contextual-summary.ui.gadgets.activity-feed.ui"), true);
+is("and is not a row", rowMatches("contextual-summary.ui.gadgets.activity-feed.ui"), false);
+
+// ---- 9f. lazy cards in the project Summary gadgets: listed only once resolved
+{
+  const card = (testid, key) => new El("a", { href: `${ORIGIN}/browse/${key}`, "data-testid": testid }, [], `${key} Title`);
+  const resolved = card("inline-card-resolved-view", "LAZY-1");
+  const pending = card("inline-card-unresolved-view", "LAZY-2");
+  const gadget = new El("div", { "data-testid": "contextual-summary.ui.gadgets.activity-feed.ui" }, [resolved, pending]);
+  const outside = card("inline-card-unresolved-view", "LAZY-3");
+  body.children.push(gadget, outside);
+  const seen = cart.scanPage(true);
+  is("a resolved card in the gadget is listed", seen.live.has("LAZY-1"), true);
+  is("an unresolved card in the gadget is not listed", seen.live.has("LAZY-2"), false);
+  is("an unresolved card outside the gadget is untouched", seen.live.has("LAZY-3"), true);
+  body.children.splice(-2, 2);
+}
+
+// ---- 9g. the business-project board card, probed 2026-10-16: summary by aria-label (tier 2)
+{
+  const overlay = new El("a", { href: `${ORIGIN}/browse/RFENPS-946`,
+    "aria-label": "RFENPS-946 Revive Pyramid Staging Platform and integrate it with Galaxy STG. Use the enter key to load the work item." });
+  const keyLink = new El("a", { href: `${ORIGIN}/browse/RFENPS-946` }, [], "RFENPS-946");
+  const title = new El("div", {}, [], "Revive Pyramid Staging Platform and integrate it with Galaxy STG");
+  const card = new El("div", { "data-testid": "board.content.cell.card" }, [overlay, title, keyLink]);
+  is("a business board card is a row", rowMatches("board.content.cell.card"), true);
+  is("its summary is read from the overlay's aria-label, at tier 2",
+     cart.readSummary(keyLink, "RFENPS-946"),
+     { summary: "Revive Pyramid Staging Platform and integrate it with Galaxy STG", tier: 2 });
+}
+
+// ---- 9h. the business-project timeline row, probed 2026-10-16: a resolved-state aria-label
+{
+  const key = new El("a", { href: `${ORIGIN}/browse/RFENPS-930`, "aria-label": "RFENPS-930 is resolved" }, [], "RFENPS-930");
+  const summary = new El("div", { "data-testid": "issue-table-cells.summary-cell" }, [], "Review Epics");
+  new El("tr", { "data-testid": "native-issue-table.ui.issue-row" }, [key, summary]);
+  is("the summary cell wins over the key's 'is resolved' label",
+     cart.readSummary(key, "RFENPS-930"), { summary: "Review Epics", tier: 1 });
+}
+
+// ---- 9i. the calendar's Unscheduled work cards: the key is plain text, there is no link
+{
+  const unscheduled = (key, title) => new El("div",
+    { "data-testid": "calendar.ui.calendar-unscheduled-panel.x.calendar-unscheduled-panel-card.draggable" }, [
+      new El("div", {}, [new El("div", {}, [], title)]),
+      new El("div", {}, [new El("div", {}, [new El("div", {}, [], key)]), new El("div", {}, [], "Blocked")]),
+    ]);
+  const lone = unscheduled("RFENPS-702", "Export Audio Asset to Lviv");
+  const mention = unscheduled("RFENPS-703", "Mentions RFENPS-1 in its title");
+  body.children.push(lone, mention);
+  const seen = cart.scanPage(true);
+  is("a card with no link is listed", seen.live.has("RFENPS-702"), true);
+  is("its title is the card's first line",
+     cart.readSummary(seen.live.get("RFENPS-702").anchor, "RFENPS-702"),
+     { summary: "Export Audio Asset to Lviv", tier: 1 });
+  is("a key inside a title is not taken for the card's own key", seen.live.has("RFENPS-1"), false);
+  is("the card's own key still is", seen.live.has("RFENPS-703"), true);
+  body.children.splice(-2, 2);
+}
 
 // ---- 10. the eight views that were already working are untouched by all of it
 for (const [testid, want] of [
