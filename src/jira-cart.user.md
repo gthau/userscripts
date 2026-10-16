@@ -449,6 +449,14 @@ smart link, is invisible to the Cart. That is cheap, because the reference the
 user can see is the reference they want, and it removes a project-key allowlist,
 a region-exclusion list, and a whole class of false positive.
 
+*One scoped exception, added 2026-10-16.* The Calendar view's "Unscheduled work"
+cards carry the key as plain text in a bare `div`, with no `/browse/` anchor, so the
+rule above left the whole panel invisible. The Cart now lists a card matched by
+`PLAIN_KEY_CARD` when a leaf element's whole text is a key, and only when no anchor
+already listed that key. The rule stands everywhere else. Cost: the hover rail and
+the green tint need an anchor, so these cards are added from the live list only; the
+title is read by position, and gap-fill supplies it if the layout changes.
+
 **Atlassian `data-testid` values have a second job only.** They never find an
 issue. They answer two other questions: which row does this anchor belong to, and
 where is the summary. When one of them rots, the Cart still finds the issue. It

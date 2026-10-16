@@ -494,6 +494,21 @@
   const LAZY_CARD_SCOPE = '[data-testid*="contextual-summary.ui.gadgets."]';
   const RESOLVED_CARD = '[data-testid="inline-card-resolved-view"]';
 
+  // THE CALENDAR'S "UNSCHEDULED WORK" PANEL, and it is the one place the Cart lists an
+  // issue that has NO LINK. Probed 2026-10-16: a card is
+  // `calendar-unscheduled-panel-card.draggable` > a title `div`, then a row holding
+  // the issue-type icon, the KEY AS PLAIN TEXT in a bare `div`, a status lozenge and
+  // a priority icon. There is no `/browse/` anchor anywhere in it, so §2.1's detector
+  // never saw the card.
+  //
+  // THIS BREAKS §2.1'S RULE THAT A KEY TYPED AS PLAIN TEXT IS INVISIBLE, and it is
+  // scoped as narrowly as it can be: only inside a card this selector names, only a
+  // leaf element whose WHOLE text is a key, and only when no anchor on the page
+  // already listed that key. Anywhere else the rule stands. What it costs: the hover
+  // rail and the green tint need an anchor, so they do not appear on these cards --
+  // the live list is the way to add one, which is what §2.9 says it is for.
+  const PLAIN_KEY_CARD = '[data-testid$="calendar-unscheduled-panel-card.draggable"]';
+
   const DEFAULT_COLLECTION_NAME = "Scratch";
 
   // ------------------------------------------------------------------- store
@@ -1969,7 +1984,34 @@
     return target ? stripKeyPrefix(cleanText(target.textContent), key) : "";
   }
 
+  /**
+   * The element that IS the key on a card with no link: a leaf whose whole text is a
+   * key. Whole text and not a match inside text, so a title that happens to mention
+   * another issue is never taken for the card's own key.
+   */
+  function plainCardKey(card) {
+    for (const leaf of card.querySelectorAll("div")) {
+      if (leaf.children.length) continue;
+      const text = cleanText(leaf.textContent).toUpperCase();
+      if (SAFE_KEY_RE.test(text)) return { element: leaf, key: text };
+    }
+    return null;
+  }
+
+  // The title of such a card is the first `div` of its first child. It has no testid
+  // (the classes are generated), so this is position, which is the weakest thing the
+  // Cart reads a summary by -- and an item with no summary is still valid, so a card
+  // that is reshuffled costs a title and gap-fill asks Jira for it.
+  function plainCardSummary(element, key) {
+    const card = element.closest(PLAIN_KEY_CARD);
+    const title = card?.children?.[0]?.children?.[0];
+    return title ? stripKeyPrefix(cleanText(title.textContent), key) : "";
+  }
+
   function readSummary(anchor, key) {
+    const titled = plainCardSummary(anchor, key);
+    if (titled) return { summary: titled, tier: 1 };
+
     const row = anchor.closest(ROW_SELECTOR);
 
     // Tier 1, for the one view that has no row to scope it to.
@@ -2124,6 +2166,22 @@
         continue;
       }
       if (!anchor.closest(KNOWN_REGION)) unexplained.add(key);
+    }
+
+    // CARDS WITH NO LINK, AFTER THE ANCHORS, so an issue the page also links keeps
+    // its anchor as the representative (see PLAIN_KEY_CARD).
+    for (const card of document.querySelectorAll(PLAIN_KEY_CARD)) {
+      if (card.closest(UI_SELECTOR)) continue;
+      const found = plainCardKey(card);
+      if (!found || live.has(found.key)) continue;
+      keys.add(found.key);
+      rows.add(card);
+      if (wantLive) {
+        live.set(found.key, {
+          anchor: found.element,
+          width: found.element.getBoundingClientRect().width,
+        });
+      }
     }
 
     return { keys, rows, unexplained, live };
@@ -5134,6 +5192,7 @@ ${selectors.join(",\n")} {
     // the coarse answer is the honest one until something has.
     ['[data-testid="search-page-body"]', "search"],
     ['[data-testid*="issue-line-card"]', "linked work items"],
+    [PLAIN_KEY_CARD, "unscheduled work"],
     [".ak-renderer-document", "description or comments"],
   ];
 

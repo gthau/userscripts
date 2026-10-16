@@ -69,6 +69,7 @@ const ISSUE_HEADING = constant("ISSUE_HEADING");
 const CURRENT_ISSUE = constant("CURRENT_ISSUE");
 const ISSUE_ANCHOR = constant("ISSUE_ANCHOR");
 const ISSUE_PATH_RE = constant("ISSUE_PATH_RE");
+const SAFE_KEY_RE = constant("SAFE_KEY_RE");
 const SCREEN_READER_KEY = constant("SCREEN_READER_KEY");
 const UI_ATTRIBUTE = constant("UI_ATTRIBUTE");
 const UI_SELECTOR = `[${UI_ATTRIBUTE}]`;
@@ -76,7 +77,8 @@ const UNEXPLAINED_KEYS_LIMIT = constant("UNEXPLAINED_KEYS_LIMIT");
 const ROW_SELECTOR = constant("ROW_SELECTOR", {}, '].join(",");');
 const SUMMARY_SELECTOR = constant("SUMMARY_SELECTOR", { ISSUE_HEADING }, '].join(",");');
 const KNOWN_REGION = constant("KNOWN_REGION", { CURRENT_ISSUE }, '].join(",");');
-const ORIGINS = constant("ORIGINS", { CURRENT_ISSUE }, "];");
+const PLAIN_KEY_CARD = constant("PLAIN_KEY_CARD");
+const ORIGINS = constant("ORIGINS", { CURRENT_ISSUE, PLAIN_KEY_CARD }, "];");
 const CHART_TABLE = constant("CHART_TABLE");
 const LAZY_CARD_SCOPE = constant("LAZY_CARD_SCOPE");
 const RESOLVED_CARD = constant("RESOLVED_CARD");
@@ -234,8 +236,8 @@ globalThis.location = {
 // ------------------------------------------------------------- the real code
 
 const NAMES = ["keyFromHref", "cleanText", "stripKeyPrefix", "dropEnterKeyHint",
-  "isCurrentIssue", "chartTableSummary", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
-const ARGS = ["LAZY_CARD_SCOPE", "RESOLVED_CARD", "ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
+  "isCurrentIssue", "chartTableSummary", "plainCardKey", "plainCardSummary", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
+const ARGS = ["SAFE_KEY_RE", "PLAIN_KEY_CARD", "LAZY_CARD_SCOPE", "RESOLVED_CARD", "ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
   "SUMMARY_SELECTOR", "KNOWN_REGION", "SCREEN_READER_KEY", "CURRENT_ISSUE",
   "ISSUE_HEADING", "UNEXPLAINED_KEYS_LIMIT", "ORIGINS", "CHART_TABLE", "reportBrokenContract"];
 
@@ -245,7 +247,7 @@ function load({ rows = ROW_SELECTOR, summaries = SUMMARY_SELECTOR, regions = KNO
   const warnings = [];
   const fns = new Function(...ARGS, `${NAMES.map(extract).join("\n")}
     return {${NAMES.join(",")}};`)(
-    LAZY_CARD_SCOPE, RESOLVED_CARD, ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
+    SAFE_KEY_RE, PLAIN_KEY_CARD, LAZY_CARD_SCOPE, RESOLVED_CARD, ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
     SCREEN_READER_KEY, CURRENT_ISSUE, ISSUE_HEADING, UNEXPLAINED_KEYS_LIMIT,
     ORIGINS, CHART_TABLE, (reason) => warnings.push(reason));
   return { ...fns, warnings };
@@ -499,6 +501,26 @@ is("and is not a row", rowMatches("contextual-summary.ui.gadgets.activity-feed.u
   new El("tr", { "data-testid": "native-issue-table.ui.issue-row" }, [key, summary]);
   is("the summary cell wins over the key's 'is resolved' label",
      cart.readSummary(key, "RFENPS-930"), { summary: "Review Epics", tier: 1 });
+}
+
+// ---- 9i. the calendar's Unscheduled work cards: the key is plain text, there is no link
+{
+  const unscheduled = (key, title) => new El("div",
+    { "data-testid": "calendar.ui.calendar-unscheduled-panel.x.calendar-unscheduled-panel-card.draggable" }, [
+      new El("div", {}, [new El("div", {}, [], title)]),
+      new El("div", {}, [new El("div", {}, [new El("div", {}, [], key)]), new El("div", {}, [], "Blocked")]),
+    ]);
+  const lone = unscheduled("RFENPS-702", "Export Audio Asset to Lviv");
+  const mention = unscheduled("RFENPS-703", "Mentions RFENPS-1 in its title");
+  body.children.push(lone, mention);
+  const seen = cart.scanPage(true);
+  is("a card with no link is listed", seen.live.has("RFENPS-702"), true);
+  is("its title is the card's first line",
+     cart.readSummary(seen.live.get("RFENPS-702").anchor, "RFENPS-702"),
+     { summary: "Export Audio Asset to Lviv", tier: 1 });
+  is("a key inside a title is not taken for the card's own key", seen.live.has("RFENPS-1"), false);
+  is("the card's own key still is", seen.live.has("RFENPS-703"), true);
+  body.children.splice(-2, 2);
 }
 
 // ---- 10. the eight views that were already working are untouched by all of it
