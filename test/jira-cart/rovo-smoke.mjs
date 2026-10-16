@@ -77,6 +77,7 @@ const ROW_SELECTOR = constant("ROW_SELECTOR", {}, '].join(",");');
 const SUMMARY_SELECTOR = constant("SUMMARY_SELECTOR", { ISSUE_HEADING }, '].join(",");');
 const KNOWN_REGION = constant("KNOWN_REGION", { CURRENT_ISSUE }, '].join(",");');
 const ORIGINS = constant("ORIGINS", { CURRENT_ISSUE }, "];");
+const CHART_TABLE = constant("CHART_TABLE");
 
 // The two names this view added. Held separately so a check can take them BACK OUT
 // and prove the warning returns -- otherwise "no warning" might be something else's
@@ -108,6 +109,7 @@ class El {
   *walk() { for (const k of this.children) { yield k; yield* k.walk(); } }
   matchesOne(sel) {
     if (sel.startsWith(".")) return (this.attrs.class ?? "").split(/\s+/).includes(sel.slice(1));
+    if (/^[a-z]+$/.test(sel)) return this.tagName === sel.toUpperCase();
     const m = sel.match(/^([a-z]*)\[([a-zA-Z-]+)(?:([$*^]?=)"([^"]*)")?\]$/);
     if (!m) throw new Error("the stub cannot parse this selector: " + sel);
     const [, tag, attr, op, want] = m;
@@ -124,6 +126,8 @@ class El {
   matches(sel) {
     return sel.split(",").map((s) => s.trim()).filter(Boolean).some((s) => this.matchesOne(s));
   }
+  get cells() { return this.children.filter((k) => k.tagName === "TD" || k.tagName === "TH"); }
+  get rows() { return [...this.walk()].filter((e) => e.tagName === "TR"); }
   querySelectorAll(sel) { return [...this.walk()].filter((e) => e.matches(sel)); }
   querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
   closest(sel) { for (let e = this; e; e = e.parentElement) if (e.matches(sel)) return e; return null; }
@@ -228,10 +232,10 @@ globalThis.location = {
 // ------------------------------------------------------------- the real code
 
 const NAMES = ["keyFromHref", "cleanText", "stripKeyPrefix", "dropEnterKeyHint",
-  "isCurrentIssue", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
+  "isCurrentIssue", "chartTableSummary", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
 const ARGS = ["ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
   "SUMMARY_SELECTOR", "KNOWN_REGION", "SCREEN_READER_KEY", "CURRENT_ISSUE",
-  "ISSUE_HEADING", "UNEXPLAINED_KEYS_LIMIT", "ORIGINS", "reportBrokenContract"];
+  "ISSUE_HEADING", "UNEXPLAINED_KEYS_LIMIT", "ORIGINS", "CHART_TABLE", "reportBrokenContract"];
 
 // One bundle per selector set, so a check can ask what the code does with an entry
 // removed without editing the script.
@@ -241,7 +245,7 @@ function load({ rows = ROW_SELECTOR, summaries = SUMMARY_SELECTOR, regions = KNO
     return {${NAMES.join(",")}};`)(
     ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
     SCREEN_READER_KEY, CURRENT_ISSUE, ISSUE_HEADING, UNEXPLAINED_KEYS_LIMIT,
-    ORIGINS, (reason) => warnings.push(reason));
+    ORIGINS, CHART_TABLE, (reason) => warnings.push(reason));
   return { ...fns, warnings };
 }
 const cart = load();
@@ -401,6 +405,27 @@ is("and neither is the page body, which would silence the check for ever",
    regionMatches("search-page-body"), false);
 is("a cell stays a region, for the day the row name rots",
    regionMatches("datasource-table-view--cell-0"), true);
+// Added 2026-10-16: a dashboard / Analytics table chart, probed from the anchor up.
+is("an analytics chart widget is a region, not a row",
+   regionMatches("avp-chart-library-render-chart"), true);
+is("and the chart's table element alone is not named",
+   regionMatches("table-nitro-chart-table-element"), false);
+is("the chart widget is not a row", rowMatches("avp-chart-library-render-chart"), false);
+
+// ---- 9b. a dashboard table chart: the summary comes from the column headed "summary"
+{
+  const td = (kids, text = "") => new El("td", {}, kids, text);
+  const th = (text) => new El("th", {}, [], text);
+  const link = (key) => new El("a", { href: `/browse/${key}` }, [], `${key}, (opens new window)`);
+  const header = new El("tr", {}, ["Work item key", "Work type", "Work item priority", "Issue summary"].map(th));
+  const body0 = new El("tr", {}, [td([link("RDC-10015")]), td([], "Test"), td([], "P2"), td([], "[Mobile – Restriction] Edit Status Using Status List")]);
+  const table = new El("table", {}, [header, body0]);
+  const chart = new El("div", { "data-testid": "table-nitro-chart-table-element" }, [table]);
+  is("the chart's summary is read from the Issue summary column",
+     cart.chartTableSummary(body0.querySelector("a"), "RDC-10015"),
+     "[Mobile – Restriction] Edit Status Using Status List");
+  is("a table that is not the chart answers nothing", cart.chartTableSummary(link("RDC-1"), "RDC-1"), "");
+}
 
 // ---- 10. the eight views that were already working are untouched by all of it
 for (const [testid, want] of [

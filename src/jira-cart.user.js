@@ -439,7 +439,22 @@
     // this one holds, and what it buys then is silence instead of a false warning
     // on a view that is not broken.
     '[data-testid*="datasource-table-view--cell-"]',
+    // THE ANALYTICS / DASHBOARD CHART WIDGET. Added on 2026-10-16 after the
+    // contract check reported 18 keys on a page whose only issue links are in a
+    // table chart: `avp-chart-library-render-chart` > `table-chart-scroll-container`
+    // > `table-nitro-chart-table-element` > `hover-card-trigger-wrapper` > anchor.
+    // Probed from the anchor upwards only, so NO ROW IS NAMED: the row's own
+    // testid was not read. A press here stores the key and, through tier 4, no
+    // summary; gap-fill asks the API later. Named a region for the same bargain as
+    // the entries above -- silence from the check on a page that is not broken.
+    // The widget is one chart, nowhere near as wide as the page.
+    '[data-testid="avp-chart-library-render-chart"]',
   ].join(",");
+
+  // The dashboard / Analytics table chart. It names no row and no cell, so its
+  // summary is found by COLUMN HEADER, never by position: the chart's columns are
+  // configured per widget. See `chartTableSummary`.
+  const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"]';
 
   const DEFAULT_COLLECTION_NAME = "Scratch";
 
@@ -1898,8 +1913,29 @@
    * cascade went tier 0 to tier 0, and reached tier 1 only when both were there. A
    * row entry without a summary entry is a change that looks like a fix.
    */
+  /**
+   * The summary of an issue drawn in a dashboard table chart, read from the cell
+   * under the header that says "summary". Measured on 2026-10-16: the headers are
+   * `Work item key | Work type | Work item priority | Issue summary`, the `tr` and
+   * `td` carry no `data-testid`, and the key anchor sits in the first cell. A chart
+   * with no summary column answers "" and the cascade falls through to gap-fill.
+   */
+  function chartTableSummary(anchor, key) {
+    const cell = anchor.closest("td");
+    const table = cell?.closest("table");
+    if (!table?.closest(CHART_TABLE)) return "";
+    const headers = [...(table.rows[0]?.cells ?? [])];
+    const at = headers.findIndex((header) => /summary/i.test(header.textContent));
+    const target = at < 0 ? null : cell.parentElement?.cells?.[at];
+    return target ? stripKeyPrefix(cleanText(target.textContent), key) : "";
+  }
+
   function readSummary(anchor, key) {
     const row = anchor.closest(ROW_SELECTOR);
+
+    // Tier 1, for the one view that has no row to scope it to.
+    const charted = chartTableSummary(anchor, key);
+    if (charted) return { summary: charted, tier: 1 };
 
     // Tier 1 -- the view's own summary field, scoped to the row. It pays on the
     // backlog, the board, search results, an epic's children and issue links.
