@@ -479,6 +479,19 @@ is("and is not a row", rowMatches("contextual-summary.ui.gadgets.activity-feed.u
   body.children.splice(-2, 2);
 }
 
+// ---- 9g. the business-project board card, probed 2026-10-16: summary by aria-label (tier 2)
+{
+  const overlay = new El("a", { href: `${ORIGIN}/browse/RFENPS-946`,
+    "aria-label": "RFENPS-946 Revive Pyramid Staging Platform and integrate it with Galaxy STG. Use the enter key to load the work item." });
+  const keyLink = new El("a", { href: `${ORIGIN}/browse/RFENPS-946` }, [], "RFENPS-946");
+  const title = new El("div", {}, [], "Revive Pyramid Staging Platform and integrate it with Galaxy STG");
+  const card = new El("div", { "data-testid": "board.content.cell.card" }, [overlay, title, keyLink]);
+  is("a business board card is a row", rowMatches("board.content.cell.card"), true);
+  is("its summary is read from the overlay's aria-label, at tier 2",
+     cart.readSummary(keyLink, "RFENPS-946"),
+     { summary: "Revive Pyramid Staging Platform and integrate it with Galaxy STG", tier: 2 });
+}
+
 // ---- 10. the eight views that were already working are untouched by all of it
 for (const [testid, want] of [
   ["software.card-list.card.content-container.RDC-1", true],

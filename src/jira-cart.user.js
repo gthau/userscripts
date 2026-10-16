@@ -351,6 +351,12 @@
     // entry also pays wherever one is embedded -- an issue description, a
     // Confluence page -- and none of those were surveyed. Expect a tenth view.
     '[data-testid*="datasource-table-view--row-"]',
+    // THE BOARD OF A BUSINESS / WORK-MANAGEMENT PROJECT (`/jira/core/projects/KEY/board`),
+    // added on 2026-10-16: the card is `board.content.cell.card`, and it has no summary
+    // testid at all. Its summary comes through tier 2: a card-wide overlay anchor carries
+    // `aria-label="KEY Summary. Use the enter key to load the work item."`, the same
+    // label the software board uses. The row is what lets tier 2 look.
+    '[data-testid$="board.content.cell.card"]',
   ].join(",");
 
   const ISSUE_HEADING = '[data-testid$="foundation.summary.heading"]';
