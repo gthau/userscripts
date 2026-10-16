@@ -449,12 +449,17 @@
     // the entries above -- silence from the check on a page that is not broken.
     // The widget is one chart, nowhere near as wide as the page.
     '[data-testid="avp-chart-library-render-chart"]',
+    // THE CLASSIC SPRINT REPORT, same bargain: `.ghx-sprint-report-table` is one
+    // issue list inside the report, not the page. Added on 2026-10-16.
+    ".ghx-sprint-report-table",
   ].join(",");
 
-  // The dashboard / Analytics table chart. It names no row and no cell, so its
-  // summary is found by COLUMN HEADER, never by position: the chart's columns are
-  // configured per widget. See `chartTableSummary`.
-  const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"]';
+  // TABLES WITH NO ROW OR CELL TESTID, whose summary is found by COLUMN HEADER and
+  // never by position: the columns are configured per widget. Two so far, both
+  // probed on 2026-10-16: the dashboard / Analytics table chart, and the classic
+  // Sprint Report (`Key | Summary | Issue Type | Priority | Status | ...`). See
+  // `chartTableSummary`.
+  const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"], .ghx-sprint-report-table';
 
   const DEFAULT_COLLECTION_NAME = "Scratch";
 
@@ -1914,8 +1919,9 @@
    * row entry without a summary entry is a change that looks like a fix.
    */
   /**
-   * The summary of an issue drawn in a dashboard table chart, read from the cell
-   * under the header that says "summary". Measured on 2026-10-16: the headers are
+   * The summary of an issue drawn in a headed table with no row testids (the
+   * dashboard table chart, the Sprint Report), read from the cell under the header
+   * that says "summary". Measured on 2026-10-16: the headers are
    * `Work item key | Work type | Work item priority | Issue summary`, the `tr` and
    * `td` carry no `data-testid`, and the key anchor sits in the first cell. A chart
    * with no summary column answers "" and the cascade falls through to gap-fill.

@@ -385,6 +385,7 @@ is("the label survives the row name rotting", rotted.originOf(keyLink), "search"
 // ---- 9. the selector shapes, against the names the probe printed. These are the
 //         traps a shorter or longer match would fall into.
 const rowMatches = (t) => new El("div", { "data-testid": t }).matches(ROW_SELECTOR);
+const regionMatches2 = (cls) => new El("div", { class: cls.slice(1) }).matches(KNOWN_REGION);
 const regionMatches = (t) => new El("div", { "data-testid": t }).matches(KNOWN_REGION);
 is("the table's row matches", rowMatches(`datasource-table-view--row-${ARI}/564570`), true);
 is("its body does not", rowMatches("datasource-table-view--body"), false);
@@ -425,6 +426,19 @@ is("the chart widget is not a row", rowMatches("avp-chart-library-render-chart")
      cart.chartTableSummary(body0.querySelector("a"), "RDC-10015"),
      "[Mobile – Restriction] Edit Status Using Status List");
   is("a table that is not the chart answers nothing", cart.chartTableSummary(link("RDC-1"), "RDC-1"), "");
+}
+
+// ---- 9c. the classic Sprint Report: plain table, `Key | Summary | ...`, measured 2026-10-16
+{
+  const td = (kids, text = "") => new El("td", {}, kids, text);
+  const th = (text) => new El("th", {}, [], text);
+  const a = new El("a", { href: "/browse/RDC-1853" }, [], "RDC-1853");
+  const header = new El("tr", {}, ["Key", "Summary", "Issue Type", "Priority", "Status"].map(th));
+  const row = new El("tr", {}, [td([a]), td([], "Markers [1] Dev (player) - Embed markers panel"), td([], "Story"), td([], "P2"), td([], "Done")]);
+  new El("div", { class: "ghx-sprint-report-table ghx-report-issue-list" }, [new El("table", {}, [header, row])]);
+  is("the sprint report table is a known region", regionMatches2(".ghx-sprint-report-table"), true);
+  is("its summary is read from the Summary column",
+     cart.chartTableSummary(a, "RDC-1853"), "Markers [1] Dev (player) - Embed markers panel");
 }
 
 // ---- 10. the eight views that were already working are untouched by all of it
