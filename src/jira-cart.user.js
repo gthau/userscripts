@@ -452,14 +452,19 @@
     // THE CLASSIC SPRINT REPORT, same bargain: `.ghx-sprint-report-table` is one
     // issue list inside the report, not the page. Added on 2026-10-16.
     ".ghx-sprint-report-table",
+    // A DASHBOARD GADGET, whatever it holds. Added on 2026-10-16 for the Filter
+    // Results gadget: `dashboard-view.gadget-wrapper` > ... > `table.issue-table` >
+    // `tr.issuerow` > `td.issuekey` > `a.issue-link`. One gadget, not the page.
+    '[data-testid="dashboard-view.gadget-wrapper"]',
   ].join(",");
 
   // TABLES WITH NO ROW OR CELL TESTID, whose summary is found by COLUMN HEADER and
   // never by position: the columns are configured per widget. Two so far, both
   // probed on 2026-10-16: the dashboard / Analytics table chart, and the classic
-  // Sprint Report (`Key | Summary | Issue Type | Priority | Status | ...`). See
-  // `chartTableSummary`.
-  const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"], .ghx-sprint-report-table';
+  // Sprint Report (`Key | Summary | Issue Type | Priority | Status | ...`), and the
+  // Filter Results gadget's `table.issue-table` (`T | P | Key | ... | Summary | ...`).
+  // See `chartTableSummary`.
+  const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"], .ghx-sprint-report-table, .issue-table';
 
   const DEFAULT_COLLECTION_NAME = "Scratch";
 

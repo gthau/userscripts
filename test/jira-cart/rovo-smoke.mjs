@@ -441,6 +441,22 @@ is("the chart widget is not a row", rowMatches("avp-chart-library-render-chart")
      cart.chartTableSummary(a, "RDC-1853"), "Markers [1] Dev (player) - Embed markers panel");
 }
 
+// ---- 9d. the Filter Results gadget: `table.issue-table`, 18 columns, measured 2026-10-16
+{
+  const td = (kids, text = "") => new El("td", {}, kids, text);
+  const th = (text) => new El("th", {}, [], text);
+  const a = new El("a", { class: "issue-link", href: "/browse/RDC-336" }, [], "RDC-336");
+  const cols = ["T", "P", "Key", "Created", "Updated", "Summary", "Status"];
+  const header = new El("tr", {}, cols.map(th));
+  const row = new El("tr", { class: "issuerow" }, [td([], ""), td([], ""), td([a]), td([], "11/06/24"), td([], "08/10/26"),
+    td([], "Pyramid: Propagate Media Restrictions to Rendered Assets"), td([], "Ready for Dev Review")]);
+  new El("div", { class: "results-wrap" }, [new El("table", { class: "aui issue-table" }, [header, row])]);
+  is("a dashboard gadget is a known region", regionMatches("dashboard-view.gadget-wrapper"), true);
+  is("the gadget is not a row", rowMatches("dashboard-view.gadget-wrapper"), false);
+  is("its summary is read from the Summary column, not the Key cell's neighbour by position",
+     cart.chartTableSummary(a, "RDC-336"), "Pyramid: Propagate Media Restrictions to Rendered Assets");
+}
+
 // ---- 10. the eight views that were already working are untouched by all of it
 for (const [testid, want] of [
   ["software.card-list.card.content-container.RDC-1", true],
