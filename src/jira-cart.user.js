@@ -456,6 +456,12 @@
     // Results gadget: `dashboard-view.gadget-wrapper` > ... > `table.issue-table` >
     // `tr.issuerow` > `td.issuekey` > `a.issue-link`. One gadget, not the page.
     '[data-testid="dashboard-view.gadget-wrapper"]',
+    // THE PROJECT SUMMARY PAGE'S GADGETS (`/jira/core/projects/KEY/summary`), added on
+    // 2026-10-16: the activity feed is `contextual-summary.ui.gadgets.activity-feed.ui`
+    // > `ul` > `li` > ... > `hover-card-trigger-wrapper` > `a.inline-card-resolved-view`,
+    // 53 keys and no row. Probed from one anchor only, so no row is named and no
+    // summary is promised beyond tier 4 and gap-fill. One gadget family, not the page.
+    '[data-testid*="contextual-summary.ui.gadgets."]',
   ].join(",");
 
   // TABLES WITH NO ROW OR CELL TESTID, whose summary is found by COLUMN HEADER and
@@ -465,6 +471,16 @@
   // Filter Results gadget's `table.issue-table` (`T | P | Key | ... | Summary | ...`).
   // See `chartTableSummary`.
   const CHART_TABLE = '[data-testid="table-nitro-chart-table-element"], .ghx-sprint-report-table, .issue-table';
+
+  // LAZY SMART-LINK CARDS. The project Summary page's activity feed draws each issue
+  // as an inline card that is a bare key and URL until it scrolls into view and
+  // resolves (`inline-card-resolved-view`). Probed 2026-10-16: the resolved one is
+  // what carries the title. Inside this scope an anchor that has not resolved yet is
+  // NOT LISTED, so the drawer shows a key with its summary or does not show it at all,
+  // and the card appears the moment it resolves. The unresolved card's own testid was
+  // not read, so the test is "not resolved" rather than a name that could rot.
+  const LAZY_CARD_SCOPE = '[data-testid*="contextual-summary.ui.gadgets."]';
+  const RESOLVED_CARD = '[data-testid="inline-card-resolved-view"]';
 
   const DEFAULT_COLLECTION_NAME = "Scratch";
 
@@ -2070,6 +2086,9 @@
       // would find itself, the count would double, and the whole thing would be
       // diagnosed as a Jira change rather than as our own bug.
       if (anchor.closest(UI_SELECTOR)) continue;
+      // A lazy card that has not resolved is not on the page yet as far as the Cart
+      // is concerned. See LAZY_CARD_SCOPE.
+      if (anchor.closest(LAZY_CARD_SCOPE) && !anchor.matches(RESOLVED_CARD)) continue;
 
       const key = keyFromHref(anchor.getAttribute("href"));
       if (!key) continue;

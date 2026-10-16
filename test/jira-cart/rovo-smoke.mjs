@@ -78,6 +78,8 @@ const SUMMARY_SELECTOR = constant("SUMMARY_SELECTOR", { ISSUE_HEADING }, '].join
 const KNOWN_REGION = constant("KNOWN_REGION", { CURRENT_ISSUE }, '].join(",");');
 const ORIGINS = constant("ORIGINS", { CURRENT_ISSUE }, "];");
 const CHART_TABLE = constant("CHART_TABLE");
+const LAZY_CARD_SCOPE = constant("LAZY_CARD_SCOPE");
+const RESOLVED_CARD = constant("RESOLVED_CARD");
 
 // The two names this view added. Held separately so a check can take them BACK OUT
 // and prove the warning returns -- otherwise "no warning" might be something else's
@@ -233,7 +235,7 @@ globalThis.location = {
 
 const NAMES = ["keyFromHref", "cleanText", "stripKeyPrefix", "dropEnterKeyHint",
   "isCurrentIssue", "chartTableSummary", "readSummary", "groupFor", "scanPage", "checkContract", "originOf"];
-const ARGS = ["ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
+const ARGS = ["LAZY_CARD_SCOPE", "RESOLVED_CARD", "ISSUE_PATH_RE", "ISSUE_ANCHOR", "UI_SELECTOR", "ROW_SELECTOR",
   "SUMMARY_SELECTOR", "KNOWN_REGION", "SCREEN_READER_KEY", "CURRENT_ISSUE",
   "ISSUE_HEADING", "UNEXPLAINED_KEYS_LIMIT", "ORIGINS", "CHART_TABLE", "reportBrokenContract"];
 
@@ -243,7 +245,7 @@ function load({ rows = ROW_SELECTOR, summaries = SUMMARY_SELECTOR, regions = KNO
   const warnings = [];
   const fns = new Function(...ARGS, `${NAMES.map(extract).join("\n")}
     return {${NAMES.join(",")}};`)(
-    ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
+    LAZY_CARD_SCOPE, RESOLVED_CARD, ISSUE_PATH_RE, ISSUE_ANCHOR, UI_SELECTOR, rows, summaries, regions,
     SCREEN_READER_KEY, CURRENT_ISSUE, ISSUE_HEADING, UNEXPLAINED_KEYS_LIMIT,
     ORIGINS, CHART_TABLE, (reason) => warnings.push(reason));
   return { ...fns, warnings };
@@ -455,6 +457,26 @@ is("the chart widget is not a row", rowMatches("avp-chart-library-render-chart")
   is("the gadget is not a row", rowMatches("dashboard-view.gadget-wrapper"), false);
   is("its summary is read from the Summary column, not the Key cell's neighbour by position",
      cart.chartTableSummary(a, "RDC-336"), "Pyramid: Propagate Media Restrictions to Rendered Assets");
+}
+
+// ---- 9e. the project Summary page's gadgets, probed 2026-10-16
+is("a project summary gadget is a known region",
+   regionMatches("contextual-summary.ui.gadgets.activity-feed.ui"), true);
+is("and is not a row", rowMatches("contextual-summary.ui.gadgets.activity-feed.ui"), false);
+
+// ---- 9f. lazy cards in the project Summary gadgets: listed only once resolved
+{
+  const card = (testid, key) => new El("a", { href: `${ORIGIN}/browse/${key}`, "data-testid": testid }, [], `${key} Title`);
+  const resolved = card("inline-card-resolved-view", "LAZY-1");
+  const pending = card("inline-card-unresolved-view", "LAZY-2");
+  const gadget = new El("div", { "data-testid": "contextual-summary.ui.gadgets.activity-feed.ui" }, [resolved, pending]);
+  const outside = card("inline-card-unresolved-view", "LAZY-3");
+  body.children.push(gadget, outside);
+  const seen = cart.scanPage(true);
+  is("a resolved card in the gadget is listed", seen.live.has("LAZY-1"), true);
+  is("an unresolved card in the gadget is not listed", seen.live.has("LAZY-2"), false);
+  is("an unresolved card outside the gadget is untouched", seen.live.has("LAZY-3"), true);
+  body.children.splice(-2, 2);
 }
 
 // ---- 10. the eight views that were already working are untouched by all of it
