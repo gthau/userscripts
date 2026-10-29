@@ -523,6 +523,39 @@ is("and is not a row", rowMatches("contextual-summary.ui.gadgets.activity-feed.u
   body.children.splice(-2, 2);
 }
 
+// ---- 9j. the version release report, probed 2026-10-29: THE ANCHOR IS THE CARD. Only the
+//          anchor's own testid and the absence of any testid above it were measured; its
+//          inner structure was not, so the text below is the shape the user confirmed the
+//          Cart reads correctly (`KEY summary`, tier 4), not a measured one.
+{
+  const CARD = "software-releases-version-detail-issue-list.ui.issues.issue-card";
+  const RELEASE_REGION = '[data-testid*="software-releases-version-detail-issue-list"]';
+  const release = Array.from({ length: 27 }, (_, i) =>
+    new El("a", { href: `${ORIGIN}/browse/RDC-${100 + i}`, "data-testid": CARD, w: 600 }, [], `RDC-${100 + i} Release summary ${i}`));
+  // This page has no row at all, so the Rovo tree must be out of the way: a row
+  // anywhere makes `checkContract` return before it counts anything.
+  const saved = body.children.splice(0);
+  body.children.push(new El("div", { role: "tabpanel" }, release));
+
+  is("a release report card is a known region", regionMatches(CARD), true);
+  is("and is not a row", rowMatches(CARD), false);
+
+  const quiet = load();
+  quiet.checkContract(quiet.scanPage(false));
+  is("the contract check is silent on the release report", quiet.warnings, []);
+  is("its summary is the anchor's own text, at tier 4",
+     quiet.readSummary(release[3], "RDC-103"), { summary: "Release summary 3", tier: 4 });
+
+  // Taken back out, the warning is the one the user read off the page: 27 keys.
+  const bareRelease = load({ regions: without(KNOWN_REGION, RELEASE_REGION) });
+  bareRelease.checkContract(bareRelease.scanPage(false));
+  is("with the region gone, the reported defect reproduces exactly",
+     bareRelease.warnings[0],
+     "27 issue keys are on this page and none of them is inside a known row container");
+
+  body.children.splice(0, body.children.length, ...saved);
+}
+
 // ---- 10. the eight views that were already working are untouched by all of it
 for (const [testid, want] of [
   ["software.card-list.card.content-container.RDC-1", true],

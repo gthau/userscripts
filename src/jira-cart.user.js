@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Jira Cart
 // @namespace    http://tampermonkey.net/
-// @version      1.8.0
+// @version      1.9.0
 // @description  Collect Jira issue links while you work: hover an issue key, click the +, and the collection follows you across pages, tabs and logouts. Drag the drawer's rows to set the order a paste comes out in, or drag one straight into Slack or an editor. Drop an issue on a collection's chip to file it there without leaving the one you are in -- from the live list, from the collection, or straight off the page. Drag the whole collection by its heading or its chip to send every link at once -- into Teams, a Jira comment, or the browser's tab strip to open them all. Or press the 🔗 beside a key to copy that one link without opening the issue.
 // @author       gthau
 // @match        https://*.atlassian.net/*
@@ -474,6 +474,17 @@
     // 53 keys and no row. Probed from one anchor only, so no row is named and no
     // summary is promised beyond tier 4 and gap-fill. One gadget family, not the page.
     '[data-testid*="contextual-summary.ui.gadgets."]',
+    // THE VERSION'S RELEASE REPORT (`/projects/KEY/versions/ID/tab/release-report-all-issues`),
+    // added on 2026-10-29 after the contract check reported 27 keys and no row. THE
+    // ANCHOR IS THE CARD: it carries `software-releases-version-detail-issue-list.ui.issues.issue-card`
+    // itself, and nothing between it and the tab panel has a testid, so there is no
+    // row to name. Its own text is `KEY summary`, so tier 4 answers correctly today
+    // -- confirmed by use, not by a press -- which is Rovo search's result list over
+    // again, and it is a region for the same reason: a row would put tiers 1, 2 and 3
+    // in front of a tier that works. The component prefix and not the leaf, so a
+    // renamed card still matches while the list holds. Probed from the first anchor
+    // only.
+    '[data-testid*="software-releases-version-detail-issue-list"]',
   ].join(",");
 
   // TABLES WITH NO ROW OR CELL TESTID, whose summary is found by COLUMN HEADER and
