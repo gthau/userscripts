@@ -474,6 +474,17 @@
     // 53 keys and no row. Probed from one anchor only, so no row is named and no
     // summary is promised beyond tier 4 and gap-fill. One gadget family, not the page.
     '[data-testid*="contextual-summary.ui.gadgets."]',
+    // THE VERSION'S RELEASE REPORT (`/projects/KEY/versions/ID/tab/release-report-all-issues`),
+    // added on 2026-10-29 after the contract check reported 27 keys and no row. THE
+    // ANCHOR IS THE CARD: it carries `software-releases-version-detail-issue-list.ui.issues.issue-card`
+    // itself, and nothing between it and the tab panel has a testid, so there is no
+    // row to name. Its own text is `KEY summary`, so tier 4 answers correctly today
+    // -- confirmed by use, not by a press -- which is Rovo search's result list over
+    // again, and it is a region for the same reason: a row would put tiers 1, 2 and 3
+    // in front of a tier that works. The component prefix and not the leaf, so a
+    // renamed card still matches while the list holds. Probed from the first anchor
+    // only.
+    '[data-testid*="software-releases-version-detail-issue-list"]',
   ].join(",");
 
   // TABLES WITH NO ROW OR CELL TESTID, whose summary is found by COLUMN HEADER and
